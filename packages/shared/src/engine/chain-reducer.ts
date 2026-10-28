@@ -489,7 +489,7 @@ function handleCancelHazardEvent(
   if (!hasCardEffect(sourceDef, 'cancel-hazard-event-play')) {
     return { state, error: 'cancel-hazard-event: source card has no cancel-hazard-event-play effect' };
   }
-  const sourceName = (sourceDef as { name?: string } | undefined)?.name ?? (sourceCard.definitionId as string);
+  const sourceName = sourceDef?.name ?? (sourceCard.definitionId as string);
 
   // The target must be an unresolved, un-negated hazard-event entry declared
   // by the opponent, not revealed from on-guard.
@@ -509,7 +509,7 @@ function handleCancelHazardEvent(
       && entry.payload.fromOnGuard) {
     return { state, error: 'cancel-hazard-event: cannot be used against an on-guard card' };
   }
-  const targetName = (targetDef as { name?: string }).name ?? (action.targetInstanceId as string);
+  const targetName = targetDef.name ?? (action.targetInstanceId as string);
 
   // Pay the cost: discard the source card from play.
   logDetail(`cancel-hazard-event: discarding ${sourceName} to cancel "${targetName}"`);
@@ -629,8 +629,8 @@ function handleCounterCancelRoll(
     return { state, error: 'counter-cancel-roll: target does not cancel an attack' };
   }
 
-  const cardName = (cardDef as { name?: string })?.name ?? (handCard.definitionId as string);
-  const targetName = (targetDef as { name?: string })?.name ?? (action.targetInstanceId as string);
+  const cardName = cardDef?.name ?? (handCard.definitionId as string);
+  const targetName = targetDef?.name ?? (action.targetInstanceId as string);
   logDetail(`counter-cancel-roll: ${cardName} targets "${targetName}" (attack prowess ${combat.strikeProwess}, threshold ${rollEffect.threshold})`);
 
   // Remove the card from its source and place it in the attacker's discard pile
@@ -734,8 +734,8 @@ function handleCounterCancelAttack(
     return { state, error: 'counter-cancel-attack: target does not cancel an attack' };
   }
 
-  const targetName = (targetDef as { name?: string })?.name ?? (action.targetInstanceId as string);
-  const cardName = (cardDef as { name?: string })?.name ?? (handCard.definitionId as string);
+  const targetName = targetDef?.name ?? (action.targetInstanceId as string);
+  const cardName = cardDef?.name ?? (handCard.definitionId as string);
   logDetail(`counter-cancel-attack: ${cardName} negates chain entry "${targetName}" — the Balrog’s attack survives`);
 
   // Discard the played card (short events are physically discarded at play time).
@@ -1202,7 +1202,7 @@ function applyShortEventSelfEntersPlayConstraints(state: GameState, entry: Chain
   if (onEvents.length === 0) return state;
 
   let newState = state;
-  const cardName = (def as { name?: string }).name ?? (card.definitionId as string);
+  const cardName = def.name ?? (card.definitionId as string);
   // A hazard short-event played on a character (targetCharacterId) may carry
   // `character-stat-modifier` add-constraint applies — e.g. Glance of Arien
   // (ba-19): -2/-1 prowess/body on The Balrog, -4/-2 while Gates of Morning is
@@ -1318,7 +1318,7 @@ function applyShortEventSelfEntersPlaySetStatus(state: GameState, entry: ChainEn
   if (!targetCharId) return state;
   const def = defById(state, card.definitionId);
   if (!def) return state;
-  const cardName = (def as { name?: string }).name ?? (card.definitionId as string);
+  const cardName = def.name ?? (card.definitionId as string);
   // Match only applies aimed at the played-on character — the same predicate
   // `handlePlayResourceShortEvent` routes on. A card whose status apply targets
   // something else (Narya tw-290 untaps a whole company) is not resolved here
@@ -1391,8 +1391,8 @@ function applyItemPlayCorruptionCheckConstraint(
   // The player whose characters make the checks is the active/resource player
   // (the item-player during the upcoming site phase), i.e. the hazard's opponent.
   const targetPlayerId = state.activePlayer ?? entry.declaredBy;
-  const cardName = (def as { name?: string }).name ?? (card.definitionId as string);
-  const siteName = (defById(state, siteDefinitionId) as { name?: string } | undefined)?.name ?? (siteDefinitionId as string);
+  const cardName = def.name ?? (card.definitionId as string);
+  const siteName = defById(state, siteDefinitionId)?.name ?? (siteDefinitionId as string);
   logDetail(`${cardName}: installing item-play-corruption-check at ${siteName} (until end of turn) for player ${targetPlayerId as string}`);
   return addConstraint(state, {
     source: card.instanceId,
@@ -1426,7 +1426,7 @@ function applyAgentAttackBoostConstraint(
   const effect = findCardEffect(def, 'agent-attack-boost');
   if (!effect) return state;
   const targetPlayerId = state.activePlayer ?? entry.declaredBy;
-  const siteName = (defById(state, siteDefinitionId) as { name?: string } | undefined)?.name ?? (siteDefinitionId as string);
+  const siteName = defById(state, siteDefinitionId)?.name ?? (siteDefinitionId as string);
   logDetail(`${def.name}: installing agent-attack-boost at ${siteName} (until end of turn): +${effect.strikesBonus ?? 0} strikes, attacker chooses defenders: ${String(effect.attackerChoosesDefenders === true)}`);
   return addConstraint(state, {
     source: card.instanceId,
@@ -1945,7 +1945,7 @@ function applyCompanyPlayOption(state: GameState, entry: ChainEntry): GameState 
   );
   if (!opt) return state;
 
-  const cardName = (def as { name?: string })?.name ?? (card.definitionId as string);
+  const cardName = def?.name ?? (card.definitionId as string);
   return applyCompanyPlayOptionApply(state, opt.apply, cardName, card.instanceId, card.definitionId);
 }
 
@@ -2046,7 +2046,7 @@ function applyForceCheckAllInPlay(state: GameState, entry: ChainEntry): GameStat
   const effect = findCardEffect(def, 'force-check-all-in-play');
   if (!effect || effect.check !== 'corruption') return state;
 
-  const cardName = (def as { name?: string })?.name ?? (card.definitionId as string);
+  const cardName = def?.name ?? (card.definitionId as string);
   const declarer = entry.declaredBy;
   // "The moving player makes corruption checks first" — the moving player is
   // the active player: the tap happens during the opponent's M/H phase.
@@ -2110,7 +2110,7 @@ function applyForceDiscardTargetItem(state: GameState, entry: ChainEntry): GameS
   const def = defById(state, card.definitionId);
   const effect = findCardEffect(def, 'force-discard-target-item');
   if (!effect) return state;
-  const cardLabel = (def as { name?: string })?.name ?? (card.definitionId as string);
+  const cardLabel = def?.name ?? (card.definitionId as string);
 
   const owner = state.players.find(p => p.characters[targetCharId]);
   if (!owner) {
@@ -2118,7 +2118,7 @@ function applyForceDiscardTargetItem(state: GameState, entry: ChainEntry): GameS
     return state;
   }
   const char = owner.characters[targetCharId];
-  const charLabel = (defById(state, char.definitionId) as { name?: string } | undefined)?.name ?? (targetCharId as string);
+  const charLabel = defById(state, char.definitionId)?.name ?? (targetCharId as string);
   const eligible = char.items.filter(item => {
     const itemDef = defById(state, item.definitionId);
     if (!itemDef || !isItemCard(itemDef)) return false;
@@ -2169,7 +2169,7 @@ function applyAttackRaceBoost(state: GameState, entry: ChainEntry): GameState {
   const def = defById(state, card.definitionId);
   const effect = findCardEffect(def, 'attack-race-boost');
   if (!effect) return state;
-  const cardLabel = (def as { name?: string })?.name ?? (card.definitionId as string);
+  const cardLabel = def?.name ?? (card.definitionId as string);
 
   const opponent = state.players.find(p => p.id !== entry.declaredBy);
   if (!opponent) {
@@ -2211,14 +2211,14 @@ function applyTargetCharacterStatModifier(state: GameState, entry: ChainEntry): 
   const def = defById(state, card.definitionId);
   const effect = findCardEffect(def, 'target-character-stat-modifier');
   if (!effect) return state;
-  const cardLabel = (def as { name?: string })?.name ?? (card.definitionId as string);
+  const cardLabel = def?.name ?? (card.definitionId as string);
 
   const owner = state.players.find(p => p.characters[targetCharId]);
   if (!owner) {
     logDetail(`${cardLabel}: target-character-stat-modifier — target character ${targetCharId as string} is no longer in play`);
     return state;
   }
-  const charLabel = (defById(state, owner.characters[targetCharId].definitionId) as { name?: string } | undefined)?.name
+  const charLabel = defById(state, owner.characters[targetCharId].definitionId)?.name
     ?? (targetCharId as string);
   logDetail(`${cardLabel}: target-character-stat-modifier — ${charLabel} ${effect.stat} ${effect.value > 0 ? '+' : ''}${effect.value} until the end of the turn`);
   return addConstraint(state, {
@@ -2251,7 +2251,7 @@ function applyCycleHand(
 ): GameState {
   const card = entry.card!;
   const def = defById(state, card.definitionId);
-  const cardName = (def as { name?: string })?.name ?? (card.definitionId as string);
+  const cardName = def?.name ?? (card.definitionId as string);
   const playerIndex = getPlayerIndex(state, entry.declaredBy);
   let current = state;
 
@@ -3844,7 +3844,7 @@ function applyProhibitCardPlayOnResolve(
       return !!cDef?.name && prohibited.has(cDef.name);
     },
     card => {
-      const cDef = state.cardPool[card.definitionId] as { name?: string } | undefined;
+      const cDef = state.cardPool[card.definitionId];
       logDetail(`prohibit-card-play (${def?.name ?? '?'}): discarding "${cDef?.name ?? card.definitionId}" from play`);
     },
   ).state;
@@ -4043,7 +4043,7 @@ function collectHavenJumpOffers(
           forceStrike: !!onEvent.apply.forceStrike,
           postAttackEffects,
         });
-        logDetail(`Haven-join offer: ${(charDef as { name?: string })?.name ?? charInPlay.definitionId as string} at haven may join attacked company`);
+        logDetail(`Haven-join offer: ${charDef?.name ?? charInPlay.definitionId as string} at haven may join attacked company`);
       }
     }
   }
@@ -4890,7 +4890,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
         && e.apply.removeFromGame === true,
     );
     if (removesSelf) {
-      const cardName = (def as { name?: string } | undefined)?.name ?? (entry.card.definitionId as string);
+      const cardName = def?.name ?? (entry.card.definitionId as string);
       current = removeSpentEventFromGame(current, entry.declaredBy, entry.card.instanceId, cardName);
     }
   }
@@ -5054,7 +5054,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     const drawEffect = findCardEffect(def, 'draw-cards');
     if (drawEffect) {
       const declaringIndex = getPlayerIndex(current, entry.declaredBy);
-      const cardName = (def as { name?: string }).name ?? (entry.card.definitionId as string);
+      const cardName = def?.name ?? (entry.card.definitionId as string);
       const deckSizeBefore = current.players[declaringIndex].playDeck.length;
       logDetail(`${cardName}: chain resolves draw-cards — drawing ${drawEffect.count} card(s) from play deck (deck size ${deckSizeBefore})`);
       const { state: afterDraw, drawnCards } = drawCardsExhausting(current, declaringIndex, drawEffect.count);
@@ -5091,7 +5091,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     if (newHandEffect) {
       const declaringIndex = getPlayerIndex(current, entry.declaredBy);
       const player = current.players[declaringIndex];
-      const cardName = (def as { name?: string }).name ?? (entry.card.definitionId as string);
+      const cardName = def?.name ?? (entry.card.definitionId as string);
       const pooled = [...player.playDeck, ...player.hand, ...player.discardPile];
       const [shuffledDeck, nextRng] = shuffle(pooled, current.rng);
       const drawCount = Math.min(newHandEffect.handSize, shuffledDeck.length);
@@ -5127,7 +5127,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     const targetCompanyId = entry.payload.targetCompanyId;
     if (grantExtraMHPhase && targetCompanyId) {
       const declaringIndex = getPlayerIndex(current, entry.declaredBy);
-      const cardName = (def as { name?: string }).name ?? (card.definitionId as string);
+      const cardName = def?.name ?? (card.definitionId as string);
       const pendingValue = grantExtraMHPhase.movement === 'under-deeps' ? 'under-deeps' as const : true;
       // Earth-tremors (dm-53) / The Way is Shut (dm-98): a `cancel-card-effects`
       // card naming this short event by name (e.g. Bridge, Into Dark Tunnels)
@@ -5454,7 +5454,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     const def = defById(current, entry.card.definitionId);
     const forceDiscard = findCardEffect(def, 'force-opponent-discard');
     if (forceDiscard) {
-      const cardName = (def as { name?: string }).name ?? (entry.card.definitionId as string);
+      const cardName = def?.name ?? (entry.card.definitionId as string);
       const opponentId = opponent(current, entry.declaredBy);
       const opponentIdx = getPlayerIndex(current, opponentId);
       const opponentState = current.players[opponentIdx];
@@ -5560,7 +5560,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     const def = defById(current, entry.card.definitionId);
     const revealRemove = findCardEffect(def, 'reveal-remove-from-discard');
     if (revealRemove) {
-      const cardName = (def as { name?: string }).name ?? (entry.card.definitionId as string);
+      const cardName = def?.name ?? (entry.card.definitionId as string);
       const opponentId = opponent(current, entry.declaredBy);
       const opponentIdx = getPlayerIndex(current, opponentId);
       const opponentState = current.players[opponentIdx];
@@ -5630,7 +5630,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     const def = defById(current, entry.card.definitionId);
     const penaltyEff = findCardEffect(def, 'reveal-deck-choose-penalty');
     if (penaltyEff) {
-      const cardName = (def as { name?: string }).name ?? (entry.card.definitionId as string);
+      const cardName = def?.name ?? (entry.card.definitionId as string);
       const opponentId = opponent(current, entry.declaredBy);
       const opponentIdx = getPlayerIndex(current, opponentId);
 
@@ -5691,7 +5691,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     const def = defById(current, entry.card.definitionId);
     const attackerEff = findCardEffect(def, 'reveal-deck-choose-attacker');
     if (attackerEff) {
-      const cardName = (def as { name?: string }).name ?? (entry.card.definitionId as string);
+      const cardName = def?.name ?? (entry.card.definitionId as string);
       const cardPlayerId = entry.declaredBy;
       const targetCompanyId = entry.payload.targetCompanyId;
       const defendingPlayerId = current.activePlayer;
@@ -5872,7 +5872,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     && entry.card
     && current.combat) {
     const cardDef = defById(current, entry.card.definitionId);
-    const cardLabel = (cardDef as { name?: string } | undefined)?.name ?? (entry.card.definitionId as string);
+    const cardLabel = cardDef?.name ?? (entry.card.definitionId as string);
     const rollEffect = findCardEffect(cardDef, 'counter-cancel-attack-roll');
     const targetInstanceId = entry.payload.counterCancelTargetInstanceId;
     // Instant variant: no roll, unconditional negation (Prowess of Age Mode
@@ -5940,7 +5940,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
       const ctx = buildChainApplyContext(current, entry);
       for (const effect of getCardEffects(def)) {
         if (!shouldFireOnChainResolution(effect, entry)) continue;
-        logDetail(`Chain resolves ${effect.type} from "${(def as { name?: string }).name ?? (entry.card.definitionId as string)}"`);
+        logDetail(`Chain resolves ${effect.type} from "${def?.name ?? (entry.card.definitionId as string)}"`);
         const r = applyEffect(current, effect, ctx);
         if ('error' in r) {
           logDetail(`applyEffect ${effect.type} failed: ${r.error}`);
@@ -6026,7 +6026,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     const cardDef = defById(current, entry.card.definitionId);
     const multiFactionEffect = findCardEffect(cardDef, 'multi-faction-check');
     if (multiFactionEffect) {
-      const cardLabel = (cardDef as { name?: string } | undefined)?.name ?? (entry.card.definitionId as string);
+      const cardLabel = cardDef?.name ?? (entry.card.definitionId as string);
       const factions: { instanceId: CardInstanceId; ownerId: PlayerId; name: string }[] = [];
       for (const p of current.players) {
         for (const cip of p.cardsInPlay) {
@@ -6394,7 +6394,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
             attack: injected,
           },
         });
-        const destSiteName = (defById(current, destSiteInst.definitionId) as { name?: string } | undefined)?.name ?? (destSiteInst.definitionId as string);
+        const destSiteName = defById(current, destSiteInst.definitionId)?.name ?? (destSiteInst.definitionId as string);
         logDetail(`FEAR! FIRE! FOES!: additional automatic-attack (${injected.strikes} strikes, ${injected.prowess} prowess${injected.forceDetainment ? ', detainment' : ''}, no attack type) created at ${destSiteName} this turn`);
       }
     }
@@ -6429,7 +6429,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
             siteDefinitionId: destSiteInst.definitionId,
           },
         });
-        const destSiteName = (defById(current, destSiteInst.definitionId) as { name?: string } | undefined)?.name ?? (destSiteInst.definitionId as string);
+        const destSiteName = defById(current, destSiteInst.definitionId)?.name ?? (destSiteInst.definitionId as string);
         logDetail(`Arouse Defenders: one automatic-attack at ${destSiteName} gets +${boostEffect.prowessBonus} prowess${boostEffect.uncancelable ? ' and cannot be canceled' : ''} this turn`);
       }
     }
@@ -6472,7 +6472,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
             firstCancelRemovesEffect: !!uimEffect.firstCancelRemovesEffect,
           },
         );
-        const destSiteName = (defById(current, destSiteInst.definitionId) as { name?: string } | undefined)?.name ?? (destSiteInst.definitionId as string);
+        const destSiteName = defById(current, destSiteInst.definitionId)?.name ?? (destSiteInst.definitionId as string);
         logDetail(`${uimCardDef?.name ?? 'Card'}: played openly in M/H — will modify the first automatic-attack faced at ${destSiteName} (+${uimEffect.strikesModifier ?? 0} strikes, +${uimEffect.prowessModifier ?? 0} prowess, ${uimEffect.bodyModifier ?? 0} body)`);
       }
     }
@@ -6495,7 +6495,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
       const activeIndex = getPlayerIndex(current, activePlayerId);
       const targetCompany = current.players[activeIndex].companies[current.phaseState.activeCompanyIndex];
       if (targetCompany) {
-        const bodyCheckSourceName = (cardDef as { name?: string }).name ?? '?';
+        const bodyCheckSourceName = cardDef?.name ?? '?';
         const bodyModifier = fcacEffect.modifier ?? 0;
         logDetail(`force-check-all-company (body) "${bodyCheckSourceName}": enqueuing body checks (modifier ${bodyModifier}) for ${targetCompany.characters.length} characters`);
         for (const charId of targetCompany.characters) {
@@ -6574,7 +6574,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
         const hazardPlayerId = hazardPlayer(current, activePlayerId).id;
         const totalStrikes = company.characters.length;
         logDetail(
-          `company-strike "${(csCardDef as { name?: string }).name ?? '?'}": each of ${totalStrikes} character(s) ` +
+          `company-strike "${csCardDef?.name ?? '?'}": each of ${totalStrikes} character(s) ` +
           `faces one ${csEffect.prowess}-prowess strike (not an attack)` +
           `${csEffect.uncancelable ? ', uncancelable' : ''}` +
           `${csEffect.bodyCheckModifier ? `, body check ${formatSignedNumber(csEffect.bodyCheckModifier)}` : ''}`,
@@ -6627,7 +6627,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
           ? evaluateExpr(tapEffect.mindBelow, { spawnCardsInPlay })
           : Infinity;
         logDetail(
-          `company-tap-characters "${(reekCardDef as { name?: string }).name ?? '?'}": ` +
+          `company-tap-characters "${reekCardDef?.name ?? '?'}": ` +
           `${spawnCardsInPlay} Spawn card(s) in play → tapping untapped characters with mind < ${threshold}`,
         );
         for (const charId of company.characters) {
@@ -6689,7 +6689,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
       }
       if (rollTargets.length > 0) {
         logDetail(
-          `company-tap-roll "${(revelryCardDef as { name?: string }).name ?? '?'}": ` +
+          `company-tap-roll "${revelryCardDef?.name ?? '?'}": ` +
           `${rollTargets.length} character(s) roll (taps if roll + modifier > mind)`,
         );
         current = enqueueResolution(current, {
@@ -6704,7 +6704,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
         });
         return { state: current, needsInput: true };
       }
-      logDetail(`company-tap-roll "${(revelryCardDef as { name?: string }).name ?? '?'}": no qualifying untapped characters — no-op`);
+      logDetail(`company-tap-roll "${revelryCardDef?.name ?? '?'}": no qualifying untapped characters — no-op`);
     }
   }
 
@@ -6737,7 +6737,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
         });
         if (eligibleItems.length > 0 || hasUnwoundedCharacter) {
           logDetail(
-            `discard-item-or-wound-character "${(ratsCardDef as { name?: string }).name ?? '?'}": ` +
+            `discard-item-or-wound-character "${ratsCardDef?.name ?? '?'}": ` +
             `enqueuing item-or-wound-choice for company ${company.id as string} ` +
             `(${eligibleItems.length} eligible item(s), unwounded character available: ${hasUnwoundedCharacter})`,
           );
@@ -6753,7 +6753,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
           });
           return { state: current, needsInput: true };
         }
-        logDetail(`discard-item-or-wound-character "${(ratsCardDef as { name?: string }).name ?? '?'}": no eligible item or unwounded character — no-op`);
+        logDetail(`discard-item-or-wound-character "${ratsCardDef?.name ?? '?'}": no eligible item or unwounded character — no-op`);
       }
     }
   }
@@ -6782,7 +6782,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
       const company = current.players[activeIndex].companies[siteState.activeCompanyIndex];
       if (company) {
         logDetail(
-          `on-guard company-tap-characters "${(ogCardDef as { name?: string }).name ?? '?'}": ` +
+          `on-guard company-tap-characters "${ogCardDef?.name ?? '?'}": ` +
           `tapping all untapped characters matching the filter`,
         );
         for (const charId of company.characters) {
@@ -6840,7 +6840,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
         );
         current = r.state;
         if (r.added) {
-          logDetail(`on-guard add-constraint "${(ogCardDef as { name?: string })?.name ?? '?'}" resolves → added ${apply.constraint} constraint on company ${company.id as string}`);
+          logDetail(`on-guard add-constraint "${ogCardDef?.name ?? '?'}" resolves → added ${apply.constraint} constraint on company ${company.id as string}`);
         }
       }
     }
@@ -7239,7 +7239,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     const hostDef = defById(current, entry.card.definitionId);
     const revealEff = findCardEffect(hostDef, 'reveal-deck-choose-set-aside');
     if (revealEff) {
-      const hostName = (hostDef as { name?: string } | undefined)?.name ?? (entry.card.definitionId as string);
+      const hostName = hostDef?.name ?? (entry.card.definitionId as string);
       const deckOwnerId = current.activePlayer!;
       const deckOwnerIdx = getPlayerIndex(current, deckOwnerId);
       const deckOwnerName = current.players[deckOwnerIdx].name;

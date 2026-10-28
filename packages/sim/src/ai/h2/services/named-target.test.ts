@@ -68,7 +68,7 @@ describe('a card restricted to a named character', () => {
   });
   test('an item target needs that item in the company (Barrow-blade upgrades a Dagger)', () => {
     const { view, aragorns } = position();
-    const barrowBlade = Object.values(pool).find(c => (c as { name?: string }).name === 'Barrow-blade')!;
+    const barrowBlade = Object.values(pool).find(c => c.name === 'Barrow-blade')!;
     const dagger = Object.keys(pool).find(id => (pool[id] as { name?: string }).name === 'Dagger of Westernesse')!;
     expect(companyMayPlay(barrowBlade, aragorns.characters, aragorns.id, view, pool)).toBe(false);
     const bearer = view.self.characters[aragorns.characters[0]];

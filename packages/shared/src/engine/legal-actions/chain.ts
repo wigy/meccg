@@ -253,7 +253,7 @@ function emitHazardSelfCancelBySkillActions(
         },
       };
       if (grant.when && !matchesCondition(grant.when, actorCtx)) continue;
-      logDetail(`Hazard self-cancel: ${charDef && isCharacterCard(charDef) ? charDef.name : '?'} may tap to cancel "${(def as { name?: string } | undefined)?.name ?? (card.definitionId as string)}" before it resolves`);
+      logDetail(`Hazard self-cancel: ${charDef && isCharacterCard(charDef) ? charDef.name : '?'} may tap to cancel "${def?.name ?? (card.definitionId as string)}" before it resolves`);
       actions.push(grantedAction(playerId, charInstId, card, 'cancel-chain-entry', 0));
     }
   }
@@ -350,17 +350,17 @@ function playSkillCancelChainActions(state: GameState, playerId: PlayerId): Eval
           target: {
             cardType: targetDef?.cardType,
             eventType: (targetDef as { eventType?: string } | undefined)?.eventType,
-            name: (targetDef as { name?: string } | undefined)?.name,
+            name: targetDef?.name,
           },
           declaredBy: { alignment: declaredByPlayer?.alignment },
         };
         if (!matchesCondition(filter, entryCtx)) {
-          logDetail(`Chain response: ${hazDef.name} — entry "${(targetDef as { name?: string } | undefined)?.name ?? (card.definitionId as string)}" does not match filter (cardType ${targetDef?.cardType ?? '?'}, declaredBy ${declaredByPlayer?.alignment ?? '?'})`);
+          logDetail(`Chain response: ${hazDef.name} — entry "${targetDef?.name ?? (card.definitionId as string)}" does not match filter (cardType ${targetDef?.cardType ?? '?'}, declaredBy ${declaredByPlayer?.alignment ?? '?'})`);
           continue;
         }
       }
 
-      logDetail(`Chain response: ${hazDef.name} can cancel ${(targetDef as { name?: string } | undefined)?.name ?? card.definitionId}${requiredSkill != null ? ` (requires ${requiredSkill})` : ''}`);
+      logDetail(`Chain response: ${hazDef.name} can cancel ${targetDef?.name ?? card.definitionId}${requiredSkill != null ? ` (requires ${requiredSkill})` : ''}`);
       actions.push({
         action: {
           type: 'play-short-event',
@@ -425,17 +425,17 @@ function playReturnChainEntryCardActions(state: GameState, playerId: PlayerId): 
           target: {
             cardType: targetDef?.cardType,
             eventType: (targetDef as { eventType?: string } | undefined)?.eventType,
-            name: (targetDef as { name?: string } | undefined)?.name,
+            name: targetDef?.name,
             keywords: (targetDef as { keywords?: readonly string[] } | undefined)?.keywords,
           },
         };
         if (!matchesCondition(filter, entryCtx)) {
-          logDetail(`Chain response: ${hazDef.name} — entry "${(targetDef as { name?: string } | undefined)?.name ?? (card.definitionId as string)}" does not match filter`);
+          logDetail(`Chain response: ${hazDef.name} — entry "${targetDef?.name ?? (card.definitionId as string)}" does not match filter`);
           continue;
         }
       }
 
-      logDetail(`Chain response: ${hazDef.name} can return ${(targetDef as { name?: string } | undefined)?.name ?? card.definitionId} to hand`);
+      logDetail(`Chain response: ${hazDef.name} can return ${targetDef?.name ?? card.definitionId} to hand`);
       actions.push({
         action: {
           type: 'play-short-event',
@@ -478,7 +478,7 @@ function cancelReturnToOriginChainActions(state: GameState, playerId: PlayerId):
     if (hasTag) {
       returnEntries.push({
         instanceId: card.instanceId,
-        defName: (def as { name?: string }).name ?? (card.definitionId as string),
+        defName: def?.name ?? (card.definitionId as string),
       });
     }
   }
@@ -494,7 +494,7 @@ function cancelReturnToOriginChainActions(state: GameState, playerId: PlayerId):
       const allyDef = defById(state, ally.definitionId);
       const hasCancelEffect = hasCardEffect(allyDef, 'cancel-chain-return-to-origin');
       if (!hasCancelEffect) continue;
-      const allyName = (allyDef as { name?: string }).name ?? (ally.definitionId as string);
+      const allyName = allyDef?.name ?? (ally.definitionId as string);
       if (ally.status !== CardStatus.Untapped) {
         logDetail(`cancel-chain-return-to-origin: ${allyName} is tapped, cannot act`);
         continue;
@@ -560,7 +560,7 @@ function cancelHazardEventChainActions(state: GameState, playerId: PlayerId): Ev
 
   const actions: EvaluatedAction[] = [];
   for (const source of sources) {
-    const sourceName = (defById(state, source.definitionId) as { name?: string } | undefined)?.name
+    const sourceName = defById(state, source.definitionId)?.name
       ?? (source.definitionId as string);
     for (const target of targets) {
       logDetail(`cancel-hazard-event: ${sourceName} may be discarded to cancel "${target.name}"`);
@@ -624,7 +624,7 @@ function counterCancelAttackChainActions(state: GameState, playerId: PlayerId): 
     const def = defById(state, handCard.definitionId);
     if (!hasCardEffect(def, 'cancel-chain-attack-cancel')) continue;
     for (const targetInstanceId of cancelEntries) {
-      logDetail(`counter-cancel-attack: ${(def as { name?: string }).name ?? (handCard.definitionId as string)} can negate an opponent's cancel-attack on the chain`);
+      logDetail(`counter-cancel-attack: ${def?.name ?? (handCard.definitionId as string)} can negate an opponent's cancel-attack on the chain`);
       actions.push({
         action: {
           type: 'counter-cancel-attack',
@@ -722,15 +722,15 @@ function counterCancelRollChainActions(state: GameState, playerId: PlayerId): Ev
     const rollEffect = findCardEffect(def, 'counter-cancel-attack-roll');
     if (!rollEffect) continue;
     if (attackRace === undefined || !rollEffect.race.includes(attackRace)) {
-      logDetail(`counter-cancel-roll: ${(def as { name?: string }).name ?? (c.definitionId as string)} cannot counter a "${attackRace ?? 'raceless'}" attack`);
+      logDetail(`counter-cancel-roll: ${def?.name ?? (c.definitionId as string)} cannot counter a "${attackRace ?? 'raceless'}" attack`);
       continue;
     }
     if (rollEffect.uniqueOnly && combat.creatureUnique !== true) {
-      logDetail(`counter-cancel-roll: ${(def as { name?: string }).name ?? (c.definitionId as string)} requires a unique manifestation attack — this attack is not unique`);
+      logDetail(`counter-cancel-roll: ${def?.name ?? (c.definitionId as string)} requires a unique manifestation attack — this attack is not unique`);
       continue;
     }
     for (const targetInstanceId of cancelEntries) {
-      logDetail(`counter-cancel-roll: ${(def as { name?: string }).name ?? (c.definitionId as string)} may counter cancel entry ${targetInstanceId as string}`);
+      logDetail(`counter-cancel-roll: ${def?.name ?? (c.definitionId as string)} may counter cancel entry ${targetInstanceId as string}`);
       actions.push({
         action: { type: 'counter-cancel-roll', player: playerId, cardInstanceId: c.instanceId, targetInstanceId },
         viable: true,

@@ -1676,7 +1676,7 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
       // nothing, ahead of the Await-the-Onset pin, the wh-99 override, the §4
       // clamp/exemption and the global item-MP bonus below.
       if (deniesFallenWizardMp(itemDef, player.alignment)) {
-        logDetail(`Item ${(itemDef as { name?: string }).name ?? item.definitionId as string}: gives no marshalling points to a Fallen-wizard (card text)`);
+        logDetail(`Item ${itemDef.name ?? item.definitionId as string}: gives no marshalling points to a Fallen-wizard (card text)`);
         continue;
       }
       // agent-home-site-faction-lock (Faithless Steward as-83): the attached
@@ -1890,7 +1890,7 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
   // avatar name (Alatar/Pallando/Saruman) so avatar-specific rules can match.
   const factionOverrides = factionMpOverrideRules(state, player);
   const avatarChar = factionOverrides.length > 0 ? findPlayerAvatar(state, player) : undefined;
-  const avatarName = avatarChar ? (resolveDef(state, avatarChar.instanceId) as { name?: string } | undefined)?.name : undefined;
+  const avatarName = avatarChar ? resolveDef(state, avatarChar.instanceId)?.name : undefined;
   for (const card of player.cardsInPlay) {
     if (card.setAsideHost !== undefined) continue;
     const def = resolveDef(state, card.instanceId);

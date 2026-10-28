@@ -329,7 +329,7 @@ export function handleDodgeStrike(state: GameState, action: GameAction, combat: 
   );
   if (!strikeEffect) return { state, error: 'Item has no dodge strike-modifier effect' };
 
-  const itemName = (itemDef as { name?: string } | undefined)?.name ?? (found.attachment.definitionId as string);
+  const itemName = itemDef?.name ?? (found.attachment.definitionId as string);
   logDetail(`${itemName} taps so ${action.characterInstanceId as string} dodges the current strike (no tap unless wounded)`);
 
   const tap = <A extends { status: CardStatus }>(a: A): A => ({ ...a, status: CardStatus.Tapped });
@@ -567,7 +567,7 @@ function bodyCheckRollModifier(state: GameState, charData: CharacterInPlay): num
       if (effect.type !== 'body-check-modifier') continue;
       if (effect.scope === 'all-attacks') continue; // global modifiers are collected separately
       if (effect.when && !matchesCondition(effect.when, { bearer: { race: bearerRace } })) continue;
-      logDetail(`Body-check modifier ${formatSignedNumber(effect.value)} from ${(itemDef as { name?: string }).name ?? (item.definitionId as string)}`);
+      logDetail(`Body-check modifier ${formatSignedNumber(effect.value)} from ${itemDef.name ?? (item.definitionId as string)}`);
       total += effect.value;
     }
   }
@@ -595,7 +595,7 @@ function globalBodyCheckRollModifier(state: GameState, targetRace: Race | undefi
         if (effect.type !== 'body-check-modifier') continue;
         if (effect.scope !== 'all-attacks') continue;
         if (effect.when && !matchesCondition(effect.when, ctx)) continue;
-        logDetail(`Global body-check modifier ${formatSignedNumber(effect.value)} from ${(def as { name?: string }).name ?? (card.definitionId as string)} (attack race ${creatureRace ?? '?'}, target race ${targetRace ?? '?'})`);
+        logDetail(`Global body-check modifier ${formatSignedNumber(effect.value)} from ${def.name ?? (card.definitionId as string)} (attack race ${creatureRace ?? '?'}, target race ${targetRace ?? '?'})`);
         total += effect.value;
       }
     }
@@ -663,14 +663,14 @@ function pendingWoundAdditionalBodyCheckModifiers(state: GameState, combat: Comb
     for (const card of player.cardsInPlay) {
       const def = defById(state, card.definitionId);
       if (!def) continue;
-      collect(def, (def as { name?: string }).name ?? (card.definitionId as string));
+      collect(def, def.name ?? (card.definitionId as string));
     }
   }
   if (combat.attackSource.type === 'creature') {
     const creatureDefId = resolveInstanceId(state, combat.attackSource.instanceId);
     const creatureDef = creatureDefId ? defById(state, creatureDefId) : undefined;
     if (creatureDef) {
-      collect(creatureDef, (creatureDef as { name?: string }).name ?? (creatureDefId as string));
+      collect(creatureDef, creatureDef.name ?? (creatureDefId as string));
     }
   }
   return modifiers;
@@ -759,7 +759,7 @@ function bearerCombatBodyCheckModifier(state: GameState, combat: CombatState, st
       if (effect.type !== 'body-check-modifier') continue;
       if (effect.scope !== 'bearer-combat') continue;
       if (effect.when && !matchesCondition(effect.when, ctx)) continue;
-      logDetail(`Bearer-combat body-check modifier ${formatSignedNumber(effect.value)} from ${(itemDef as { name?: string }).name ?? (item.definitionId as string)} (target ${target ?? '?'}, failedStrike ${fromFailedStrike}, cvcc ${!!combat.isCvCC})`);
+      logDetail(`Bearer-combat body-check modifier ${formatSignedNumber(effect.value)} from ${itemDef.name ?? (item.definitionId as string)} (target ${target ?? '?'}, failedStrike ${fromFailedStrike}, cvcc ${!!combat.isCvCC})`);
       total += effect.value;
     }
   }
@@ -1346,7 +1346,7 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
     // them, so the two sides of one CvCC would be checked under different
     // rules.
     const body = charData.effectiveStats.body;
-    const charName = (charDef as { name?: string } | undefined)?.name ?? (strike.attackingCharacterId as string);
+    const charName = charDef?.name ?? (strike.attackingCharacterId as string);
 
     // Item-granted body-check modifiers (e.g. Helm of Fear -1) apply to the
     // bearer regardless of whether they are attacking or defending in CvCC.
@@ -1564,7 +1564,7 @@ export function handleConvertCreatureToAlly(state: GameState, action: GameAction
   const creatureInPlay = findById(state.players[atkIdx].cardsInPlay, creatureInstanceId);
   if (!creatureInPlay) return { state, error: 'Creature card not in attacker cards-in-play' };
 
-  const creatureName = (creatureDef as { name?: string }).name ?? (creatureInstanceId as string);
+  const creatureName = creatureDef.name ?? (creatureInstanceId as string);
   const allyProwess = (creatureDef as { prowess: number }).prowess + effect.ally.prowessModifier;
   const statOverride: import('../types/state-cards.js').AllyStatOverride = {
     mind: effect.ally.mind,
@@ -1579,7 +1579,7 @@ export function handleConvertCreatureToAlly(state: GameState, action: GameAction
   };
 
   logDetail(
-    `Convert-creature-to-ally: "${(cardDef as { name?: string } | undefined)?.name ?? handCard.definitionId as string}" converts ${creatureName} ` +
+    `Convert-creature-to-ally: "${cardDef?.name ?? handCard.definitionId as string}" converts ${creatureName} ` +
     `into an ally (mind ${statOverride.mind}, prowess ${statOverride.prowess}, body ${statOverride.body}) ` +
     `controlled by ${action.controllingCharacterId as string}${effect.controllerTaps ? ' (taps)' : ''}`,
   );
@@ -1881,7 +1881,7 @@ export function handleTapItemForStrike(state: GameState, action: GameAction, com
     newDefPlayer = tapped.player;
   }
 
-  const itemName = (itemDef as { name?: string } | undefined)?.name ?? (found.attachment.definitionId as string);
+  const itemName = itemDef?.name ?? (found.attachment.definitionId as string);
   const prowessBonus = effect.prowessModifier ?? 0;
   const bodyModifier = effect.bodyModifier ?? 0;
   const cascade = effect.cascadeDefeatOnSuccess === true;
@@ -1956,7 +1956,7 @@ export function handleFaceStrikeOnTap(state: GameState, action: GameAction, comb
   if (!effect) return { state, error: 'Item has no face-strike-on-tap effect' };
   const reduction = (effect as { bodyReductionOnParry?: number }).bodyReductionOnParry ?? 0;
 
-  const itemName = (itemDef as { name?: string } | undefined)?.name ?? (item.definitionId as string);
+  const itemName = itemDef?.name ?? (item.definitionId as string);
   const bearerName = cardName(state, bearer.definitionId, action.characterInstanceId as string);
   logDetail(`Face-strike-on-tap: tapping ${itemName} — ${bearerName} faces a strike regardless of capabilities/status${reduction > 0 ? ` (attack body -${reduction} if parried)` : ''}`);
 
@@ -2034,7 +2034,7 @@ export function handleTapAllyCombatBoost(state: GameState, action: GameAction, c
     const already = state.activeConstraints.some(c => c.source === action.cardInstanceId && c.scope.kind === 'attack');
     if (already) return { state, error: 'Boost already applied this attack' };
 
-    const sourceName = (sourceDef as { name?: string } | undefined)?.name ?? (sourceDefinitionId as string);
+    const sourceName = sourceDef?.name ?? (sourceDefinitionId as string);
     let newState = updatePlayer(state, playerIndex, p => updateCharacter(p, bearerCharId, c => ({ ...c, status: CardStatus.Tapped })));
 
     let applied = 0;
@@ -2048,7 +2048,7 @@ export function handleTapAllyCombatBoost(state: GameState, action: GameAction, c
           const ctx = {
             target: {
               race: 'race' in memberDef ? (memberDef as { race?: Race }).race : undefined,
-              name: (memberDef as { name?: string }).name ?? '',
+              name: memberDef.name ?? '',
               skills: ('skills' in memberDef ? (memberDef as { skills?: readonly string[] }).skills : undefined) ?? [],
             },
           };
@@ -2112,7 +2112,7 @@ export function handleTapAllyCombatBoost(state: GameState, action: GameAction, c
   if (already) return { state, error: 'Ally boost already applied this attack' };
 
   // Tap the ally.
-  const allyName = (allyDef as { name?: string } | undefined)?.name ?? (ally.definitionId as string);
+  const allyName = allyDef?.name ?? (ally.definitionId as string);
   let newState = updatePlayer(state, playerIndex, () => tapped.player);
 
   // Apply one attack-scoped character-stat-modifier constraint per matching
@@ -2267,7 +2267,7 @@ export function handleTapAllyBodyCheckBoost(state: GameState, action: GameAction
   const boostEffect = findCardEffect(allyDef, 'ally-body-check-boost');
   if (!boostEffect) return { state, error: 'Ally has no ally-body-check-boost effect' };
 
-  const allyName = (allyDef as { name?: string } | undefined)?.name ?? (ally.definitionId as string);
+  const allyName = allyDef?.name ?? (ally.definitionId as string);
   logDetail(`${allyName} tapped — +${boostEffect.value} body to ${bearerCharId as string} for the pending body check`);
 
   const newAssignments = combat.strikeAssignments.map((a, i) =>
@@ -3189,7 +3189,7 @@ export function handleStoreCreatureInItem(state: GameState, action: GameAction, 
 
   const { item, hostCharId } = found;
   const itemDef = defById(state, item.definitionId);
-  const itemName = (itemDef as { name?: string } | undefined)?.name ?? (item.definitionId as string);
+  const itemName = itemDef?.name ?? (item.definitionId as string);
 
   logDetail(`Creature storage: ${itemName} stores ${action.creatureInstanceId as string} instead of scoring kill MP (Elven Rope ba-34)`);
 

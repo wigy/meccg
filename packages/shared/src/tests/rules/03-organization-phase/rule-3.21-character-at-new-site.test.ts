@@ -84,7 +84,7 @@ describe('Rule 3.21 — Character at New Site', () => {
       const siteDef = noBree.cardPool[
         noBree.players[0].siteDeck.find(s => s.instanceId === a.atSite)?.definitionId as CardDefinitionId ?? ('' as CardDefinitionId)
       ];
-      return !siteDef || (siteDef as { name?: string }).name !== 'Bree';
+      return !siteDef || siteDef.name !== 'Bree';
     })).toBe(true);
   });
 });

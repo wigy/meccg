@@ -1333,7 +1333,7 @@ export function isCardNameEffectCanceled(state: GameState, cardName: string | un
       const def = defById(state, card.definitionId);
       for (const eff of getCardEffects(def)) {
         if (eff.type === 'cancel-card-effects' && eff.cardNames.includes(cardName)) {
-          logDetail(`"${(def as { name?: string })?.name ?? card.definitionId as string}" cancels the effects of "${cardName}"`);
+          logDetail(`"${def?.name ?? card.definitionId as string}" cancels the effects of "${cardName}"`);
           return true;
         }
       }
@@ -2776,7 +2776,7 @@ export function cvccAttackPermitted(
       for (const effect of getCardEffects(def)) {
         if (effect.type !== 'cvcc-attack-permission') continue;
         if (effect.when && !matchesCondition(effect.when, ctx)) continue;
-        logDetail(`CvCC attack permitted by ${(def as { name?: string }).name ?? (card.definitionId as string)}: ${attacker.alignment} ${attackerCompany.id} → ${defender.alignment} ${defenderCompany.id}`);
+        logDetail(`CvCC attack permitted by ${def.name ?? (card.definitionId as string)}: ${attacker.alignment} ${attackerCompany.id} → ${defender.alignment} ${defenderCompany.id}`);
         return true;
       }
     }
@@ -6316,7 +6316,7 @@ export function sweepProhibitedCompanyEvents(state: GameState): GameState {
       return races.some(race => companyContainsRace(state, player, company, race));
     },
     card => {
-      const def = state.cardPool[card.definitionId] as { name?: string } | undefined;
+      const def = state.cardPool[card.definitionId];
       logDetail(`Stormcrow: discarding company-bound resource event "${def?.name ?? card.definitionId}" — company has a prohibited race`);
     },
   );
@@ -6367,7 +6367,7 @@ export function sweepCompanyMembershipChangedEvents(
       return matchesCondition(effect.when, ctx);
     },
     card => {
-      const def = state.cardPool[card.definitionId] as { name?: string } | undefined;
+      const def = state.cardPool[card.definitionId];
       logDetail(`company-membership-changes: discarding "${def?.name}" (company ${card.companyId as string})`);
     },
   ).state;
@@ -6399,7 +6399,7 @@ export function sweepLeaderLeavesCompanyEvents(
       );
     },
     card => {
-      const def = state.cardPool[card.definitionId] as { name?: string } | undefined;
+      const def = state.cardPool[card.definitionId];
       logDetail(`leader-leaves-company: discarding "${def?.name}" (company ${card.companyId as string})`);
     },
   ).state;
@@ -6436,7 +6436,7 @@ export function sweepCharacterLeavesCompanyEvents(
       );
     },
     card => {
-      const def = state.cardPool[card.definitionId] as { name?: string } | undefined;
+      const def = state.cardPool[card.definitionId];
       logDetail(`character-leaves-company: discarding "${def?.name}" (company ${card.companyId as string})`);
     },
   ).state;
@@ -6476,7 +6476,7 @@ export function sweepCharacterSplitsOffCompanyEvents(
       );
     },
     card => {
-      const def = state.cardPool[card.definitionId] as { name?: string } | undefined;
+      const def = state.cardPool[card.definitionId];
       logDetail(`character-splits-off-company: discarding "${def?.name}" (company ${card.companyId as string})`);
     },
   ).state;
@@ -6495,7 +6495,7 @@ export function discardOrphanedControlledFactions(state: GameState): GameState {
     state,
     (card, player) => card.controlledBy !== undefined && !player.characters[card.controlledBy],
     card => {
-      const def = state.cardPool[card.definitionId] as { name?: string } | undefined;
+      const def = state.cardPool[card.definitionId];
       logDetail(`leader-control: discarding "${def?.name ?? card.definitionId}" — controlling leader left play`);
     },
   ).state;
@@ -6933,7 +6933,7 @@ export function discardOrphanedSiteAttachedEvents(state: GameState): GameState {
       // tw-348) have no ongoing tie to the site card's presence.
       && !cardPlayedAtSite(defById(state, card.definitionId)),
     card => {
-      const def = state.cardPool[card.definitionId] as { name?: string } | undefined;
+      const def = state.cardPool[card.definitionId];
       logDetail(`site-attached event: discarding "${def?.name ?? card.definitionId}" — bound site ${card.attachedToSite as string} left play`);
     },
   );
@@ -6969,7 +6969,7 @@ export function discardOrphanedAgentAttachedEvents(state: GameState): GameState 
       return discardsOnReveal && agent.revealed;
     },
     (card, player) => {
-      const def = state.cardPool[card.definitionId] as { name?: string } | undefined;
+      const def = state.cardPool[card.definitionId];
       const agent = player.agents.find(a => a.id === card.attachedToAgentId);
       logDetail(`agent-attached event: discarding "${def?.name ?? card.definitionId}" — bound agent ${card.attachedToAgentId as string} ${agent ? 'was revealed' : 'left play'}`);
     },
@@ -7017,7 +7017,7 @@ export function discardOrphanedItemAttachedEvents(state: GameState): GameState {
     state,
     card => card.attachedToItem !== undefined && !itemIds.has(card.attachedToItem as string),
     card => {
-      const def = state.cardPool[card.definitionId] as { name?: string } | undefined;
+      const def = state.cardPool[card.definitionId];
       logDetail(`item-attached event: discarding "${def?.name ?? card.definitionId}" — host item ${card.attachedToItem as string} left play`);
     },
   );
@@ -7056,7 +7056,7 @@ export function discardOrphanedFactionAttachedEvents(state: GameState): GameStat
       && !factionIds.has(card.attachedTo as string)
       && hasCardEffect(defById(state, card.definitionId), 'faction-siege'),
     card => {
-      const def = state.cardPool[card.definitionId] as { name?: string } | undefined;
+      const def = state.cardPool[card.definitionId];
       logDetail(`faction-attached event: discarding "${def?.name ?? card.definitionId}" — target faction ${card.attachedTo as string} left play`);
     },
   );
@@ -7083,7 +7083,7 @@ export function discardOrphanedStoredAttachedEvents(state: GameState): GameState
     (card, player) => card.attachedToStored !== undefined
       && !player.killPile.some(c => c.instanceId === card.attachedToStored),
     card => {
-      const def = state.cardPool[card.definitionId] as { name?: string } | undefined;
+      const def = state.cardPool[card.definitionId];
       logDetail(`stored-attached event: discarding "${def?.name ?? card.definitionId}" — stored card ${card.attachedToStored as string} left the marshalling-point pile`);
     },
   );
@@ -7314,7 +7314,7 @@ export function discardOrphanedConvertedAllyEvents(state: GameState): GameState 
       return effects.some(e => e.type === 'convert-creature-to-ally');
     },
     (card, player) => {
-      const def = state.cardPool[card.definitionId] as { name?: string } | undefined;
+      const def = state.cardPool[card.definitionId];
       logDetail(`converted-ally event: discarding "${def?.name ?? card.definitionId}" — its converted-creature ally left play`);
       leftAllies.push({ creatureId: card.attachedTo as CardInstanceId, holderId: player.id });
     },
@@ -7421,7 +7421,7 @@ export function globalAttackerChoosesDefenders(
         if (effect.type !== 'combat-attacker-chooses-defenders') continue;
         if (effect.scope !== 'all-attacks') continue;
         if (effect.when && !matchesCondition(effect.when, ctx)) continue;
-        logDetail(`Attacker-chooses-defenders granted globally by "${(def as { name?: string }).name ?? (card.definitionId as string)}" (attack race ${creatureRace ?? '?'})`);
+        logDetail(`Attacker-chooses-defenders granted globally by "${def.name ?? (card.definitionId as string)}" (attack race ${creatureRace ?? '?'})`);
         return true;
       }
     }
@@ -7481,7 +7481,7 @@ export function resolveDefenderFreeStrikeAssignment(
       for (const effect of getCardEffects(def)) {
         if (effect.type !== 'free-strike-assignment') continue;
         if (effect.when && !matchesCondition(effect.when, ctx)) continue;
-        logDetail(`Free strike assignment granted by "${(def as { name?: string }).name ?? (card.definitionId as string)}" — defender may assign to any character regardless of status`);
+        logDetail(`Free strike assignment granted by "${def.name ?? (card.definitionId as string)}" — defender may assign to any character regardless of status`);
         return true;
       }
     }
@@ -7856,7 +7856,7 @@ export function allyPlayGrantAllowsAlly(
   }
   if (grant.effect.excludeBearerControlsCopy) {
     const bearer = player.characters[grant.bearerId];
-    const allyName = (allyDef as { name?: string }).name;
+    const allyName = allyDef.name;
     if (bearer && bearer.allies.some(a => defById(state, a.definitionId)?.name === allyName)) {
       return false;
     }
@@ -8137,7 +8137,7 @@ export function resolvePendingEffect(state: GameState): ReducerResult {
   const skipEffects: import('../index.js').GameEffect[] = [];
   if (current.type === 'card-effect' && current.effect.type === 'fetch-to-deck') {
     const playerName = (state.players.find(p => p.id === effectOwner) as { name: string } | undefined)?.name ?? effectOwner as string;
-    const eventDef = resolveDef(state, current.cardInstanceId) as { name?: string } | undefined;
+    const eventDef = resolveDef(state, current.cardInstanceId);
     const cardName = eventDef?.name ?? current.cardInstanceId as string;
     skipEffects.push({ effect: 'text-notification', message: `${playerName} declines to retrieve a card (${cardName})` });
   }
@@ -8541,7 +8541,7 @@ export function deriveFacedRaces(state: GameState, hazardNames: readonly string[
   for (const name of hazardNames) {
     for (const def of Object.values(state.cardPool)) {
       if ((def as { cardType?: string }).cardType !== 'hazard-creature') continue;
-      if ((def as { name?: string }).name !== name) continue;
+      if (def.name !== name) continue;
       const race = (def as { race?: Race }).race;
       if (race) races.add(race);
       break;
@@ -8570,7 +8570,7 @@ export function matchesFollowsAttackKeyedTo(
   return keyingRecords.find(rec => {
     if (restriction.races) {
       const race = Object.values(state.cardPool).find(
-        def => (def as { cardType?: string }).cardType === 'hazard-creature' && (def as { name?: string }).name === rec.name,
+        def => (def as { cardType?: string }).cardType === 'hazard-creature' && def.name === rec.name,
       ) as { race?: Race } | undefined;
       if (!race?.race || !restriction.races.includes(race.race)) return false;
     }

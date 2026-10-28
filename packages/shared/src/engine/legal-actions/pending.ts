@@ -3835,7 +3835,7 @@ export function tapOneCharacterActions(
     const ch = ownerPlayer?.characters[charId];
     if (!ch || ch.status !== CardStatus.Untapped) continue;
     const charDef = defById(state, ch.definitionId);
-    const charName = (charDef as { name?: string })?.name ?? (charId as string);
+    const charName = charDef?.name ?? (charId as string);
     logDetail(`tap-one-character: offering ${charName} to tap`);
     actions.push({
       action: {
@@ -3886,7 +3886,7 @@ export function havenRestoreCharacterActions(
     const ch = ownerPlayer?.characters[charId];
     if (!ch) continue;
     if (ch.status !== CardStatus.Tapped && ch.status !== CardStatus.Inverted) continue;
-    const charName = (defById(state, ch.definitionId) as { name?: string })?.name ?? (charId as string);
+    const charName = defById(state, ch.definitionId)?.name ?? (charId as string);
     // A bearer-cannot-untap constraint (Reforging tw-314, Rescue Prisoners
     // tw-315, etc.) blocks untapping but not healing wounded → tapped, per
     // the same distinction the normal untap phase honours (reducer-untap.ts).
@@ -4433,7 +4433,7 @@ export function agentPlayManifestationActions(
   const actions: EvaluatedAction[] = [];
   if (actorPlayer) {
     const company = companyById(actorPlayer.companies, companyId);
-    const gollum = actorPlayer.hand.find(c => (defById(state, c.definitionId) as { name?: string })?.name === manifestationCardName);
+    const gollum = actorPlayer.hand.find(c => defById(state, c.definitionId)?.name === manifestationCardName);
     if (company && gollum) {
       for (const charId of company.characters) {
         const ch = actorPlayer.characters[charId];
