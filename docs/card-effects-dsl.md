@@ -1668,23 +1668,23 @@ kill marshalling points."
 Converts every detainment attack against the carrier's player's companies into a
 normal attack (CoE §3.II — a detainment attack taps rather than wounds, suppresses
 the body check, and awards no kill MP; a normal attack does none of those). While
-a character carrying this effect is in play and the player's `stagePoints` total
-is strictly greater than `stagePointsAbove` (default 0), any attack the engine
+a character carrying this effect is in play and its optional `when` condition
+holds against the player-state context (`player.stagePoints`,
+`player.alignment`, …; always active when omitted), any attack the engine
 would otherwise treat as detainment — whether from a `combat-detainment` effect, a
 site-forced detainment rule, or the alignment-based §3.II keying rules — resolves
 as a normal attack instead. Computed per defending player by
-`normalAttackOverride` (`reducer-utils.ts`, which collects all three
+`normalAttackOverride` (`normal-attack-override.ts`, which collects all three
 detainment-to-normal sources — this one, `auto-attacks-normal` and
 `keyed-attacks-normal`) and spread into `isDetainmentAttack` as
 `defenderForcesNormalAttacks`, which short-circuits the
 whole detainment computation to `false` at every combat-initiation call site.
 
 Used by Alatar (wh-1): "If you have more than 7 stage points, all detainment
-attacks against your companies attack normally instead." Here `stagePointsAbove`
-is 7.
+attacks against your companies attack normally instead."
 
 ```json
-{ "type": "detainment-attacks-normal", "stagePointsAbove": 7 }
+{ "type": "detainment-attacks-normal", "when": { "player.stagePoints": { "$gt": 7 } } }
 ```
 
 ### 3e-bis. `auto-attacks-normal`

@@ -14,7 +14,8 @@
 import type { GameState, PlayerState, CombatState, Company, CardInstanceId, AutomaticAttack } from '../index.js';
 import type { StrikeAssignment } from '../types/state-combat.js';
 import { getPlayerIndex } from '../state-utils.js';
-import { defById, hazardPlayer, isCovertCompany, normalAttackOverride, resolveAttackerChoosesDefenders } from './reducer-utils.js';
+import { defById, hazardPlayer, isCovertCompany, resolveAttackerChoosesDefenders } from './reducer-utils.js';
+import { normalAttackOverride } from './normal-attack-override.js';
 import { normalizeCreatureRace, resolveAttackBody, resolveAttackProwess, resolveAttackStrikes } from './effects/index.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { getEffectiveSiteType, siteAutoAttacksForcedDetainment } from './effective.js';

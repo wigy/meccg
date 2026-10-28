@@ -38,7 +38,8 @@ import { matchesCondition, matchesContext } from '../effects/condition-matcher.j
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId } from '../types/state.js';
 import { enqueueDiscardSubstituteOffer } from './discard-substitute.js';
-import { applyBearerWoundedDiscards, attackSourceCreatureInstanceId, makeCombatState, resolveAttackerChoosesDefenders, cardName, cleanupEmptyCompanies, clonePlayers, companyById, companySubphaseScope, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, matchesDefinition, partitionLeavingAllies, normalAttackOverride, raceForCardTextFilter, playerHasKillMpExemption, ringwraithReclaimMark, sweepCharacterLeavesCompanyEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, findCardEffect } from './reducer-utils.js';
+import { applyBearerWoundedDiscards, attackSourceCreatureInstanceId, makeCombatState, resolveAttackerChoosesDefenders, cardName, cleanupEmptyCompanies, clonePlayers, companyById, companySubphaseScope, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, matchesDefinition, partitionLeavingAllies, raceForCardTextFilter, playerHasKillMpExemption, ringwraithReclaimMark, sweepCharacterLeavesCompanyEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, findCardEffect } from './reducer-utils.js';
+import { normalAttackOverride } from './normal-attack-override.js';
 import { partitionLeavingTrophies, creatureKillMpMatchesAlignment } from './trophy-dispersal.js';
 import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, resolveDef, enemyRaceContext } from './effects/index.js';
 import { isDetainmentAttack } from './detainment.js';
