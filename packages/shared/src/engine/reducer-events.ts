@@ -1876,8 +1876,8 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
   // company-vs-company combat. On resolution, in order: (1) discard all no-body
   // allies at the site; (2) tap every untapped ally and every untapped
   // character with a mind stat; (3) enqueue one wound-or-eliminate roll per
-  // character with a mind stat < characterMindBelow and per ally normally worth
-  // < allyMpBelow MP. The emitter (siteStormAtSiteActions) already gated on the
+  // character with a mind stat matching characterFilter and per ally matching
+  // allyFilter (target.marshallingPoints = the ally's printed MP). The emitter (siteStormAtSiteActions) already gated on the
   // combat being CvCC, the Balrog's company being present and not at an
   // Under-deeps site, and the opposing company containing a Wizard.
   const stormEffect = (def.effects ?? []).find(
@@ -1964,9 +1964,10 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
         const host = working.players[ownerIndex].characters[charId];
         if (!host) continue;
         const charDef = defById(working, host.definitionId);
-        if (charDef && isCharacterCard(charDef) && charDef.mind !== null && charDef.mind < stormEffect.characterMindBelow) {
+        if (charDef && isCharacterCard(charDef) && charDef.mind !== null
+          && (!stormEffect.characterFilter || matchesCondition(stormEffect.characterFilter, { target: { race: charDef.race, mind: charDef.mind, name: charDef.name, skills: charDef.skills } }))) {
           const body = charDef.body ?? 0;
-          logDetail(`${def.name}: enqueueing storm roll for character ${charDef.name} (mind ${charDef.mind} < ${stormEffect.characterMindBelow}, body ${body})`);
+          logDetail(`${def.name}: enqueueing storm roll for character ${charDef.name} (mind ${charDef.mind} matches characterFilter, body ${body})`);
           working = enqueueResolution(working, {
             source: handCard.instanceId,
             actor: action.player,
@@ -1987,9 +1988,9 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
         for (const ally of host.allies) {
           const allyDef = defById(working, ally.definitionId);
           const allyMp = isAllyCard(allyDef) ? allyDef.marshallingPoints : 0;
-          if (allyMp < stormEffect.allyMpBelow) {
+          if (!stormEffect.allyFilter || matchesCondition(stormEffect.allyFilter, { target: { name: allyDef?.name, marshallingPoints: allyMp } })) {
             const body = allyEffectiveBody(working, ally) ?? 0;
-            logDetail(`${def.name}: enqueueing storm roll for ally ${ally.instanceId as string} (MP ${allyMp} < ${stormEffect.allyMpBelow}, body ${body})`);
+            logDetail(`${def.name}: enqueueing storm roll for ally ${ally.instanceId as string} (MP ${allyMp} matches allyFilter, body ${body})`);
             working = enqueueResolution(working, {
               source: handCard.instanceId,
               actor: action.player,
