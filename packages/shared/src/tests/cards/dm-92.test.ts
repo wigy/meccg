@@ -126,6 +126,11 @@ describe('To Get You Away (dm-92)', () => {
     const agent = after.players[HAZARD_PLAYER].agents[0];
     expect(agent.siteStack.map(s => s.definitionId)).toEqual([CAMETH_BRIN]);
     expect(after.players[HAZARD_PLAYER].siteDeck.map(s => s.definitionId)).toEqual([BREE]);
+
+    // The prisoner is held off to the side at Cameth Brin, not with the
+    // company it was taken from (CoE 3.III.1) — but the card stays in play.
+    expect(after.players[RESOURCE_PLAYER].companies.some(c => c.characters.includes(aragornId))).toBe(false);
+    expect(after.players[RESOURCE_PLAYER].characters[aragornId]).toBeDefined();
   });
 
   test('choosing the agent\'s own home site keeps the prisoner and the agent there', () => {
@@ -197,5 +202,46 @@ describe('To Get You Away (dm-92)', () => {
     expect(after.combat!.strikesTotal).toBe(3);
     expect(after.combat!.strikeProwess).toBe(8);
     expect(after.combat!.protectedFromStrikeAssignment).toContain(aragornId);
+  });
+
+  test('another company entering the rescue site frees the prisoner, who joins it', () => {
+    // Aragorn is held off to the side at Cameth Brin; Gimli's company enters
+    // the site, faces the rescue-attack and taps to free him.
+    const captured = fightAgentStrike(playHazardWithPrisonSite(buildAgentAtBreeMHState(TO_GET_YOU_AWAY, CAMETH_BRIN), CAMETH_BRIN), 12, 2);
+    const capturedHost = captured.hazardHosts[0];
+
+    resetMint();
+    const base = buildSitePhaseState({ site: CAMETH_BRIN, characters: [ARAGORN, GIMLI] });
+    const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
+    const gimliId = findCharInstanceId(base, RESOURCE_PLAYER, GIMLI);
+    const hostId = capturedHost.hostCard.instanceId;
+    const state: GameState = {
+      ...base,
+      activeConstraints: [...base.activeConstraints, {
+        id: 'c-prisoner-tgya' as ConstraintId,
+        source: hostId,
+        sourceDefinitionId: TO_GET_YOU_AWAY,
+        scope: { kind: 'until-cleared' },
+        target: { kind: 'character', characterId: aragornId },
+        kind: { type: 'character-is-prisoner', hostInstanceId: hostId },
+      }],
+      hazardHosts: [{ ...capturedHost, prisoners: [aragornId] }],
+      players: base.players.map((p, i) => (i === RESOURCE_PLAYER
+        ? { ...p, companies: p.companies.map(c => ({ ...c, characters: c.characters.filter(id => id !== aragornId) })) }
+        : p)) as unknown as GameState['players'],
+    };
+
+    expect(viableActions(state, PLAYER_1, 'rescue-prisoner')).toHaveLength(1);
+    const declared = dispatch(state, { type: 'rescue-prisoner', player: PLAYER_1, hostInstanceId: hostId });
+    // Skip the rescue-attack combat itself (covered above) to the rescue-tap.
+    const faced = dispatch(
+      { ...declared, combat: null, phaseState: { ...(declared.phaseState as SitePhaseState), rescueInProgress: { hostInstanceId: hostId, resolved: 1 } } },
+      { type: 'pass', player: PLAYER_1 },
+    );
+    expect((faced.phaseState as SitePhaseState).step).toBe('rescue-tap');
+
+    const after = dispatch(faced, { type: 'rescue-prisoner', player: PLAYER_1, hostInstanceId: hostId, characterInstanceId: gimliId });
+    expect(after.hazardHosts).toHaveLength(0);
+    expect(after.players[RESOURCE_PLAYER].companies[0].characters).toEqual([gimliId, aragornId]);
   });
 });
