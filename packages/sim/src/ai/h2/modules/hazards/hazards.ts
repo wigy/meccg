@@ -90,8 +90,8 @@ import { automaticAttacksOf } from '../../services/defence.js';
 import { bestBundleStartingWith, planBundles } from './bundle.js';
 import { denialContext, denialPricer } from '../../services/denial.js';
 import {
-  ALL_RACES, attackBoostOf, boostFor, boostForRace, boostInPlay, facedRacesFromHistory, mergeBoosts,
-  nameOfDefinition, sameBoost, selfFacedRaceBoostOf,
+  ALL_RACES, attackBoostOf, boostFor, boostForRace, boostInPlay, conditionOf, facedRacesFromHistory, inPlayNamed,
+  mergeBoosts, nameOfDefinition, sameBoost, selfFacedRaceBoostOf,
 } from '../../services/attack-modifiers.js';
 import { unseenDeckCards } from '../../services/deck-reach.js';
 import type { AttackBoost } from '../../services/attack-modifiers.js';
@@ -988,18 +988,21 @@ function evaluateHazardEvent(
   const tidings = duplicatedAutoAttacks(action, context, company, cardPool[card.definitionId]);
   if (tidings) return tidings;
 
-  const gain = boostGain(cardPool[card.definitionId], card.definitionId as string, context, company)
+  let gain: { tsd: number; reason: string; wasted?: boolean } = boostGain(cardPool[card.definitionId], card.definitionId as string, context, company)
     ?? removalGain(record, context)
     ?? corruptionHazardGain(cardPool[card.definitionId], record.targetCharacterId as never, company, context)
     ?? siteDenialGain(cardPool[card.definitionId], record.targetSiteDefinitionId, company, context)
     ?? callOfHomeGain(cardPool[card.definitionId], record.targetCharacterId as never, context)
     ?? influencePenaltyGain(cardPool[card.definitionId], record.targetCharacterId as never, company, context)
     ?? directInfluencePenaltyGain(cardPool[card.definitionId], record.targetCharacterId as never, company, context)
-    ?? recoveryGain(def?.effects ?? [], tunables)
+    ?? recoveryGain(def?.effects ?? [], context)
     // No family prices it. What is left is the play itself — a card traded for
     // the next one off the deck at the hand reset — so it is scored at that,
     // not declined: "if in doubt, play it" (see `hazardCardPrice`).
     ?? { tsd: 0, reason: 'no effect this module prices — played for the card rotation' };
+
+  const upgrade = handUpgradeGain(name, record.cardInstanceId, context);
+  if (upgrade) gain = { tsd: gain.tsd + upgrade.tsd, reason: `${gain.reason}; ${upgrade.reason}` };
 
   // A play that cannot do anything (a corruption hazard on a Ringwraith) buys
   // no rotation worth the card: kept, it waits for a target it can hurt.
@@ -1101,12 +1104,25 @@ function removalGain(
   };
 }
 
-/** What an event that recycles cards into our own deck or hand is worth. */
+/**
+ * What an event that recycles cards into our own deck or hand is worth.
+ *
+ * A move with a `when` clause counts only where the clause holds — read with
+ * the same `conditionOf` the attack boosts use, so an unreadable clause is
+ * dropped rather than assumed. An Unexpected Outpost's second fetch is
+ * conditioned on Doors of Night; counted regardless, it credited the Outpost
+ * the doubled fetch with no Doors of Night out, so the agent played it first
+ * and the upgrade was lost, where strong players lead with Doors of Night.
+ * `hypothetical` is a card whose play is being priced, as in `boostInPlay`.
+ */
 function recoveryGain(
-  effects: readonly { type?: string; to?: string; count?: number }[],
-  tunables: ModuleContext['tunables'],
+  effects: readonly { type?: string; to?: string; count?: number; when?: Readonly<Record<string, unknown>> }[],
+  context: ModuleContext,
+  hypothetical?: string,
 ): { tsd: number; reason: string } | null {
-  const moves = effects.filter(e => e.type === 'move' && (e.to === 'deck' || e.to === 'hand'));
+  const { view, cardPool, tunables } = context;
+  const moves = effects.filter(e => e.type === 'move' && (e.to === 'deck' || e.to === 'hand')
+    && (e.when === undefined || conditionOf(e.when, view, cardPool, hypothetical)?.applies === true));
   if (moves.length === 0) return null;
   const cards = moves.reduce((sum, move) => sum + (move.count ?? 1), 0);
   const toHand = moves.every(move => move.to === 'hand');
@@ -1118,6 +1134,41 @@ function recoveryGain(
     reason: `${cards} card(s) back into the ${toHand ? 'hand' : 'deck'}, at `
       + `${each.toFixed(2)} each${toHand ? '' : ' — discounted for being a draw away'}`,
   };
+}
+
+/**
+ * What playing a card is worth to the hazard events still in hand that name it.
+ *
+ * Doors of Night does nothing by itself to a company; its worth is the cards
+ * whose text reads "if Doors of Night is in play". For each other hazard event
+ * in hand whose recovery is larger with this card out than without, the card
+ * is credited the *whole* upgraded recovery — the convention `boostGain` uses
+ * for a boost and the creatures behind it, and for the same reason: crediting
+ * only the difference left the enabler tied with the card it enables, and the
+ * tie went to the card that wastes the upgrade by being played first.
+ */
+function handUpgradeGain(
+  name: string,
+  instanceId: string,
+  context: ModuleContext,
+): { tsd: number; reason: string } | null {
+  const { view, cardPool } = context;
+  if (inPlayNamed(view, cardPool, name)) return null;
+  let tsd = 0;
+  const upgraded: string[] = [];
+  for (const card of view.self.hand) {
+    if ((card.instanceId as string) === instanceId) continue;
+    const effects = (cardPool[card.definitionId] as unknown as {
+      effects?: readonly { type?: string; to?: string; count?: number; when?: Readonly<Record<string, unknown>> }[];
+    } | undefined)?.effects ?? [];
+    const without = recoveryGain(effects, context)?.tsd ?? 0;
+    const withIt = recoveryGain(effects, context, name)?.tsd ?? 0;
+    if (withIt <= without) continue;
+    tsd += withIt;
+    upgraded.push(nameOfDefinition(cardPool[card.definitionId], card.definitionId as string));
+  }
+  if (upgraded.length === 0) return null;
+  return { tsd, reason: `upgrades ${upgraded.join(', ')} in hand, played after it` };
 }
 
 /**
