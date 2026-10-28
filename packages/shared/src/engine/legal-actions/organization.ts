@@ -43,7 +43,7 @@ import { buildSiteFilterContext, getEffectiveRegionType } from '../effective.js'
 import { controlCostOf } from '../control-cost.js';
 import { activePlayerState, companyMHPhaseOptionSpent, cardName, characterEntries, companyAttemptSupportBonus, companyEffectiveSize, companyEffectiveSizeOf, companySiteName, defById, defNamesOf, effectiveInPlayDef, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, isCorruptionCardDef, itemKeywordsOf, itemsMatchingFilter, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, protectedWizardhavenCount, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer, altShortEventReshuffleEffect, playerHasReshuffleMatch, playerPlaysAsSauron, findAttachment } from '../reducer-utils.js';
 import { constraintFromCard, countConstraintsFromDefinition } from '../pending.js';
-import { fetchZoneItemInstanceIds, hasSitePlayableFetchCandidate, isUniqueCharacterInPlay, siteMatchesEntry, siteHasDragonAtHomeVictory, hasSiteFlag, isUnderDeepsSiteRef, getOnEventEffects, collectTapTakeItemCandidates, characterHasCannotUntapConstraint } from '../reducer-utils.js';
+import { fetchZoneItemInstanceIds, hasSitePlayableFetchCandidate, isUniqueCharacterInPlay, hasSiteFlag, isUnderDeepsSiteRef, getOnEventEffects, collectTapTakeItemCandidates, characterHasCannotUntapConstraint } from '../reducer-utils.js';
 import { manifestationOfEntityInPlay, charactersInPlayNames } from '../manifestations.js';
 import { findMoveEffectByShape, moveToFetchToDeckPayload } from '../reducer-move.js';
 import type { ResolverContext } from '../effects/index.js';
@@ -744,12 +744,19 @@ export function cofPairResourceActions(state: GameState, playerId: PlayerId): Ev
     for (const card of player.hand) {
       const def = defById(state, card.definitionId);
       if (!def) continue;
-      if (
-        def.cardType !== 'hero-resource-event' &&
-        def.cardType !== 'hero-resource-item' &&
-        def.cardType !== 'hero-resource-ally' &&
-        def.cardType !== 'hero-resource-faction'
-      ) continue;
+      // Crown of Flowers only re-interprets the *text* of the resource played
+      // with it (as though Gates of Morning were in play and Doors of Night
+      // were not) — it does not waive the resource's normal play timing or
+      // requirements. Allies, factions and items can only be played during a
+      // company's site phase (CoE 2.V.2–2.V.4): by tapping an untapped
+      // character at an untapped site, placing the ally/item under that
+      // character's control (or making the faction's influence check) and
+      // tapping the site. This organization-phase pairing moves the resource
+      // straight into the player's general cardsInPlay, so offering one here
+      // would let e.g. Gollum (tw-246) enter play out of phase, at a tapped
+      // site, with no controlling character. Only resource events, which do
+      // sit in play on their own, are offered.
+      if (def.cardType !== 'hero-resource-event') continue;
 
       // Short-events (CoE 5.1) are only playable at the moment they have an
       // immediate effect (e.g. Muster tw-288 during an influence check), and
@@ -757,32 +764,11 @@ export function cofPairResourceActions(state: GameState, playerId: PlayerId): Ev
       // a static resource. Pairing one with Crown of Flowers here would move
       // it into cardsInPlay with no target and no check to modify, so only
       // long/permanent resource-events (which do sit in play) are offered.
-      if (def.cardType === 'hero-resource-event' && def.eventType === 'short') continue;
+      if (def.eventType === 'short') continue;
 
-      // Crown of Flowers only re-interprets the resource's own text as though
-      // Gates of Morning were in play and Doors of Night were not — it "does
-      // not affect the interpretation of any card except the resource played
-      // with it" and does not waive the resource's other play requirements.
-      // Allies/factions still need a company at a site matching their printed
-      // `playableAt` (e.g. Gollum requires Goblin-gate or Moria); otherwise
-      // Crown of Flowers would let any site-restricted ally or faction — or
-      // The One Ring's ally-like effects — enter play from anywhere for free.
-      if (isAllyCard(def) || isFactionCard(def)) {
-        const hasQualifyingSite = player.companies.some(company => {
-          if (!company.currentSite) return false;
-          const siteDef = defById(state, company.currentSite.definitionId);
-          return siteDef !== undefined && isSiteCard(siteDef)
-            && def.playableAt.some(entry => siteMatchesEntry(siteDef, entry, undefined, undefined, undefined, siteHasDragonAtHomeVictory(state, siteDef.id)));
-        });
-        if (!hasQualifyingSite) {
-          logDetail(`${cofDef.name}: ${def.name} not offered as pair — no company at a site matching its playableAt`);
-          continue;
-        }
-      }
-
-      // Same principle for resource events with their own `play-target: site`
-      // effect (The Windlord Found Me dm-164: "Playable at an untapped
-      // Isengard, Shadow-hold, or Dark-hold"). Crown of Flowers reinterprets
+      // Resource events with their own `play-target: site` effect (The
+      // Windlord Found Me dm-164: "Playable at an untapped Isengard,
+      // Shadow-hold, or Dark-hold"). Crown of Flowers reinterprets
       // only the paired resource's *text*, not the company's location — a
       // company merely planning to move to a qualifying site does not
       // satisfy the requirement until it actually arrives there.

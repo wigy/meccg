@@ -460,7 +460,7 @@ export function renderCompanyBlock(
       const resourceCompanies = isSelfTurn ? view.self.companies : view.opponent.companies;
       const activeCompany = resourceCompanies[view.phaseState.activeCompanyIndex];
       if (activeCompany && company.id === activeCompany.id) {
-        const hazardLimit = getHazardLimitLabel(view);
+        const hazardLimit = getHazardLimitLabel(view, cardPool);
         if (hazardLimit !== null) {
           const hazardLimitBadge = document.createElement('span');
           hazardLimitBadge.className = 'company-hazard-limit-badge';
@@ -1478,6 +1478,49 @@ export function findSideboardWithNazgulActions(
 }
 
 /**
+ * Board-menu label for a `sideboard-with-nazgul` activation. Names the Nazgûl
+ * being given up and the destination, so the entry reads distinctly from the
+ * Nazgûl's own "tap → becomes a short-event" ability in the same menu.
+ *
+ * Exported so the menu text can be regression-tested.
+ */
+export function sideboardWithNazgulMenuLabel(action: SideboardWithNazgulAction, nazgulName: string): string {
+  return action.destination === 'deck'
+    ? `Tap & discard ${nazgulName}: fetch 1 hazard to play deck`
+    : `Tap & discard ${nazgulName}: fetch hazards to discard pile`;
+}
+
+/**
+ * Start a `tap-alt-permanent-event` from a board click. A targetless tap
+ * (Ûvatha tw-107) fires immediately; a tap that needs a character (Adûnaphel
+ * tw-2) toggles the two-step character-targeting selection instead.
+ *
+ * @param instanceId - The in-play creature-permanent-event being tapped.
+ * @param tapAltActions - Its viable tap actions (one per target character).
+ * @param isSelected - Whether the card is already selected for targeting
+ *   (a repeat click then cancels the selection).
+ * @param onAction - Dispatches a chosen action.
+ */
+function beginTapAltPermanentEvent(
+  instanceId: CardInstanceId,
+  tapAltActions: readonly TapAltPermanentEventAction[],
+  isSelected: boolean,
+  onAction: (action: GameAction) => void,
+): void {
+  const withTarget = tapAltActions.filter(a => a.targetCharacterId);
+  if (withTarget.length === 0) {
+    // No character to choose (e.g. tw-107): fire the single action.
+    clearTapAltPermanentEventSelection();
+    onAction(tapAltActions[0]);
+    return;
+  }
+  // Toggle the two-step character-targeting selection.
+  setSelectedTapAltPermanentEvent(isSelected ? null : instanceId);
+  setTargetingInstruction(isSelected ? null : 'Click a character to tap');
+  rerender();
+}
+
+/**
  * Find the viable `activate-granted-action` activations granted by a bare
  * in-play card (a `cardsInPlay` entry with no bearer), e.g. The Lidless Eye
  * (le-203) / Sauron (ba-43) offering `sauron-sideboard-fetch` and
@@ -1761,23 +1804,44 @@ export function renderInPlayCardImage(
     // Without this neither action had a board affordance (bug report
     // 1d452f3f0db6495d).
     const summonsActs = findSummonsFromLongSleepActions(viableActions(view.legalActions), card.instanceId);
-    if (tapAltActions.length > 0) {
+    if (tapAltActions.length > 0 && sideboardWithNazgulActs.length > 0) {
+      // A Nazgûl with both its own tap ability and sideboard access (rule
+      // 2.IV.vii.5): the click must offer both, or the tap ability shadows
+      // the fetch and the player can't pick which Nazgûl to discard.
       const isSelected = getSelectedTapAltPermanentEvent() === card.instanceId;
       img.classList.add('company-card--movable');
       if (isSelected) img.classList.add('company-card--influence-source');
       img.addEventListener('click', (e) => {
         e.stopPropagation();
-        const withTarget = tapAltActions.filter(a => a.targetCharacterId);
-        if (withTarget.length === 0) {
-          // No character to choose (e.g. tw-107): fire the single action.
+        if (isSelected) {
+          // Second click on a card awaiting a tap target cancels the selection.
           clearTapAltPermanentEventSelection();
-          onAction(tapAltActions[0]);
+          rerender();
           return;
         }
-        // Toggle the two-step character-targeting selection.
-        setSelectedTapAltPermanentEvent(isSelected ? null : card.instanceId);
-        setTargetingInstruction(isSelected ? null : 'Click a character to tap');
-        rerender();
+        const nazgulName = cardPool[card.definitionId as string]?.name ?? 'Nazgûl';
+        showTooltipMenu(
+          img,
+          [
+            {
+              label: `Tap ${nazgulName}: becomes a short-event`,
+              onClick: () => beginTapAltPermanentEvent(card.instanceId, tapAltActions, false, onAction),
+            },
+            ...sideboardWithNazgulActs.map(action => ({
+              label: sideboardWithNazgulMenuLabel(action, nazgulName),
+              onClick: () => onAction(action),
+            })),
+          ],
+          { placement: 'auto' },
+        );
+      });
+    } else if (tapAltActions.length > 0) {
+      const isSelected = getSelectedTapAltPermanentEvent() === card.instanceId;
+      img.classList.add('company-card--movable');
+      if (isSelected) img.classList.add('company-card--influence-source');
+      img.addEventListener('click', (e) => {
+        e.stopPropagation();
+        beginTapAltPermanentEvent(card.instanceId, tapAltActions, isSelected, onAction);
       });
     } else if (tapAction) {
       img.classList.add('company-card--movable');
@@ -1829,10 +1893,11 @@ export function renderInPlayCardImage(
           onAction(sideboardWithNazgulActs[0]);
           return;
         }
+        const nazgulName = cardPool[card.definitionId as string]?.name ?? 'Nazgûl';
         showTooltipMenu(
           img,
           sideboardWithNazgulActs.map(action => ({
-            label: action.destination === 'deck' ? 'Fetch to Deck' : 'Fetch to Discard',
+            label: sideboardWithNazgulMenuLabel(action, nazgulName),
             onClick: () => onAction(action),
           })),
           { placement: 'auto' },

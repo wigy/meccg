@@ -153,7 +153,10 @@ describe('sideboard-with-nazgul offered by an in-play Nazgûl permanent-event (H
     expect(tooltip).toBeDefined();
     const buttons = tooltip!.children.filter(c => c.tagName === 'button');
     expect(buttons).toHaveLength(2);
-    expect(buttons.map(b => b.textContent)).toEqual(['Fetch to Discard', 'Fetch to Deck']);
+    expect(buttons.map(b => b.textContent)).toEqual([
+      'Tap & discard Hoarmûrath of Dír: fetch hazards to discard pile',
+      'Tap & discard Hoarmûrath of Dír: fetch 1 hazard to play deck',
+    ]);
 
     buttons[1].click();
     expect(onAction).toHaveBeenCalledWith(sideboardWithNazgul('deck'));

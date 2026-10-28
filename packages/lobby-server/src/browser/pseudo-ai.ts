@@ -8,7 +8,7 @@
  */
 
 import type { ClientMessage, GameAction, JoinMessage, ServerMessage } from '@meccg/shared';
-import { Alignment, buildCompanyNames, buildInstanceLookup, canonicalActionKey, describeAction, isMetaAction } from '@meccg/shared';
+import { Alignment, buildAgentNames, buildCompanyNames, buildInstanceLookup, canonicalActionKey, describeAction, isMetaAction } from '@meccg/shared';
 import { appState, cardPool, buildJoinFromDeck, type FullDeck } from './app-state.js';
 import { addJsonToggle } from './render-utils.js';
 
@@ -184,6 +184,7 @@ export function connectPseudoAi(aiName: string, aiDeck?: FullDeck | null): void 
         const aiCompanyNames = {
           ...buildCompanyNames(msg.view.self.companies, msg.view.self.characters, cardPool),
           ...buildCompanyNames(msg.view.opponent.companies as never, msg.view.opponent.characters, cardPool),
+          ...buildAgentNames(msg.view.self.agents, msg.view.opponent.agents, cardPool),
         };
         const aiPlayerNames = {
           [msg.view.self.id as string]: msg.view.self.name,

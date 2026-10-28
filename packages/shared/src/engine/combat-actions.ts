@@ -37,7 +37,7 @@ import { findAllyInCompany, findItemInCompany, buildPlayedModifyAttackContext } 
 import { allyEffectiveBody } from './ally-stats.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { cardName, cleanupEmptyCompanies, clonePlayers, companyById, companyShadowMagicUsers, companySubphaseScope, countNazgulPermanentEventsInPlay, defById, diceRollEffect, discardOrRecyclePlayedEvent, findAttachment, findById, findCharacterCompany, getCardEffects, getOnEventEffects, partitionLeavingAllies, removeAttachment, removeById, resolveCreatureBodyForCheck, ringwraithReclaimMark, roll2d6, rollDiceForPlayer, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { attackSourceCreatureInstanceId, cardName, cleanupEmptyCompanies, clonePlayers, companyById, companyShadowMagicUsers, companySubphaseScope, countNazgulPermanentEventsInPlay, defById, diceRollEffect, discardOrRecyclePlayedEvent, findAttachment, findById, findCharacterCompany, getCardEffects, getOnEventEffects, partitionLeavingAllies, removeAttachment, removeById, resolveCreatureBodyForCheck, ringwraithReclaimMark, roll2d6, rollDiceForPlayer, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { evaluateExpr } from './effects/expression-eval.js';
 import { resolveEnemyBody, resolveDef } from './effects/index.js';
 import { buildInPlayNames } from './recompute-derived.js';
@@ -2435,6 +2435,9 @@ export function handleModifyAttack(state: GameState, action: GameAction, combat:
     let altPermanentEvent = false;
     if (!sourceCard) {
       const inPlayCard = findById(player.cardsInPlay, action.cardInstanceId);
+      if (inPlayCard && inPlayCard.instanceId === attackSourceCreatureInstanceId(combat)) {
+        return { state, error: 'modify-attack: the attacking creature is not a permanent-event' };
+      }
       if (inPlayCard) {
         sourceCard = { instanceId: inPlayCard.instanceId, definitionId: inPlayCard.definitionId };
         altPermanentEvent = true;

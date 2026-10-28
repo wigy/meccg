@@ -5411,6 +5411,26 @@ h2 {
   display: block;
 }
 
+/* "Large card preview" setting: grow the in-game hover preview to fill
+   the available screen height (capped so it stays readable on big
+   monitors). The attribute rows below the image may then run past the
+   bottom edge; the card text itself is what this mode is for. */
+body.large-card-preview #card-preview .card-preview-info {
+  max-width: calc(var(--large-preview-width) + 1.4rem + 2px);
+}
+
+body.large-card-preview #card-preview {
+  --large-preview-width: min(32rem, calc((100vh - 6rem) * 420 / 587));
+}
+
+body.large-card-preview #card-preview .card-preview-info img {
+  width: var(--large-preview-width);
+}
+
+body.large-card-preview #card-preview > img {
+  height: calc(100vh - 4rem);
+}
+
 .card-preview-name {
   font-family: 'MedievalSharp', cursive;
   font-size: 1.1rem;

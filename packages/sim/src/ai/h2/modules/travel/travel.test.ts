@@ -44,6 +44,13 @@ const WOUNDED_VS_HAVEN = 'travel/wounded-company-shadow-hold-vs-haven';
  */
 const ALLY_DISCARDED_ON_ARRIVAL = 'travel/ally-discarded-on-arrival';
 
+/**
+ * Both companies under Enchanted Stream (as-27) at the start of their
+ * organization phase, so no movement is offered until each pays its tax
+ * (game mvkp0egj-gbczgp, turn 16, where the AI passed instead every turn).
+ */
+const ENCHANTED_STREAM = 'travel/enchanted-stream-movement-tax';
+
 /** The scenario as a module context. */
 function position(id: string = SCENARIO): { context: ModuleContext; actions: GameAction[] } {
   const scenario = loadScenario(id);
@@ -495,5 +502,22 @@ describe('plays behind a site\'s automatic attacks', () => {
     const text = JSON.stringify(travelModule.evaluate(plan!, context)!.rationale);
     expect(text).toContain('"label":"taps available","value":0');
     expect(text).toContain('tapped facing the automatic attacks');
+  });
+});
+
+describe('a company held by Enchanted Stream', () => {
+  test('pays the movement tax rather than staying stranded', () => {
+    // With movement locked behind the tax the module used to see nothing to
+    // claim, and the fallback passed every organization phase — both of the
+    // AI's companies sat under the hazard for the rest of the game.
+    const { context, actions } = position(ENCHANTED_STREAM);
+    expect(actions.some(a => a.type === 'plan-movement')).toBe(false);
+    const pay = actions.find(a => a.type === 'pay-movement-tax'
+      && (a as unknown as { companyId: string }).companyId === 'company-p2-0');
+    expect(pay).toBeDefined();
+    expect(travelModule.claims!(context)).toBe(true);
+    const paying = travelModule.evaluate(pay!, context)!;
+    const stay = travelModule.evaluate({ type: 'pass' } as unknown as GameAction, context)!;
+    expect(paying.expectedTsd).toBeGreaterThan(stay.expectedTsd);
   });
 });

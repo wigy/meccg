@@ -8,7 +8,7 @@
  */
 
 import type { CardDefinitionId, CardInstanceId, ClientMessage, EvaluatedAction, GameAction, ServerMessage, StateMessage } from '@meccg/shared';
-import { buildCompanyNames, buildInstanceLookup, canonicalActionKey, describeAction, isMetaAction } from '@meccg/shared';
+import { buildAgentNames, buildCompanyNames, buildInstanceLookup, canonicalActionKey, describeAction, isMetaAction } from '@meccg/shared';
 import {
   appState, cardPool, LOBBY_MODE, buildJoinFromDeck,
   MAX_RECONNECT_ATTEMPTS, AUTO_PASS_KEY, type ScreenId,
@@ -507,6 +507,7 @@ export async function renderStateMessage(msg: StateMessage): Promise<void> {
   appState.lastCompanyNames = {
     ...buildCompanyNames(msg.view.self.companies, msg.view.self.characters, cardPool),
     ...buildCompanyNames(msg.view.opponent.companies as never, msg.view.opponent.characters, cardPool),
+    ...buildAgentNames(msg.view.self.agents, msg.view.opponent.agents, cardPool),
   };
   appState.lastPlayerNames = {
     [msg.view.self.id as string]: msg.view.self.name,
