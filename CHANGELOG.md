@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.225.0 — 2026-10-28
+
+Modular AI Learns the Environment Wars, Saruman Fetches Sacrifice of Form
+
+### Cards
+
+- Sacrifice of Form (tw-181) is now tagged with the spell keyword, so Saruman can fetch it (#3446)
+
+### AI
+
+- Modular AI prices Doors of Night for the deck cards it upgrades and credits it with the creatures it lets you key (#3445, #3448)
+- Modular AI prices Gates of Morning, including its sweep of hazard environments (#3447)
+- Modular AI prices environments held and cancelled: held permanent events are worth the cards that read them, Twilight's cancel is priced per target environment, and Doors of Night is no longer charged for sweeping our own environments (#3455)
+- Modular AI plays Twilight a bit more on environments, halving missed human Twilights against strong-player seats (#3450)
+
+### Infrastructure
+
+- Engine refactors: typed `findCardEffect`/`hasCardEffect` effect lookups replace 328 hand-written lookups, shared reducer commit and pending-effect dispatch helpers, a shared discarded-from-hand diff for hand-discard triggers, and redundant card-name casts dropped (#3451, #3452, #3453, #3454)
+
 ## 0.224.0 — 2026-10-28
 
 Company-Combat Kill MP Fixed, Modular AI Prices Seven More Plays
