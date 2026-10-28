@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1423 | 1423 | 0 | 100.0% |
+| 1424 | 1424 | 0 | 100.0% |
 
 ## Category Breakdown
 
@@ -16,7 +16,7 @@
 | BA | 101 | 101 | 100.0% |
 | DM | 158 | 158 | 100.0% |
 | LE | 346 | 346 | 100.0% |
-| TD | 151 | 151 | 100.0% |
+| TD | 152 | 152 | 100.0% |
 | TW | 430 | 430 | 100.0% |
 | WH | 104 | 104 | 100.0% |
 
@@ -812,6 +812,7 @@
 | td-65 | Scorba at Home | — | 10 | ☑ |
 | td-66 | Sea Serpent | — | 4 | ☑ |
 | td-67 | Searching Eye | — | 9 | ☑ |
+| td-68 | Shadow of Mordor | — | 11 | ☑ |
 | td-70 | Smaug Ahunt | — | 17 | ☑ |
 | td-71 | Smaug at Home | — | 14 | ☑ |
 | td-73 | Stormcrow | — | 12 | ☑ |

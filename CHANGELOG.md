@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.224.0 — 2026-10-28
+
+Company-Combat Kill MP Fixed, Modular AI Prices Seven More Plays
+
+### Cards
+
+- Certified Shadow of Mordor (td-68) (#3444)
+
+### Game Engine
+
+- Characters eliminated in company vs. company combat now award their printed MP as kill MP to the opposing player (CoE 3.v) (#3443)
+
+### Web Client
+
+- A Nazgûl that offers both its own tap ability and a sideboard fetch now opens one menu with both, so the player can choose which Nazgûl to discard for sideboard access; menu labels name the Nazgûl and destination (#3435)
+- The player's own plain 2d6 rolls (corruption, resistance, influence, ...) are now logged in the game message panel, not only the opponent's (#3436)
+
+### AI
+
+- Modular AI prices tap-item-for-strike plays such as Shield of Iron-bound Ash (#3434)
+- Modular AI prices hazard-limit cards such as Power Built by Waiting and Dragon At Home (#3437)
+- Modular AI prices a dual-mode creature's event play as the event, not as an attack (#3438)
+- Modular AI honours conditioned fetches and plays Doors of Night ahead of An Unexpected Outpost (#3439)
+- Modular AI prices influence-check boosts (Muster, A Friend or Three, ...) played while a faction attempt waits on the chain (#3440)
+- Modular AI prices a chosen recovery such as Smoke Rings by the best card on offer, discounting recoveries to the deck (#3441)
+- Modular AI prices company-combat-boost events such as The Dwarves Are upon You! in the combat assignment window (#3442)
+
 ## 0.223.0 — 2026-10-27
 
 Six More Cards Certified, Crown of Flowers Reined In
