@@ -18,18 +18,23 @@
  * check each time his player discards a card from his hand during his turn."
  */
 
-import type { GameState, PlayerState } from '../index.js';
+import type { GameState, PlayerState, CardInstanceId } from '../index.js';
 import { Phase } from '../types/state-phases.js';
 import { defById, getOnEventEffects } from './reducer-utils.js';
 import { enqueueCorruptionCheck } from './pending.js';
 import { logDetail } from './legal-actions/log.js';
 
-function handInstanceIds(player: PlayerState): Set<string> {
-  return new Set(player.hand.map(c => c.instanceId as string));
-}
-
-function discardInstanceIds(player: PlayerState): Set<string> {
-  return new Set(player.discardPile.map(c => c.instanceId as string));
+/**
+ * Instance ids of the cards `before` → `after` discarded from hand this
+ * step: in `before.hand`, gone from `after.hand`, and now in
+ * `after.discardPile`. Landing in the discard pile is what tells a discard
+ * apart from a card leaving the hand to be played. Shared with
+ * {@link module:hand-discard-recycle-trigger}.
+ */
+export function cardsDiscardedFromHand(before: PlayerState, after: PlayerState): CardInstanceId[] {
+  const stillInHand = new Set(after.hand.map(c => c.instanceId));
+  const inDiscard = new Set(after.discardPile.map(c => c.instanceId));
+  return before.hand.map(c => c.instanceId).filter(id => !stillInHand.has(id) && inDiscard.has(id));
 }
 
 /**
@@ -47,10 +52,7 @@ export function applyHandDiscardCorruptionChecks(prev: GameState, next: GameStat
     const player = next.players[pi];
     if (player.id !== next.activePlayer) continue;
 
-    const before = handInstanceIds(prev.players[pi]);
-    const after = handInstanceIds(player);
-    const nowInDiscard = discardInstanceIds(player);
-    const discardedFromHand = [...before].filter(id => !after.has(id) && nowInDiscard.has(id));
+    const discardedFromHand = cardsDiscardedFromHand(prev.players[pi], player);
     if (discardedFromHand.length === 0) continue;
 
     for (const [charId, char] of Object.entries(player.characters)) {
