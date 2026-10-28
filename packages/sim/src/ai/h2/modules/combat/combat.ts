@@ -67,6 +67,7 @@ const OWNED_ACTION_TYPES = [
   'play-strike-event',
   'support-strike',
   'cancel-strike',
+  'tap-item-for-strike',
   // The attack window, before any strike is resolved.
   'assign-strike',
   'choose-strike-order',
@@ -1122,6 +1123,51 @@ function boostedView(view: PlayerView, boost: CompanyBoost): PlayerView {
   return { ...view, self: { ...view.self, characters } };
 }
 
+/** An item on the struck character that boosts this one strike, as `tap-item-for-strike` names it. */
+interface StrikeBooster {
+  readonly name: string;
+  /** The tap-to-fight need with the bonus applied, published by the engine. */
+  readonly need: number;
+  readonly prowessBonus: number;
+  /** Added to the attacker's body for this strike's body check (negative helps). */
+  readonly bodyModifier: number;
+  readonly cost: number;
+  readonly costReason: string;
+}
+
+/**
+ * Read a `tap-item-for-strike` candidate: the item's `modify-attack`
+ * (current-strike) effect and what using it spends — a tap until the bearer
+ * untaps (Shield of Iron-bound Ash), or the card itself (Arrows Shorn of
+ * Ebony), priced as `cancel-strike` and `play-strike-event` price theirs.
+ */
+function strikeBoosterOf(context: StrikeContext, action: GameAction): StrikeBooster | null {
+  const fields = action as unknown as { cardInstanceId?: CardInstanceId; need?: number };
+  if (!fields.cardInstanceId || typeof fields.need !== 'number') return null;
+  const { view, cardPool, tunables } = context;
+  const item = Object.values(view.self.characters)
+    .flatMap(host => host.items)
+    .find(card => card.instanceId === fields.cardInstanceId);
+  const def = item ? cardPool[item.definitionId] as unknown as {
+    name?: string;
+    effects?: readonly {
+      type?: string; scope?: string; prowessModifier?: number; bodyModifier?: number;
+      cost?: { tap?: string; discard?: string };
+    }[];
+  } | undefined : undefined;
+  const effect = def?.effects?.find(e => e.type === 'modify-attack' && e.scope === 'current-strike');
+  if (!item || !effect) return null;
+  const discarded = effect.cost?.discard === 'self';
+  return {
+    name: def?.name ?? item.definitionId,
+    need: fields.need,
+    prowessBonus: effect.prowessModifier ?? 0,
+    bodyModifier: effect.bodyModifier ?? 0,
+    cost: discarded ? tunables.provisionalCardPrice : tunables.tapTempoCost,
+    costReason: discarded ? 'the item is discarded' : 'the item taps until its bearer untaps',
+  };
+}
+
 /** Strikes the attack would be left with after a `halve-strikes` card. */
 function reducedStrikeCount(context: StrikeContext, action: GameAction): number | null {
   const cardInstanceId = (action as unknown as { cardInstanceId?: CardInstanceId }).cardInstanceId;
@@ -1264,6 +1310,39 @@ export const combatModule: H2Module = {
           ],
           ['the supported strike is then faced by tapping to fight'],
         );
+      }
+
+      case 'tap-item-for-strike': {
+        const booster = strikeBoosterOf(ctx, action);
+        if (!booster) return null;
+        // The item does not resolve the strike; it lowers the target of the
+        // one that follows, which the bearer still faces either tapping to
+        // fight or staying untapped at −3 — so the item is worth whichever of
+        // those is better once the bonus is on. Unowned, the decision fell
+        // back whole and the item was never used: strong players tapped
+        // Shield of Iron-bound Ash on 8 strikes in ten rated games where the
+        // agent faced the same strike bare.
+        const plainUntapped = context.legalActions.find(a => a.type === 'resolve-strike'
+          && (a as unknown as { tapToFight?: boolean }).tapToFight !== true) as unknown as { need?: number } | undefined;
+        const boosted: StrikeContext = booster.bodyModifier === 0 || ctx.situation.creatureBody === null
+          ? ctx
+          : { ...ctx, situation: { ...ctx.situation, creatureBody: ctx.situation.creatureBody + booster.bodyModifier } };
+        const extra = [
+          leaf('item bonus', booster.prowessBonus, { note: `${booster.name}: +${booster.prowessBonus} prowess against this strike` }),
+          ...(booster.bodyModifier !== 0
+            ? [leaf('attacker body', booster.bodyModifier, { note: 'applies to the body check if the strike is defeated' })]
+            : []),
+          leaf('item spent', booster.cost, { unit: 'tsd', note: booster.costReason }),
+        ];
+        const options = [evaluateOption(boosted, action,
+          { need: booster.need, tapMode: 'always', bestOfTwo: false, bodyPenalty: 0 },
+          `use ${booster.name}, then tap to fight`, booster.cost, extra)];
+        if (typeof plainUntapped?.need === 'number') {
+          options.push(evaluateOption(boosted, action,
+            { need: Math.max(2, plainUntapped.need - booster.prowessBonus), tapMode: 'tie-only', bestOfTwo: false, bodyPenalty: 0 },
+            `use ${booster.name}, then stay untapped`, booster.cost, extra));
+        }
+        return options.reduce((best, option) => (option.utility > best.utility ? option : best));
       }
 
       case 'cancel-strike': {

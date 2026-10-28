@@ -114,10 +114,26 @@ describe('text-log ordering of dice rolls (game ms1vaegk-e4fvuf, seq 103-104)', 
     ]);
   });
 
-  test('the player who rolled gets no duplicate roll line in the message panel', () => {
-    // wigy's own roll animates on their own dice — only the opponent's rolls
-    // need a text entry. CvCC strikes (which carry a total) are the exception.
-    expect(diceRollNotification(rollEffect('Corruption: Glorfindel II', 5, 5), ROLLER_NAME, VIEWER_NAME)).toBeNull();
+  test('the player who rolled also gets a self roll line in the message panel', () => {
+    // The roller's dice animation fades, so their own roll is logged too —
+    // as a `self` line instead of an `opponent` one.
+    expect(diceRollNotification(rollEffect('Corruption: Théoden', 5, 5), ROLLER_NAME, VIEWER_NAME)).toEqual({
+      message: 'rolled 5 + 5 = 10 (Corruption: Théoden)',
+      opts: { self: ROLLER_NAME },
+    });
+  });
+
+  test("the opponent's plain roll is an opponent line in the message panel", () => {
+    expect(diceRollNotification(rollEffect('Corruption: Théoden', 5, 5), VIEWER_NAME, ROLLER_NAME)).toEqual({
+      message: 'rolled 5 + 5 = 10 (Corruption: Théoden)',
+      opts: { opponent: ROLLER_NAME },
+    });
+  });
+
+  test("a long name is truncated in the roller's own line too", () => {
+    const longLabel = 'Necklace of Silver and Pearls (Emerald of Doriath)';
+    const notification = diceRollNotification(rollEffect(longLabel, 3, 4), ROLLER_NAME, VIEWER_NAME);
+    expect(notification).toEqual({ message: 'rolled 3 + 4 = 7 (Necklace of Silver and …)', opts: { self: ROLLER_NAME } });
   });
 
   test('a long name is truncated with an ellipsis in the message panel', () => {

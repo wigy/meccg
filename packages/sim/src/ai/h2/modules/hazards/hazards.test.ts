@@ -1007,3 +1007,36 @@ describe('a boost played ahead of its creatures', () => {
     expect(JSON.stringify(evaluation.rationale)).toContain('cards left in the deck are creatures it boosts');
   });
 });
+
+describe('Power Built by Waiting against the hazard limit', () => {
+  // `tap-hazard-card-for-limit` and `pay-hazard-limit-to-untap-card` had no
+  // owner, so every hazard window that offered one fell back whole. Recorded
+  // game mvoab2nj-9jan8n: Dain plays Power Built by Waiting, taps it to win the
+  // slot back and plays on (seq 73); later, with two slots to spare and nothing
+  // worth playing, spends them to untap it (seq 417).
+  const contextOf = (id: string) => {
+    const scenario = loadScenario(id);
+    const view = scenarioView(scenario);
+    return {
+      view, cardPool: loadCardPool(), legalActions: viableActions(scenario), tunables: DEFAULT_TUNABLES,
+      standing: computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES),
+    };
+  };
+
+  test('taps it when the limit is spent and a creature waits for the slot', () => {
+    const context = contextOf('movement/power-built-by-waiting-tap');
+    const decision = evaluateDecision([hazardsModule], context);
+    expect(decision.complete).toBe(true);
+    expect(decision.evaluations[0].action.type).toBe('tap-hazard-card-for-limit');
+    expect(decision.evaluations[0].expectedTsd).toBeGreaterThan(0);
+  });
+
+  test('pays two spare slots to untap it', () => {
+    const context = contextOf('movement/power-built-by-waiting-untap');
+    // Agents and Nazgûl abilities share this window and belong to other
+    // modules, so only this module's own ranking is asserted.
+    const decision = evaluateDecision([hazardsModule], context);
+    expect(decision.uncovered).not.toContain('pay-hazard-limit-to-untap-card');
+    expect(decision.evaluations[0].action.type).toBe('pay-hazard-limit-to-untap-card');
+  });
+});
