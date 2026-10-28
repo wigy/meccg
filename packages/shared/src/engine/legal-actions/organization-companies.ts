@@ -31,7 +31,7 @@ import { matchesCondition } from '../../effects/condition-matcher.js';
 import { SiteType, Race, RegionType } from '../../types/common.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { logDetail } from './log.js';
-import { playerById, defById, getCardEffects, companyEffectiveSizeExemptingLeaders, companyHasImmobileCharacter, isHavenForPlayer, generalInfluenceControlLimit, isSiteProtectedForPlayer, inPlayNamesForPlayerDeep, siteDeniesCompanyMove, siteForbidsStorage, fwSiteVersionForbidden, fwSiteUsageForbidden, wouldViolateRingwraithComposition, isDarkhavenSiteDef, companyAllyRingwraithMode } from '../reducer-utils.js';
+import { playerById, defById, getCardEffects, companyEffectiveSizeExemptingLeaders, companyHasImmobileCharacter, isHavenForPlayer, generalInfluenceControlLimit, isSiteProtectedForPlayer, inPlayNamesForPlayerDeep, siteDeniesCompanyMove, siteForbidsStorage, fwSiteVersionForbidden, fwSiteUsageForbidden, wouldViolateRingwraithComposition, isDarkhavenSiteDef, companyAllyRingwraithMode, findCardEffect, hasCardEffect } from '../reducer-utils.js';
 import { siteHasOpponentCompany } from '../evil-hour.js';
 import { companyHasUnlimitedSize, buildCompanyCharacterContext } from '../company-composition.js';
 import { companyStoresAsDarkhaven } from '../pending.js';
@@ -189,9 +189,7 @@ export function cavernsUnchokedAdjacencyRoll(
     if (card.attachedToSite === undefined) continue;
     const def = defById(state, card.definitionId);
     if (!def) continue;
-    const effect = getCardEffects(def).find(
-      (e): e is import('../../index.js').SurfaceRegionAdjacencyEffect => e.type === 'surface-region-adjacency',
-    );
+    const effect = findCardEffect(def, 'surface-region-adjacency');
     if (!effect) continue;
 
     const udDefId = card.attachedToSite;
@@ -246,7 +244,7 @@ export function breachTheHoldSurfaceRoll(
     if (card.attachedToSite === undefined) continue;
     const def = defById(state, card.definitionId);
     if (!def) continue;
-    if (!getCardEffects(def).some(e => e.type === 'surface-site-roll-zero')) continue;
+    if (!hasCardEffect(def, 'surface-site-roll-zero')) continue;
 
     // `origin` must be the bound Under-deeps site, and `dest` must be listed as
     // adjacent to it (its surface entrance).
@@ -366,8 +364,7 @@ export function balrogOutHeSprangRegionAllowance(
   // Scan the player's in-play cards for the grant effect (name-independent).
   let grant: import('../../types/effects.js').BalrogSurfaceRegionMovementEffect | undefined;
   for (const c of player.cardsInPlay) {
-    const eff = getCardEffects(defById(state, c.definitionId))
-      .find((e): e is import('../../types/effects.js').BalrogSurfaceRegionMovementEffect => e.type === 'balrog-surface-region-movement');
+    const eff = findCardEffect(defById(state, c.definitionId), 'balrog-surface-region-movement');
     if (eff) { grant = eff; break; }
   }
   if (!grant) return null;
@@ -505,7 +502,7 @@ export function ringwraithHasModeCard(
     if (card.companyId !== company.id) continue;
     const def = defById(state, card.definitionId);
     if (!def) continue;
-    if (getCardEffects(def).some(e => e.type === 'ringwraith-mode')) return true;
+    if (hasCardEffect(def, 'ringwraith-mode')) return true;
   }
   // Ally-granted mode (Black Horse as-72: "If each Ringwraith in a company has
   // a Black Horse, the company is in Black Rider mode and may freely move").
@@ -921,9 +918,7 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
     // invisible to the shared movement graph. Patch in the company's
     // dynamically-recorded `virtualSiteRegionName` (captured on arrival) so
     // `getReachableSites` can compute region-movement reachability from it.
-    const currentActsAsSite = getCardEffects(currentSiteDef).find(
-      (e): e is import('../../types/effects.js').ActsAsSiteEffect => e.type === 'acts-as-site',
-    );
+    const currentActsAsSite = findCardEffect(currentSiteDef, 'acts-as-site');
     if (currentActsAsSite && company.virtualSiteRegionName) {
       const patchedSiteRegion = new Map(companyMovementMap.siteRegion);
       patchedSiteRegion.set(currentSiteDef.name, company.virtualSiteRegionName);
@@ -1459,9 +1454,7 @@ export function storeItemActions(state: GameState, playerId: PlayerId, onlyCompa
     for (const cip of player.cardsInPlay) {
       if (cip.companyId !== company.id) continue;
       const cipDef = defById(state, cip.definitionId);
-      const storable = getCardEffects(cipDef).find(
-        (e): e is import('../../types/effects.js').StorableAtEffect => e.type === 'storable-at',
-      );
+      const storable = findCardEffect(cipDef, 'storable-at');
       if (!storable) continue;
       if (!(storable.sites?.includes(siteName) ?? false)
         && !(storable.siteTypes?.includes(storageSiteType) ?? false)) {
@@ -1545,7 +1538,7 @@ export function storeItemActions(state: GameState, playerId: PlayerId, onlyCompa
         if (isItemCard(itemDef)) {
           for (const host of player.cardsInPlay) {
             const hostDef = defById(state, host.definitionId);
-            const cacheEffect = getCardEffects(hostDef).find(e => e.type === 'item-cache-alt-storage');
+            const cacheEffect = findCardEffect(hostDef, 'item-cache-alt-storage');
             if (!cacheEffect || cacheEffect.type !== 'item-cache-alt-storage') continue;
             if (!cacheEffect.siteTypes.includes(siteType)) continue;
             if (!cacheEffect.subtypes.includes(itemDef.subtype)) continue;
@@ -1816,7 +1809,7 @@ function companyExtraLeaderSlots(state: GameState, companyId: CompanyId): ExtraL
     for (const card of p.cardsInPlay) {
       if ((card.companyId as string | undefined) !== (companyId as string)) continue;
       const def = state.cardPool[card.definitionId];
-      const effect = getCardEffects(def).find((e): e is ExtraLeaderSlotEffect => e.type === 'extra-leader-slot');
+      const effect = findCardEffect(def, 'extra-leader-slot');
       if (effect) found.push(effect);
     }
   }

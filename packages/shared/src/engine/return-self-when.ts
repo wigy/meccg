@@ -18,11 +18,10 @@
  * cards that need this are allies.
  */
 import type { GameState, CardInstance, PlayerState } from '../index.js';
-import type { ReturnSelfToHandWhenEffect } from '../types/effects.js';
 import { Phase } from '../types/state-phases.js';
 import { matchesCondition } from '../effects/index.js';
 import { logDetail } from './legal-actions/log.js';
-import { defById, getCardEffects, toCardInstance } from './reducer-utils.js';
+import { defById, toCardInstance, findCardEffect } from './reducer-utils.js';
 import { buildPlayerStateContext } from './legal-actions/organization.js';
 
 /**
@@ -35,9 +34,7 @@ function returnsToHandNow(
   ctx: Record<string, unknown>,
 ): boolean {
   const def = defById(state, definitionId);
-  const effect = getCardEffects(def).find(
-    (e): e is ReturnSelfToHandWhenEffect => e.type === 'return-self-to-hand-when',
-  );
+  const effect = findCardEffect(def, 'return-self-to-hand-when');
   return effect !== undefined && matchesCondition(effect.condition, ctx);
 }
 

@@ -27,7 +27,7 @@ import { availableDI, conditionalDISpentOnFollowers, normalUnusedDI } from './le
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
-import { collectFactionCardEffects, agentAttackSiteBoost, gateDeckSearchFetch, hasSiteFlag, markPrisonersRescued, makeCombatState, matchesDefinition, companySiteName, resolveAttackerChoosesDefenders, resolveDefenderFreeStrikeAssignment, canAttackAlignment, companyAttemptSupportBonus, companyHasBalrog, companyHasRingwraith, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, companyEffectiveSize, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, globalCheckExtraRollSource, roll2d6KeepBetter, influenceModificationsNullified, characterHomeSiteRegions, defById, diceRollEffect, drawCardsExhausting, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, normalAttackOverride, companySiteDef, playedAfterFactionMpPin, unrevealedOnGuardDiscarded, agentAttackAllowedOnSkip, companySkipsSiteOnGuardCards, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, siteHasWarForgesItemUnlock, sweepCharacterLeavesCompanyEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, tapCompanyCardsOnItemPlay, updatePlayer, wrongActionType, siteStartOfPhaseAttacks, buildFactionCheckContext, buildFactionControllerContext, defNamesOf } from './reducer-utils.js';
+import { collectFactionCardEffects, agentAttackSiteBoost, gateDeckSearchFetch, hasSiteFlag, markPrisonersRescued, makeCombatState, matchesDefinition, companySiteName, resolveAttackerChoosesDefenders, resolveDefenderFreeStrikeAssignment, canAttackAlignment, companyAttemptSupportBonus, companyHasBalrog, companyHasRingwraith, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, companyEffectiveSize, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, globalCheckExtraRollSource, roll2d6KeepBetter, influenceModificationsNullified, characterHomeSiteRegions, defById, diceRollEffect, drawCardsExhausting, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, normalAttackOverride, companySiteDef, playedAfterFactionMpPin, unrevealedOnGuardDiscarded, agentAttackAllowedOnSkip, companySkipsSiteOnGuardCards, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, siteHasWarForgesItemUnlock, sweepCharacterLeavesCompanyEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, tapCompanyCardsOnItemPlay, updatePlayer, wrongActionType, siteStartOfPhaseAttacks, buildFactionCheckContext, buildFactionControllerContext, defNamesOf, findCardEffect } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent, handlePlayShortEvent, dispatchShortEventByCardType } from './reducer-events.js';
 import { goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit, handleStoreItem } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
@@ -43,7 +43,7 @@ import { moveToFetchToDeckPayload } from './reducer-move.js';
 import { buildSiteRepeatedAttackCombat, facingAlliesFor } from './site-repeated-attack.js';
 import { fireStageCardPlayedTriggers } from './stage-card-played.js';
 import { removeItemFromSetAside } from './set-aside.js';
-import type { AgentAttackModifierEffect, MoveEffect, SiteEntryAttackSpec, SiteEntryRollAttackEffect, SitePhaseRingAutoTestSiteRule } from '../types/effects.js';
+import type { MoveEffect, SiteEntryAttackSpec, SiteEntryRollAttackEffect, SitePhaseRingAutoTestSiteRule } from '../types/effects.js';
 import type { PendingEffect, StrikeAssignment } from '../types/state-combat.js';
 
 
@@ -717,9 +717,7 @@ function findUnfiredSiteEntryGate(
     for (const card of p.cardsInPlay) {
       if (card.attachedToSite !== siteDefId) continue;
       if (faced.has(card.instanceId as string)) continue;
-      const effect = getCardEffects(defById(state, card.definitionId)).find(
-        (e): e is SiteEntryRollAttackEffect => e.type === 'site-entry-roll-attack',
-      );
+      const effect = findCardEffect(defById(state, card.definitionId), 'site-entry-roll-attack');
       if (effect) return { instanceId: card.instanceId, name: cardName(state, card.definitionId), effect };
     }
   }
@@ -1034,9 +1032,7 @@ function handleRevealOnGuardAttacks(
       // card directly during the M/H phase installs (see chain-reducer.ts).
       // The boost is consumed by the first automatic-attack the company
       // faces at this site (reducer-site.ts's automatic-attacks step).
-      const boostEffect = getCardEffects(def).find(
-        (e): e is import('../index.js').AutoAttackBoostEffect => e.type === 'auto-attack-boost',
-      );
+      const boostEffect = findCardEffect(def, 'auto-attack-boost');
       if (boostEffect && company.currentSite) {
         logDetail(`"${def.name}" revealed on-guard → auto-attack-boost (+${boostEffect.prowessBonus} prowess${boostEffect.uncancelable ? ', cannot be canceled' : ''}) applied to company ${company.id as string}`);
         const newOnGuardCards = [...company.onGuardCards];
@@ -1310,9 +1306,7 @@ function handleSiteAutomaticAttacks(
     const handCard = findById(player.hand, action.cardInstanceId);
     if (!handCard) return { state, error: 'Burglary card not found in hand' };
     const def = defById(state, handCard.definitionId);
-    const burglaryEffect = getCardEffects(def).find(
-      (e): e is import('../types/effects.js').BurglaryAttemptEffect => e.type === 'burglary-attempt',
-    );
+    const burglaryEffect = findCardEffect(def, 'burglary-attempt');
     if (!burglaryEffect) return { state, error: `${def?.name ?? '?'} has no burglary-attempt effect` };
     const char = player.characters[action.characterInstanceId];
     const charDef = char ? defById(state, char.definitionId) : undefined;
@@ -1890,9 +1884,7 @@ function maybeTriggerSiteItemTrap(
   for (const card of opponent.cardsInPlay) {
     if (card.attachedToSite !== siteDefId) continue;
     const def = defById(state, card.definitionId);
-    const eff = getCardEffects(def).find(
-      (e): e is import('../types/effects.js').SiteItemTrapEffect => e.type === 'site-item-trap',
-    );
+    const eff = findCardEffect(def, 'site-item-trap');
     if (eff) {
       hostInstanceId = card.instanceId;
       prowessBonus = eff.prowessBonus;
@@ -2249,9 +2241,7 @@ function handleDeclareAgentAttack(
   // "chooses defending characters") grants attacker assignment regardless
   // of the agent's face-down/at-home state, and may substitute the strike
   // result (a successful strike forces an item discard instead of a wound).
-  const attackModifier = getCardEffects(agentDef).find(
-    (e): e is AgentAttackModifierEffect => e.type === 'agent-attack-modifier',
-  );
+  const attackModifier = findCardEffect(agentDef, 'agent-attack-modifier');
   if (attackModifier) {
     logDetail(`Site: declare-agent-attack — "${agentDef.name}" has agent-attack-modifier (attackerAssigns: ${String(attackModifier.attackerAssigns ?? false)}, strikeEffect: ${attackModifier.strikeEffect ?? 'none'})`);
   }
@@ -3584,9 +3574,7 @@ export function handleSitePlayHeroResource(
   // discard pile, per CoE 3.IV.4/the card's own French/Spanish text ("retire
   // ... du jeu"/"elimina del juego").
   if (isItem) {
-    const replaceItemEffect = getCardEffects(def).find(
-      (e): e is import('../types/effects.js').ReplaceItemOnPlayEffect => e.type === 'replace-item-on-play',
-    );
+    const replaceItemEffect = findCardEffect(def, 'replace-item-on-play');
     if (replaceItemEffect && action.companionCharacterId !== undefined) {
       const companionId = action.companionCharacterId;
       const bearer = afterAttach.players[playerIndex].characters[targetCharId];

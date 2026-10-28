@@ -16,12 +16,11 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction } from '../../index.js';
-import type { DiscardToRecruitEffect } from '../../types/effects.js';
 import { isCharacterCard } from '../../types/cards.js';
 import { SiteType } from '../../types/common.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail } from './log.js';
-import { characterEntries, companySiteDef, defById, findCharacterCompany, getCardEffects, isUniqueCharacterInPlay, playerById } from '../reducer-utils.js';
+import { characterEntries, companySiteDef, defById, findCharacterCompany, isUniqueCharacterInPlay, playerById, findCardEffect } from '../reducer-utils.js';
 import { manifestationOfEntityInPlay } from '../manifestations.js';
 
 /**
@@ -38,9 +37,7 @@ export function discardToRecruitActions(state: GameState, playerId: PlayerId): E
   for (const [charId, char] of characterEntries(player)) {
     const def = defById(state, char.definitionId);
     if (!def || !isCharacterCard(def)) continue;
-    const recruit = getCardEffects(def).find(
-      (e): e is DiscardToRecruitEffect => e.type === 'discard-to-recruit',
-    );
+    const recruit = findCardEffect(def, 'discard-to-recruit');
     if (!recruit) continue;
 
     // "with <bearer>'s company" — the bearer must be in a company.

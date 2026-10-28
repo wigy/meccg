@@ -13,7 +13,6 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId } from '../../index.js';
-import type { CombatJoinCharacterEffect } from '../../types/effects.js';
 import { isCharacterCard } from '../../types/cards.js';
 import { isBalrogAvatarDef } from '../../state-utils.js';
 import { hasFollowerGrantPermission } from '../../effects/play-flags.js';
@@ -24,9 +23,9 @@ import {
   companyById,
   defById,
   generalInfluenceControlLimit,
-  getCardEffects,
   isUniqueCharacterInPlay,
   playerById,
+  findCardEffect,
 } from '../reducer-utils.js';
 import { manifestationOfEntityInPlay } from '../manifestations.js';
 
@@ -59,9 +58,7 @@ export function combatJoinCharacterActions(
   const actions: EvaluatedAction[] = [];
   for (const eventCard of player.hand) {
     const eventDef = defById(state, eventCard.definitionId);
-    const effect = getCardEffects(eventDef).find(
-      (e): e is CombatJoinCharacterEffect => e.type === 'combat-join-character',
-    );
+    const effect = findCardEffect(eventDef, 'combat-join-character');
     if (!effect) continue;
     const eventName = (eventDef as { name?: string }).name ?? (eventCard.definitionId as string);
 

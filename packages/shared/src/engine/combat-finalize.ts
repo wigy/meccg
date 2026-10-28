@@ -26,7 +26,6 @@ import type { PlayerState } from '../types/state-player.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { splitCharacterIntoNewCompany } from './company-split.js';
 import type { MovementHazardPhaseState } from '../types/state-phases.js';
-import type { TriggerAttackOnPlayEffect } from '../types/effects.js';
 import { shuffle } from '../rng.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
@@ -39,7 +38,7 @@ import { matchesCondition, matchesContext } from '../effects/condition-matcher.j
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId } from '../types/state.js';
 import { enqueueDiscardSubstituteOffer } from './discard-substitute.js';
-import { applyBearerWoundedDiscards, attackSourceCreatureInstanceId, makeCombatState, resolveAttackerChoosesDefenders, cardName, cleanupEmptyCompanies, clonePlayers, companyById, companySubphaseScope, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, matchesDefinition, partitionLeavingAllies, normalAttackOverride, raceForCardTextFilter, playerHasKillMpExemption, ringwraithReclaimMark, sweepCharacterLeavesCompanyEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer } from './reducer-utils.js';
+import { applyBearerWoundedDiscards, attackSourceCreatureInstanceId, makeCombatState, resolveAttackerChoosesDefenders, cardName, cleanupEmptyCompanies, clonePlayers, companyById, companySubphaseScope, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, matchesDefinition, partitionLeavingAllies, normalAttackOverride, raceForCardTextFilter, playerHasKillMpExemption, ringwraithReclaimMark, sweepCharacterLeavesCompanyEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, findCardEffect } from './reducer-utils.js';
 import { partitionLeavingTrophies, creatureKillMpMatchesAlignment } from './trophy-dispersal.js';
 import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, resolveDef, enemyRaceContext } from './effects/index.js';
 import { isDetainmentAttack } from './detainment.js';
@@ -171,9 +170,7 @@ export function continueOrDisposeCardTriggeredAttack(
   // The card definition supplies the post-attack mode and faction-discard flags.
   const cardDef = cardDefId ? defById(state, cardDefId) : undefined;
   const triggerEffect = cardDef
-    ? (getCardEffects(cardDef).find(
-        (e): e is TriggerAttackOnPlayEffect => e.type === 'trigger-attack-on-play',
-      ) ?? null)
+    ? (findCardEffect(cardDef, 'trigger-attack-on-play') ?? null)
     : null;
   const afterAttack = triggerEffect?.afterAttack ?? 'attach-with-constraint';
   const discardFactionsAtSite = triggerEffect?.discardFactionsAtSite ?? false;
@@ -216,7 +213,7 @@ function applyAgentAttackOutcome(state: GameState, combat: CombatState): GameSta
   const agent = state.players[hazardIdx].agents.find(a => a.character.instanceId === agentInstId);
   if (!agent) return state;
   const agentDef = defById(state, agent.character.definitionId);
-  const outcome = getCardEffects(agentDef).find(e => e.type === 'agent-attack-outcome');
+  const outcome = findCardEffect(agentDef, 'agent-attack-outcome');
   if (!outcome) return state;
 
   const defIdx = getPlayerIndex(state, combat.defendingPlayerId);
@@ -1715,9 +1712,7 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
         for (const item of char.items) {
           if (item.storedCreature) continue;
           const itemDef = defById(stateAfterCombat, item.definitionId);
-          const storageEffect = getCardEffects(itemDef).find(
-            (e): e is import('../types/effects.js').CreatureStorageEffect => e.type === 'creature-storage',
-          );
+          const storageEffect = findCardEffect(itemDef, 'creature-storage');
           if (storageEffect && creatureProwess4 < storageEffect.maxNormalProwess) {
             storageEligible.push(item.instanceId);
           }

@@ -22,7 +22,7 @@ import { CardStatus, Race } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId } from '../types/state.js';
-import { defById, findById, findDuplicationLimitEffect, getCardEffects, getOnEventEffects, isCombatReactiveShortEvent, removeById, ringwraithReclaimMark, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { defById, findById, findDuplicationLimitEffect, getOnEventEffects, isCombatReactiveShortEvent, removeById, ringwraithReclaimMark, toCardInstance, updateCharacter, updatePlayer, wrongActionType, findCardEffect } from './reducer-utils.js';
 import { isWardedAgainst } from './effects/index.js';
 import { addConstraint } from './pending.js';
 import { parseConstraintScope } from './constraint-kind.js';
@@ -88,7 +88,7 @@ export function handleCombatPlayHazard(
   // peels a non-Wizard character off into a separate company. It is not a
   // permanent-event, so it is handled before the permanent-event gate below.
   const leftBehindEffect = def
-    ? getCardEffects(def).find((e): e is import('../types/effects.js').LeftBehindSplitEffect => e.type === 'left-behind-split')
+    ? findCardEffect(def, 'left-behind-split')
     : undefined;
   if (leftBehindEffect) {
     return handleLeftBehindPlay(state, action, combat, handCard, leftBehindEffect);
@@ -387,9 +387,7 @@ export function findTakePrisonerHazard(
 ): { hostCard: import('../types/state-cards.js').CardInstance; effect: TakePrisonerEffect } | null {
   for (const h of hazards) {
     const def = defById(state, h.definitionId);
-    const eff = getCardEffects(def).find(
-      (e): e is TakePrisonerEffect => e.type === 'take-prisoner',
-    );
+    const eff = findCardEffect(def, 'take-prisoner');
     if (eff) return { hostCard: toCardInstance(h), effect: eff };
   }
   return null;
