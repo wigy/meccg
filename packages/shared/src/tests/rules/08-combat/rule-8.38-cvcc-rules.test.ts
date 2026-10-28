@@ -369,6 +369,10 @@ describe('Rule 8.38 — Company vs Company Combat', () => {
     expect(s.combat).toBeNull();
     expect(s.players[0].killPile.some(c => c.instanceId === perchenId)).toBe(true);
     expect(s.players[1].outOfPlayPile.some(c => c.instanceId === perchenId)).toBe(false);
+    // Regression: game mvr2dm4y-1uc0h1 — eliminated characters reached the
+    // killPile but the MP tally only scored creatures there, so the attacker
+    // still had 0 kill MP. Perchen is worth 2 MP.
+    expect(s.players[0].marshallingPoints.kill).toBe(2);
   });
 
   test('CvCC: attacking character body check uses effective body, not printed body', () => {

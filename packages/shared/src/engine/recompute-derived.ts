@@ -2128,6 +2128,14 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
       continue;
     }
 
+    // CoE 3.v: an opposing character eliminated in company vs. company combat
+    // "counts as kill MPs for the opposing player" — its printed MP value
+    // (combat-strike.ts places it in the attacker's killPile).
+    if (isCharacterCard(def)) {
+      if (def.marshallingPoints > 0) mp = { ...mp, kill: mp.kill + def.marshallingPoints };
+      continue;
+    }
+
     // Defeated creatures earn kill MP.
     if (!('killMarshallingPoints' in def)) continue;
     const killMP = (def as { killMarshallingPoints: number }).killMarshallingPoints;
