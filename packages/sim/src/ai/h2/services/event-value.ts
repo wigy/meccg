@@ -950,7 +950,10 @@ function enablerGain(
  *   `enablerGain` as if it were back in hand. What our own hazard environment
  *   did to their companies is not priced here.
  * - **The card spent on it**, at `provisionalCardPrice`: theirs is a gain to
- *   us, ours a loss.
+ *   us, ours a loss — except our own hazard environment in our own turn, which
+ *   was played for their movement and has done its work.
+ * - **What it enables that we cannot see** (`environmentCancelBonus`), for an
+ *   environment working against us: theirs, or our own hazard one in our turn.
  *
  * One still on the chain (Twilight answering the Doors of Night just
  * declared) is priced as if it had resolved: cancelling it is keeping it out.
@@ -991,6 +994,17 @@ export function environmentLoss(instanceId: CardInstanceId, context: ModuleConte
   }
   const card = tunables.provisionalCardPrice;
   const parts = relief !== 0 ? [`${relief.toFixed(1)} of harm off our companies`] : [];
+  // Our own hazard environment in our own turn has done its work — it was
+  // played against their movement — and now only helps the opponent's
+  // hazards against ours: no card is lost by cancelling it, and what it
+  // enables for them is the unseen part.
+  if (ours && def.cardType === 'hazard-event' && ourTurn) {
+    parts.push(`what it enables in their hand, ${tunables.environmentCancelBonus.toFixed(1)}`);
+    return {
+      tsd: relief + tunables.environmentCancelBonus,
+      reason: `takes our own ${name} out of play before our movement — ${parts.join('; ')}`,
+    };
+  }
   if (ours) {
     const options = def.cardType?.includes('hazard') ? null : enablerGain(
       cardPool[definitionId], instanceId as string, { ...context, view: withoutInPlay(board, instanceId as string) },
@@ -1007,8 +1021,9 @@ export function environmentLoss(instanceId: CardInstanceId, context: ModuleConte
   ).includes(`"inPlay":"${name}"`)).length;
   if (readers > 0) parts.push(`${readers} of their card(s) in play lose what it gave them`);
   parts.push(`the card they spent on it, ${card.toFixed(1)}`);
+  parts.push(`what it enables in their hand, ${tunables.environmentCancelBonus.toFixed(1)}`);
   return {
-    tsd: relief + readers * tunables.resourceDrawValue + card,
+    tsd: relief + readers * tunables.resourceDrawValue + card + tunables.environmentCancelBonus,
     reason: `takes their ${name} out of play — ${parts.join('; ')}`,
   };
 }
