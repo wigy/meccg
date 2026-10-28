@@ -1266,7 +1266,7 @@ export function playResourcesActions(
     ? player.cardsInPlay.flatMap(host => {
       const hostDef = defById(state, host.definitionId);
       const cacheEffect = findCardEffect(hostDef, 'item-cache-play-source');
-      if (!cacheEffect || cacheEffect.type !== 'item-cache-play-source') return [];
+      if (!cacheEffect) return [];
       if (!cacheEffect.siteTypes.includes(effectiveSiteTypeForCache)) return [];
       return (host.setAside ?? [])
         .map(childId => player.cardsInPlay.find(c => c.instanceId === childId))

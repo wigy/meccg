@@ -32,7 +32,7 @@ import { getEffectiveSkills } from '../effects/index.js';
 import { buildSiteFilterContext } from '../effective.js';
 import { logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { cardName, isSiteProtectedForPlayer, playerById, defById, countCopiesInPlay, countCopiesInPlayTargetedForDiscard, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countCompanyBoundCopiesDeclaredInChain, countPermanentEventCopiesAtSite, countPermanentEventCopiesDeclaredInChainAtSite, countFactionAttachedCopies, defNamesOf, itemKeywordsOf, itemSubtypesOf, getCardEffects, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, companyHasWizard, factionSiegeEligibleSites, findDuplicationLimitEffect, findPlayConditionEffect, findPlayConditionEffects, findFallenWizardAvatarName, keywordDiscardCandidates, namedDiscardCandidates, matchesCompanyContextCondition, isCompanyAtSite, isCompanyEventPlayProhibited, characterHomeSiteTypes, findPlayerAvatar, regionTypeCounts, activePlayerDeckSize, findCardEffect } from '../reducer-utils.js';
+import { cardName, isSiteProtectedForPlayer, playerById, defById, countCopiesInPlay, countCopiesInPlayTargetedForDiscard, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countCompanyBoundCopiesDeclaredInChain, countPermanentEventCopiesAtSite, countPermanentEventCopiesDeclaredInChainAtSite, countFactionAttachedCopies, defNamesOf, itemKeywordsOf, itemSubtypesOf, getCardEffects, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, companyHasWizard, factionSiegeEligibleSites, findDuplicationLimitEffect, findPlayConditionEffect, findPlayConditionEffects, findFallenWizardAvatarName, keywordDiscardCandidates, namedDiscardCandidates, matchesCompanyContextCondition, isCompanyAtSite, isCompanyEventPlayProhibited, characterHomeSiteTypes, findPlayerAvatar, regionTypeCounts, activePlayerDeckSize, findCardEffect, hasCardEffect } from '../reducer-utils.js';
 import { wizardSpecificName } from '../fallen-wizard-specific.js';
 import { buildPlayerStateContext, playerStateGateMet } from './organization.js';
 import { buildFactionPlayableRegions } from '../recompute-derived.js';
@@ -475,7 +475,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       // `surface-region-adjacency` effect). Non-Stage site-targeting permanent
       // events without such a marker (e.g. hero events erratated "Playable
       // during the site phase") are handled by the site phase instead.
-      const isCavernsUnchoked = def.effects?.some(e => e.type === 'surface-region-adjacency') ?? false;
+      const isCavernsUnchoked = hasCardEffect(def, 'surface-region-adjacency');
       const orgPhaseSiteTiming = isStageResource || isCavernsUnchoked;
 
       // The White Tree (tw-348) is the sole card combining a site play-target
@@ -615,7 +615,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       // `isCompanyAtSite`): once a moving company's new site is revealed it
       // is not at any site — neither its stale origin nor its destination —
       // for the rest of the movement/hazard phase.
-      const rollUntapSiteEffect = def.effects?.find(e => e.type === 'roll-untap-site');
+      const rollUntapSiteEffect = findCardEffect(def, 'roll-untap-site');
       if (!orgPhaseSiteTiming && rollUntapSiteEffect) {
         const charPlayTarget = def.effects?.find(
           (e): e is PlayTargetEffect => e.type === 'play-target' && e.target === 'character',

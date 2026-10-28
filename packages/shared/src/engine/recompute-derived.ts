@@ -1989,7 +1989,7 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     const hostDef = resolveDef(state, host.instanceId);
     if (!hostDef) continue;
     const countBonus = findCardEffect(hostDef, 'item-cache-count-bonus');
-    if (!countBonus || countBonus.type !== 'item-cache-count-bonus') continue;
+    if (!countBonus) continue;
     const cachedCount = host.setAside?.length ?? 0;
     if (cachedCount >= countBonus.count) {
       mp = { ...mp, misc: mp.misc + countBonus.mp };
@@ -2025,7 +2025,7 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     const def = resolveDef(state, card.instanceId);
     if (!def) continue;
     const bonus = findCardEffect(def, 'attached-faction-mp-bonus');
-    if (!bonus || bonus.type !== 'attached-faction-mp-bonus') continue;
+    if (!bonus) continue;
     const targetStillInPlay = player.cardsInPlay.some(c => c.instanceId === card.attachedTo);
     if (!targetStillInPlay) continue;
     const cat = bonus.category ?? MarshallingCategory.Misc;
