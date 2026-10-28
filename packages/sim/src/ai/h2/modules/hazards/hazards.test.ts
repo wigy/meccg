@@ -1044,6 +1044,27 @@ describe('Doors of Night ahead of An Unexpected Outpost', () => {
   });
 });
 
+describe('a dual-mode creature played as its event', () => {
+  // Mouth of Sauron's short-event mode was looked up in the attack plan by
+  // card and priced as its 13-prowess attack, so the agent played it every
+  // hazard window where the human passed (game mvkp0egj-gbczgp, seq 202).
+  test('is priced as the event, not as an attack', () => {
+    const scenario = loadScenario('movement/mouth-of-sauron-as-short-event');
+    const view = scenarioView(scenario);
+    const legalActions = viableActions(scenario);
+    const event = legalActions.find(a => (a as unknown as { altEventMode?: string }).altEventMode === 'short-event')!;
+    expect(event).toBeDefined();
+    const context = {
+      view, cardPool: loadCardPool(), legalActions, tunables: DEFAULT_TUNABLES,
+      standing: computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES),
+    };
+    const evaluation = hazardsModule.evaluate(event, context)!;
+    const text = JSON.stringify(evaluation.rationale);
+    expect(text).toContain('card(s) back into the hand');
+    expect(text).not.toContain('strike(s) at prowess');
+  });
+});
+
 describe('Power Built by Waiting against the hazard limit', () => {
   // `tap-hazard-card-for-limit` and `pay-hazard-limit-to-untap-card` had no
   // owner, so every hazard window that offered one fell back whole. Recorded
