@@ -136,6 +136,36 @@ export function facingAttackHazardLimitBonus(
 }
 
 /**
+ * Live hazard-limit bonus from in-play `hazard-limit-per-extra-draw` effects
+ * (Shadow of Mordor td-68: "The hazard limit for each company is increased by
+ * one for every card over one drawn by that company during its
+ * movement/hazard phase").
+ *
+ * `resourceCardsDrawn` is the number of cards the moving company's player has
+ * actually drawn in the current company's draw-cards step. Each matching
+ * in-play card adds `value` per card beyond the first.
+ *
+ * Takes structural pieces so the browser can compute the same bonus from a
+ * {@link PlayerView} as the server does from `GameState`.
+ */
+export function extraDrawHazardLimitBonus(
+  cardsInPlay: readonly { readonly definitionId: string }[],
+  cardPool: Readonly<Record<string, unknown>>,
+  resourceCardsDrawn: number,
+): number {
+  const extra = Math.max(0, resourceCardsDrawn - 1);
+  if (extra === 0) return 0;
+  let bonus = 0;
+  for (const card of cardsInPlay) {
+    const def = cardPool[card.definitionId] as { effects?: readonly CardEffect[] } | undefined;
+    for (const eff of def?.effects ?? []) {
+      if (eff.type === 'hazard-limit-per-extra-draw') bonus += eff.value * extra;
+    }
+  }
+  return bonus;
+}
+
+/**
  * The live hazard limit for `companyId` in the current M/H phase.
  *
  * Thin server-side wrapper over {@link effectiveHazardLimit} that reads the
@@ -158,6 +188,10 @@ export function currentHazardLimit(
       mhState.hazardsEncountered,
       state.combat,
       companyId,
+    ) + extraDrawHazardLimitBonus(
+      state.players.flatMap(p => p.cardsInPlay),
+      state.cardPool,
+      mhState.resourceCardsDrawn ?? 0,
     ),
   );
 }

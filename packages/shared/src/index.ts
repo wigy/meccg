@@ -32,7 +32,7 @@ export { reduce } from './engine/reducer.js';
 export type { ReducerResult } from './engine/reducer.js';
 export { computeLegalActions, computePlayerFacingActions, withConcedeAction, withMetaActions, isMetaAction, META_ACTION_TYPES } from './engine/legal-actions/index.js';
 export type { MetaActionOptions } from './engine/legal-actions/index.js';
-export { currentHazardLimit, effectiveHazardLimit, facingAttackHazardLimitBonus } from './engine/hazard-limit.js';
+export { currentHazardLimit, effectiveHazardLimit, facingAttackHazardLimitBonus, extraDrawHazardLimitBonus } from './engine/hazard-limit.js';
 export { describeArrivalMode } from './engine/arrival-modes.js';
 export { isDetainmentAttack } from './engine/detainment.js';
 // The AI's playability mirror needs the engine's own reading of which sites

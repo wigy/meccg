@@ -3540,6 +3540,29 @@ export function buildMHOrderEffectsDrawState(opts: {
 }
 
 /**
+ * Build an M/H draw-cards state: PLAYER_1's Aragorn company moving by region
+ * movement from Rivendell to `destinationSite` (default Moria — resource 2,
+ * hazard 3 draws) with `hazardCardsInPlay` in the hazard player's play area,
+ * already past order-effects so the draw maxima are computed. Used by draw-step
+ * card tests such as Shadow of Mordor (td-68).
+ */
+export function buildMHDrawCardsStepState(opts: {
+  hazardCardsInPlay: readonly CardDefinitionId[];
+  destinationSite?: CardDefinitionId;
+}): GameState {
+  let state = buildMHOrderEffectsDrawState({
+    heroChars: [ARAGORN],
+    destinationSite: opts.destinationSite ?? MORIA,
+    pathTypes: [RegionType.Wilderness],
+    movementType: MovementType.Region,
+  });
+  for (const card of opts.hazardCardsInPlay) state = addCardInPlay(state, HAZARD_PLAYER, card);
+  state = dispatch(state, { type: 'pass', player: PLAYER_1 });
+  expect((state.phaseState as MovementHazardPhaseState).step).toBe('draw-cards');
+  return state;
+}
+
+/**
  * Build a mid-strike M/H-phase combat state for rule 8.12: a synthetic
  * dragon creature attack against Aragorn is at `resolve-strike`, the hazard
  * player holds Dragon's Curse (td-16, the pool's only mid-strike hazard

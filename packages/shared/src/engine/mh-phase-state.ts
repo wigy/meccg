@@ -57,6 +57,7 @@ function freshCompanyFields() {
     hazardDrawMax: 0,
     resourceDrawCount: 0,
     hazardDrawCount: 0,
+    resourceCardsDrawn: 0,
     resourcePlayerPassed: false,
     hazardPlayerPassed: false,
     siteRevealed: false,

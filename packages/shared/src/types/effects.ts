@@ -10970,6 +10970,8 @@ export type CardEffect =
   | ProhibitCompanyEventsEffect
   | HazardLimitEnvironmentEffect
   | HazardLimitFacingAttackEffect
+  | HazardLimitPerExtraDrawEffect
+  | HazardDrawPerExtraDrawEffect
   | HazardLimitRaceGrantEffect
   | WoundAdditionalBodyCheckEffect
   | CancelHazardEventPlayEffect
@@ -12228,6 +12230,44 @@ export interface HazardLimitFacingAttackEffect extends EffectBase {
   /** Creature race whose hazard-creature attack triggers the increase. */
   readonly race: Race;
   /** Amount added to the company's hazard limit. */
+  readonly value: number;
+}
+
+/**
+ * Carried by an in-play permanent event (either player's): increases the
+ * hazard limit for each company by {@link value} for every card over one that
+ * the company's player draws during its movement/hazard phase draw-cards step.
+ * Applied live by `extraDrawHazardLimitBonus` (`hazard-limit.ts`) from
+ * `MovementHazardPhaseState.resourceCardsDrawn` (the actual count drawn, which
+ * survives an early pass, unlike `resourceDrawCount`). Counts once per
+ * carrying card.
+ *
+ * Used by Shadow of Mordor (td-68): "The hazard limit for each company is
+ * increased by one for every card over one drawn by that company during its
+ * movement/hazard phase." — `value: 1`.
+ */
+export interface HazardLimitPerExtraDrawEffect extends EffectBase {
+  readonly type: 'hazard-limit-per-extra-draw';
+  /** Amount added to the hazard limit per card drawn beyond the first. */
+  readonly value: number;
+}
+
+/**
+ * Carried by an in-play permanent event (either player's): during each
+ * company's movement/hazard phase draw-cards step, the hazard player may draw
+ * {@link value} additional card(s) for every card the moving player draws in
+ * excess of one. Applied in `handleDrawCards` (`mh-steps.ts`): each resource
+ * draw beyond the first raises `hazardDrawMax` by `value` (the extra draws stay
+ * optional — `pass` remains available). The optional `when` is evaluated
+ * against `{ inPlay }` (names of cards in play).
+ *
+ * Used by Shadow of Mordor (td-68): "if Doors of Night is in play, ... the
+ * hazard player may draw one additional card for every card in excess of one
+ * drawn by his opponent." — `value: 1, when: { inPlay: "Doors of Night" }`.
+ */
+export interface HazardDrawPerExtraDrawEffect extends EffectBase {
+  readonly type: 'hazard-draw-per-extra-draw';
+  /** Extra hazard draws granted per resource card drawn beyond the first. */
   readonly value: number;
 }
 

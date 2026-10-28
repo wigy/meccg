@@ -6,7 +6,7 @@
  */
 
 import type { PlayerView, CardDefinition, CardDefinitionId, CharacterInPlay, CardInPlay, CardEffect } from '@meccg/shared';
-import { GENERAL_INFLUENCE, isCharacterCard, computeTournamentScore, computeTournamentBreakdown, Phase, effectiveHazardLimit, facingAttackHazardLimitBonus } from '@meccg/shared';
+import { GENERAL_INFLUENCE, isCharacterCard, computeTournamentScore, computeTournamentBreakdown, Phase, effectiveHazardLimit, facingAttackHazardLimitBonus, extraDrawHazardLimitBonus } from '@meccg/shared';
 import { seedDiceFromState, restoreDice, clearDice } from './dice.js';
 import { hasRealCards } from './render-debug-panels.js';
 import { buildMPTooltip } from './mp-categories.js';
@@ -303,6 +303,10 @@ export function getHazardLimitLabel(view: PlayerView, cardPool?: Readonly<Record
               view.phaseState.hazardsEncountered,
               view.combat,
               activeCompany.id,
+            ) + extraDrawHazardLimitBonus(
+              [...view.self.cardsInPlay, ...view.opponent.cardsInPlay],
+              cardPool,
+              view.phaseState.resourceCardsDrawn ?? 0,
             )
           : 0,
       )
