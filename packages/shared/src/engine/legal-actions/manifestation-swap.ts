@@ -16,10 +16,9 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction } from '../../index.js';
-import type { ManifestationSwapEffect } from '../../types/effects.js';
 import { isCharacterCard } from '../../types/cards.js';
 import { logDetail } from './log.js';
-import { characterEntries, defById, findCharacterCompany, getCardEffects, playerById } from '../reducer-utils.js';
+import { characterEntries, defById, findCharacterCompany, playerById, findCardEffect } from '../reducer-utils.js';
 
 /**
  * One action per (in-play swap-carrying character, matching hand card)
@@ -35,7 +34,7 @@ export function manifestationSwapActions(state: GameState, playerId: PlayerId): 
   for (const [charId, char] of characterEntries(player)) {
     const def = defById(state, char.definitionId);
     if (!def || !isCharacterCard(def)) continue;
-    const swap = getCardEffects(def).find((e): e is ManifestationSwapEffect => e.type === 'manifestation-swap');
+    const swap = findCardEffect(def, 'manifestation-swap');
     if (!swap) continue;
     // "into play with <bearer>'s company" — the bearer must be in a company.
     const company = findCharacterCompany(player.companies, charId);

@@ -22,12 +22,12 @@
  */
 import type { GameState, CardDefinitionId, CardInstanceId, Company, CompanyId, PlayerState } from '../index.js';
 import type { CharacterCard } from '../types/cards.js';
-import type { CardEffect, Condition, CompanyInfluenceExemptEffect, CompanyCharacterPlayExemptEffect, DiscardSelfWhenCompanyEffect } from '../types/effects.js';
+import type { CardEffect, Condition, CompanyInfluenceExemptEffect, CompanyCharacterPlayExemptEffect } from '../types/effects.js';
 import { Phase } from '../types/state-phases.js';
 import { matchesCondition } from '../effects/index.js';
 import { isCharacterCard } from '../types/cards.js';
 import { logDetail } from './legal-actions/log.js';
-import { defById, getCardEffects, discardCardsInPlayWhere, isHavenForPlayer } from './reducer-utils.js';
+import { defById, getCardEffects, discardCardsInPlayWhere, isHavenForPlayer, findCardEffect } from './reducer-utils.js';
 
 /**
  * The per-character context every company-composition filter is matched
@@ -242,9 +242,7 @@ export function sweepDiscardSelfWhenCompany(state: GameState): GameState {
     (card, player) => {
       if (card.companyId === undefined) return false;
       const def = defById(state, card.definitionId);
-      const effect = getCardEffects(def).find(
-        (e): e is DiscardSelfWhenCompanyEffect => e.type === 'discard-self-when-company',
-      );
+      const effect = findCardEffect(def, 'discard-self-when-company');
       if (!effect) return false;
       const company = player.companies.find(c => (c.id as string) === (card.companyId as string));
       if (!company) return false;
@@ -254,9 +252,7 @@ export function sweepDiscardSelfWhenCompany(state: GameState): GameState {
     (card, player) => {
       const def = defById(state, card.definitionId);
       const company = player.companies.find(c => (c.id as string) === (card.companyId as string));
-      const effect = getCardEffects(def).find(
-        (e): e is DiscardSelfWhenCompanyEffect => e.type === 'discard-self-when-company',
-      );
+      const effect = findCardEffect(def, 'discard-self-when-company');
       const detail = company && effect
         ? JSON.stringify(buildCompanyCompositionContext(state, player, company, effect.counts ?? []).count)
         : '{}';

@@ -31,16 +31,27 @@ import { dequeueResolution, enqueueResolution } from './pending.js';
 import { recomputeDerived } from './recompute-derived.js';
 import type { ReducerResult } from './reducer-utils.js';
 import {
-  companyBlocksJoins, companyHasNoAllyRestriction, countAttachedInCompany, defById, diceRollEffect,
-  findCharacterCompany, findDuplicationLimitEffect, getCardEffects, getOnEventEffects, isSelfDiscardMove,
-  matchesDefinition, roll2d6, updatePlayer,
+  companyBlocksJoins,
+  companyHasNoAllyRestriction,
+  countAttachedInCompany,
+  defById,
+  diceRollEffect,
+  findCharacterCompany,
+  findDuplicationLimitEffect,
+  getCardEffects,
+  getOnEventEffects,
+  isSelfDiscardMove,
+  matchesDefinition,
+  roll2d6,
+  updatePlayer,
+  findCardEffect,
 } from './reducer-utils.js';
 import { manifestationOfEntityInPlay } from './manifestations.js';
 import { wizardSpecificName } from './fallen-wizard-specific.js';
 
 /** Find the card's `roll-play-ally` effect, if any. */
 export function findRollPlayAllyEffect(def: CardDefinition | undefined): RollPlayAllyEffect | undefined {
-  return getCardEffects(def).find((e): e is RollPlayAllyEffect => e.type === 'roll-play-ally');
+  return findCardEffect(def, 'roll-play-ally');
 }
 
 /**

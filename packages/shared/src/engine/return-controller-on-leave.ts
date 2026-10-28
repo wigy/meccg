@@ -18,12 +18,12 @@
 import type { CardDefinitionId, GameState } from '../index.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
-import { defById, getCardEffects } from './reducer-utils.js';
+import { defById, hasCardEffect } from './reducer-utils.js';
 import { returnCharacterToHand } from './pending-reducers.js';
 
 /** True when the ally definition carries `return-controller-to-hand-on-leave`. */
 function returnsControllerOnLeave(state: GameState, definitionId: CardDefinitionId): boolean {
-  return getCardEffects(defById(state, definitionId)).some(e => e.type === 'return-controller-to-hand-on-leave');
+  return hasCardEffect(defById(state, definitionId), 'return-controller-to-hand-on-leave');
 }
 
 /**

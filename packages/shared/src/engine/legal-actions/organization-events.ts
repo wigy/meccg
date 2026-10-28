@@ -32,7 +32,7 @@ import { getEffectiveSkills } from '../effects/index.js';
 import { buildSiteFilterContext } from '../effective.js';
 import { logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { cardName, isSiteProtectedForPlayer, playerById, defById, countCopiesInPlay, countCopiesInPlayTargetedForDiscard, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countCompanyBoundCopiesDeclaredInChain, countPermanentEventCopiesAtSite, countPermanentEventCopiesDeclaredInChainAtSite, countFactionAttachedCopies, defNamesOf, itemKeywordsOf, itemSubtypesOf, getCardEffects, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, companyHasWizard, factionSiegeEligibleSites, findDuplicationLimitEffect, findPlayConditionEffect, findPlayConditionEffects, findFallenWizardAvatarName, keywordDiscardCandidates, namedDiscardCandidates, matchesCompanyContextCondition, isCompanyAtSite, isCompanyEventPlayProhibited, characterHomeSiteTypes, findPlayerAvatar, regionTypeCounts, activePlayerDeckSize } from '../reducer-utils.js';
+import { cardName, isSiteProtectedForPlayer, playerById, defById, countCopiesInPlay, countCopiesInPlayTargetedForDiscard, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countCompanyBoundCopiesDeclaredInChain, countPermanentEventCopiesAtSite, countPermanentEventCopiesDeclaredInChainAtSite, countFactionAttachedCopies, defNamesOf, itemKeywordsOf, itemSubtypesOf, getCardEffects, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, companyHasWizard, factionSiegeEligibleSites, findDuplicationLimitEffect, findPlayConditionEffect, findPlayConditionEffects, findFallenWizardAvatarName, keywordDiscardCandidates, namedDiscardCandidates, matchesCompanyContextCondition, isCompanyAtSite, isCompanyEventPlayProhibited, characterHomeSiteTypes, findPlayerAvatar, regionTypeCounts, activePlayerDeckSize, findCardEffect } from '../reducer-utils.js';
 import { wizardSpecificName } from '../fallen-wizard-specific.js';
 import { buildPlayerStateContext, playerStateGateMet } from './organization.js';
 import { buildFactionPlayableRegions } from '../recompute-derived.js';
@@ -235,9 +235,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
     // combat window (`phase: "combat"`, `step: "after-attack"`) and is offered
     // solely by the `post-attack-play-offer` resolution — never here, in any
     // phase this emitter is consulted for.
-    const playWindow = getCardEffects(def).find(
-      (e): e is import('../../types/effects.js').PlayWindowEffect => e.type === 'play-window',
-    );
+    const playWindow = findCardEffect(def, 'play-window');
     if (playWindow && playWindow.phase !== state.phaseState.phase) {
       logDetail(`Permanent event ${def.name}: play-window restricts it to the ${playWindow.phase} phase (current ${state.phaseState.phase})`);
       continue;
@@ -368,12 +366,8 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
     // `storage-site-transfer`. Such a card is only playable in one of its
     // combo modes — never as a bare permanent event — so the branch always
     // `continue`s. Stage timing (organization phase only) was enforced above.
-    const playWithStored = getCardEffects(def).find(
-      (e): e is import('../../types/effects.js').PlayWithStoredCardEffect => e.type === 'play-with-stored-card',
-    );
-    const storageTransfer = getCardEffects(def).find(
-      (e): e is import('../../types/effects.js').StorageSiteTransferEffect => e.type === 'storage-site-transfer',
-    );
+    const playWithStored = findCardEffect(def, 'play-with-stored-card');
+    const storageTransfer = findCardEffect(def, 'storage-site-transfer');
     if (playWithStored || storageTransfer) {
       let anyMode = false;
 
@@ -439,9 +433,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
             for (const item of char.items) {
               const itemDef = defById(state, item.definitionId);
               if (!itemDef) continue;
-              const storable = getCardEffects(itemDef).find(
-                (e): e is import('../../types/effects.js').StorableAtEffect => e.type === 'storable-at',
-              );
+              const storable = findCardEffect(itemDef, 'storable-at');
               if (!storable || storable.marshallingPoints === undefined) continue;
               logDetail(`Permanent event ${def.name}: storage transfer of ${itemDef.name} to ${siteDefId as string}`);
               anyMode = true;
@@ -1331,7 +1323,7 @@ export function playShortEventActions(state: GameState, playerId: PlayerId): Eva
     // of the controller's own Hobbit characters, protecting it from discard /
     // return-to-hand for the rest of the turn. Offer one action per own
     // character matching the companion `play-target` filter (Hobbit).
-    const protectEffect = getCardEffects(def).find(e => e.type === 'protect-from-removal');
+    const protectEffect = findCardEffect(def, 'protect-from-removal');
     if (protectEffect) {
       const playTarget = getCardEffects(def).find(
         (e): e is PlayTargetEffect => e.type === 'play-target' && e.target === 'character',

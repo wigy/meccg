@@ -22,7 +22,7 @@ import { isCharacterCard } from '../types/cards.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { modifyCorruptionCheckGrantActions } from './legal-actions/organization.js';
 import { reactiveCorruptionCheckPlays } from './legal-actions/pending.js';
-import { rollDiceForPlayer, classifyCorruptionOutcome, clonePlayers, cleanupEmptyCompanies, updatePlayer, updateCharacter, findCharacterCompany, playerById, defById, toCardInstance, hasEliminatedAvatar, getCardEffects } from './reducer-utils.js';
+import { rollDiceForPlayer, classifyCorruptionOutcome, clonePlayers, cleanupEmptyCompanies, updatePlayer, updateCharacter, findCharacterCompany, playerById, defById, toCardInstance, hasEliminatedAvatar, findCardEffect } from './reducer-utils.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { freeOrDiscardFollowers } from './follower-dispersal.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
@@ -221,9 +221,7 @@ function handleSupportCorruptionCheck(
     const item = bearer.items[itemIndex];
     if (item.status !== CardStatus.Untapped) return { state, error: 'support-corruption-check: item is not untapped' };
     const itemDef = defById(state, item.definitionId);
-    const boostEffect = getCardEffects(itemDef).find(
-      (e): e is import('../types/effects.js').CorruptionCheckBoostEffect => e.type === 'corruption-check-boost',
-    );
+    const boostEffect = findCardEffect(itemDef, 'corruption-check-boost');
     if (!boostEffect) return { state, error: 'support-corruption-check: item has no corruption-check-boost effect' };
     logDetail(`Free Council: ${itemDef?.name ?? (item.definitionId as string)} taps for ${formatSignedNumber(boostEffect.value)} to corruption check`);
     let boostState = updatePlayer(state, playerIndex, p =>

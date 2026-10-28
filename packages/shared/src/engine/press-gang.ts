@@ -38,7 +38,7 @@
 import type { GameState, CardInstanceId, PlayerState, CardInstance, CharacterInPlay } from '../index.js';
 import { ownerOf } from '../types/state.js';
 import { addConstraint, removeConstraint } from './pending.js';
-import { toCardInstance, defById, getCardEffects, cleanupEmptyCompanies } from './reducer-utils.js';
+import { toCardInstance, defById, cleanupEmptyCompanies, hasCardEffect } from './reducer-utils.js';
 import { logDetail } from './legal-actions/log.js';
 import { partitionLeavingTrophies } from './trophy-dispersal.js';
 import { freeOrDiscardFollowers } from './follower-dispersal.js';
@@ -53,7 +53,7 @@ export function findCapturingPressGang(state: GameState, ownerIndex: number): Ca
   for (const card of opponent.cardsInPlay) {
     if (card.setAsideHost !== undefined) continue;
     const def = defById(state, card.definitionId);
-    if (getCardEffects(def).some(e => e.type === 'press-gang-capture')) {
+    if (hasCardEffect(def, 'press-gang-capture')) {
       return card.instanceId;
     }
   }

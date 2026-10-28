@@ -17,7 +17,7 @@ import { logDetail } from './log.js';
 import { evaluateAction } from '../../rules/evaluator.js';
 import { CHARACTER_PLAY_RULES } from '../../rules/definitions/character-play.js';
 import { resolveDef } from '../effects/index.js';
-import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById, defById, companyBlocksJoins, getCardEffects, isHavenForPlayer, generalInfluenceControlLimit, isUniqueCharacterInPlay, playerPlaysAsSauron, playerHasNoCharacterPlayLimit, wouldViolateRingwraithComposition, isDarkhavenSiteDef, siteRegionTypeOf, parseHomesiteNames, ringwraithFollowerSlotCount } from '../reducer-utils.js';
+import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById, defById, companyBlocksJoins, getCardEffects, isHavenForPlayer, generalInfluenceControlLimit, isUniqueCharacterInPlay, playerPlaysAsSauron, playerHasNoCharacterPlayLimit, wouldViolateRingwraithComposition, isDarkhavenSiteDef, siteRegionTypeOf, parseHomesiteNames, ringwraithFollowerSlotCount, hasCardEffect } from '../reducer-utils.js';
 import { blockingManifestationForCharacterPlay } from '../manifestations.js';
 import { companyAtSiteInstance, companyExemptsCharacterFromInfluence, companyExemptsCharacterFromPlayLimit } from '../company-composition.js';
 import { wouldViolateLeaderRestriction } from './organization-companies.js';
@@ -180,7 +180,7 @@ function playerHasAvatarHomeSiteRestriction(
 ): boolean {
   return player.cardsInPlay.some(card => {
     const def = defById(state, card.definitionId);
-    return getCardEffects(def).some(e => e.type === 'avatar-home-site-restriction');
+    return hasCardEffect(def, 'avatar-home-site-restriction');
   });
 }
 

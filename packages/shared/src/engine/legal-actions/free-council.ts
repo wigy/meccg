@@ -23,7 +23,7 @@ import { logDetail } from './log.js';
 import { grantedActionActivations, modifyCorruptionCheckGrantActions } from './organization.js';
 import { reactiveCorruptionCheckPlays } from './pending.js';
 import { characterPossessions } from '../pending.js';
-import { characterIds, findCharacterCompany, playerById, defById, getCardEffects, isCorruptionCardDef, matchesDefinition } from '../reducer-utils.js';
+import { characterIds, findCharacterCompany, playerById, defById, isCorruptionCardDef, matchesDefinition, hasCardEffect, findCardEffect } from '../reducer-utils.js';
 import { asViable as viable } from './evaluated.js';
 import { isResourceEventCard } from '../../types/cards.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
@@ -160,7 +160,7 @@ function corruptionHazardDiscardPlays(
     if (move.when && !matchesCondition(move.when, { inPlay: inPlayNames })) continue;
     // Cards that also need a character to tap or target (Marvels Told's
     // sage) go through their own play-target flow, not this one.
-    if (getCardEffects(def).some(e => e.type === 'play-target')) continue;
+    if (hasCardEffect(def, 'play-target')) continue;
     for (const charId of characterIds(player)) {
       if (checked.has(charId)) continue;
       for (const haz of player.characters[charId].hazards) {
@@ -225,7 +225,7 @@ function supportActions(
     for (const item of checkingChar.items) {
       if (item.status !== CardStatus.Untapped) continue;
       const itemDef = defById(state, item.definitionId);
-      const boostEffect = getCardEffects(itemDef).find(e => e.type === 'corruption-check-boost');
+      const boostEffect = findCardEffect(itemDef, 'corruption-check-boost');
       if (!boostEffect) continue;
       logDetail(`Support available: ${itemDef?.name ?? (item.definitionId as string)} can tap for a corruption-check bonus`);
       actions.push({

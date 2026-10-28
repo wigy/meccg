@@ -37,8 +37,14 @@ import { matchesCondition } from '../effects/condition-matcher.js';
 import { logDetail } from './legal-actions/log.js';
 import { buildPlayOptionContext } from './legal-actions/organization.js';
 import {
-  companyById, companySubphaseScope, countAttachedInCompany, defById, getCardEffects,
-  findDuplicationLimitEffect, playerById,
+  companyById,
+  companySubphaseScope,
+  countAttachedInCompany,
+  defById,
+  getCardEffects,
+  findDuplicationLimitEffect,
+  playerById,
+  findCardEffect,
 } from './reducer-utils.js';
 import { enqueueResolution } from './pending.js';
 
@@ -73,7 +79,7 @@ function hasFailedRingwraithStrike(state: GameState, combat: CombatState): boole
 
 /** The `play-window` of a card, when it declares one. */
 function playWindowOf(def: CardDefinition | undefined): PlayWindowEffect | undefined {
-  return getCardEffects(def).find((e): e is PlayWindowEffect => e.type === 'play-window');
+  return findCardEffect(def, 'play-window');
 }
 
 /**
