@@ -31,7 +31,7 @@ import { hasPlayFlag } from '../effects/play-flags.js';
 export function facingAlliesFor(state: GameState, player: PlayerState, company: Company): CardInstanceId[] {
   return findCompanyAllies(player, company.characters)
     .filter(({ ally }) => {
-      const allyDef = defById(state, ally.definitionId) as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined;
+      const allyDef = defById(state, ally.definitionId);
       return !hasPlayFlag(allyDef, 'no-attack') && !hasPlayFlag(allyDef, 'no-attack-site-keyed');
     })
     .map(({ ally }) => ally.instanceId);

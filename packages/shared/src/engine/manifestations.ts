@@ -588,7 +588,7 @@ export function isReduceAttacksToOneInPlay(state: GameState, defendingPlayerInde
     const def = defById(state, card.definitionId);
     if (!def) continue;
     if (!('effects' in def)) continue;
-    if (hasPlayFlag(def as { effects?: readonly CardEffect[] }, 'reduce-attacks-to-one')) return true;
+    if (hasPlayFlag(def, 'reduce-attacks-to-one')) return true;
   }
   return false;
 }

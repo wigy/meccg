@@ -118,7 +118,7 @@ export function isAllyImmuneToSiteKeyedAttack(
   combat: CombatState,
 ): boolean {
   const allyDef = defById(state, ally.definitionId);
-  if (!hasPlayFlag(allyDef as { effects?: readonly import('../../types/effects.js').CardEffect[] } | undefined, 'no-attack-site-keyed')) return false;
+  if (!hasPlayFlag(allyDef, 'no-attack-site-keyed')) return false;
 
   if (combat.attackSource.type === 'automatic-attack' || combat.attackSource.type === 'played-auto-attack') {
     logDetail(`Ally ${ally.instanceId as string} immune to auto-attack (no-attack-site-keyed flag)`);
@@ -774,7 +774,7 @@ export function assignStrikeActions(
     if (!restrictToForced && !combat.excludeSoloDefenderAllies) {
       for (const { ally } of findCompanyAllies(player, company.characters)) {
         if (assignedCharIds.has(ally.instanceId as string)) continue;
-        if (hasPlayFlag(state.cardPool[ally.definitionId] as { effects?: readonly import('../../types/effects.js').CardEffect[] } | undefined, 'no-attack')) {
+        if (hasPlayFlag(state.cardPool[ally.definitionId], 'no-attack')) {
           logDetail(`Ally ${ally.instanceId as string} may not be attacked — excluded from defender strike assignment`);
           continue;
         }
@@ -981,7 +981,7 @@ export function assignStrikeActions(
       allCombatantIds.push({ id: charId, tapped: charData?.status !== CardStatus.Untapped });
     }
     for (const { ally } of combat.excludeSoloDefenderAllies ? [] : findCompanyAllies(defPlayer, company.characters)) {
-      if (hasPlayFlag(state.cardPool[ally.definitionId] as { effects?: readonly import('../../types/effects.js').CardEffect[] } | undefined, 'no-attack')) {
+      if (hasPlayFlag(state.cardPool[ally.definitionId], 'no-attack')) {
         logDetail(`Ally ${ally.instanceId as string} may not be attacked — excluded from attacker assignment pool`);
         continue;
       }
