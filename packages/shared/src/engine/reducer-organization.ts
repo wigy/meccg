@@ -848,7 +848,7 @@ export function handlePlayCharacter(state: GameState, action: GameAction): Reduc
   const bypassOneCharLimit = (() => {
     if (!eventToDiscard) return false;
     const eventDef = defById(state, eventToDiscard.definitionId);
-    const effects = (eventDef as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined)?.effects ?? [];
+    const effects = getCardEffects(eventDef);
     return effects.some(e => e.type === 'recruit-character' && e.bypassOneCharacterLimit === true);
   })();
   // An Unexpected Party (dm-114): a character brought into a company carrying a

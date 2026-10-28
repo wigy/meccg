@@ -1742,7 +1742,7 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
       // once restored, the printed marshalling points are replaced by the
       // `restored-item-stats` value.
       if (item.restored && hasMarshallingPoints(itemDef)) {
-        const restoredStats = ((itemDef as { effects?: readonly CardEffect[] }).effects ?? []).find(
+        const restoredStats = getCardEffects(itemDef).find(
           (e): e is RestoredItemStatsEffect => e.type === 'restored-item-stats',
         );
         if (restoredStats?.marshallingPoints !== undefined) {
@@ -1866,7 +1866,7 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     for (const attachment of [...char.items, ...char.hazards]) {
       const attDef = resolveDef(state, attachment.instanceId);
       const effects = attDef && 'effects' in attDef
-        ? (attDef as { effects?: readonly CardEffect[] }).effects ?? []
+        ? getCardEffects(attDef)
         : [];
       for (const effect of effects) applyGeneralInfluenceEffect(effect, bearerCtx);
     }
@@ -1875,7 +1875,7 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     if (card.setAsideHost !== undefined) continue;
     const def = resolveDef(state, card.instanceId);
     const effects = def && 'effects' in def
-      ? (def as { effects?: readonly CardEffect[] }).effects ?? []
+      ? getCardEffects(def)
       : [];
     for (const effect of effects) applyGeneralInfluenceEffect(effect, { reason: 'general-influence' });
   }

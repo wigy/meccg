@@ -2918,7 +2918,7 @@ function handleSitePlayResources(
     const handCard = findById(player.hand, action.cardInstanceId);
     const shortDef = handCard ? defById(state, handCard.definitionId) : undefined;
     const shortEffects = shortDef && 'effects' in shortDef
-      ? ((shortDef as { effects?: readonly import('../types/effects.js').CardEffect[] }).effects ?? [])
+      ? getCardEffects(shortDef)
       : [];
     const hasRequiredSkill = shortEffects.some(
       e => typeof (e as { requiredSkill?: string }).requiredSkill === 'string',

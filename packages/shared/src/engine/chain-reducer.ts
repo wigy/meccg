@@ -3218,7 +3218,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
   // This mirrors what applySelectCardBearerResolution does for post-attack attachment.
   // Gated on the explicit untap-lock play-flag: storable permanent events that do
   // not lock the bearer (e.g. That Ain't No Secret, le-240) must not place it.
-  const storableEffect = (getCardEffects(def)).find(
+  const storableEffect = getCardEffects(def).find(
     (e): e is import('../types/effects.js').StorableAtEffect => e.type === 'storable-at',
   );
   const locksBearer = hasPlayFlag(def as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'bearer-cannot-untap-until-stored');
@@ -4012,7 +4012,7 @@ function collectHavenJumpOffers(
       const charInPlay = defendingPlayer.characters[charId];
       if (!charInPlay) continue;
       const charDef = defById(state, charInPlay.definitionId);
-      const effects = (charDef as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined)?.effects ?? [];
+      const effects = getCardEffects(charDef);
       for (const effect of effects) {
         if (effect.type !== 'on-event') continue;
         const onEvent: OnEventEffect = effect;

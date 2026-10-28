@@ -1291,7 +1291,7 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
       const sourceInstId = aa?.sourceInstanceId;
       if (sourceInstId) {
         const sourceDef = resolveDef(state, sourceInstId);
-        const effects = (sourceDef as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined)?.effects ?? [];
+        const effects = getCardEffects(sourceDef);
         for (const eff of effects) {
           if (eff.type !== 'permanent-event-auto-attack') continue;
           const peaEff = eff;
@@ -1407,7 +1407,7 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
       const dauSourceInstId = dauAa?.sourceInstanceId;
       if (dauSourceInstId) {
         const dauSourceDef = resolveDef(state, dauSourceInstId);
-        const dauEffects = (dauSourceDef as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined)?.effects ?? [];
+        const dauEffects = getCardEffects(dauSourceDef);
         for (const dauEff of dauEffects) {
           if (dauEff.type !== 'permanent-event-auto-attack') continue;
           if (!dauEff.discardAfterUse) continue;

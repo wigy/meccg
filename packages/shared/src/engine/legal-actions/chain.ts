@@ -18,7 +18,7 @@ import { hasPlayFlag } from '../../effects/play-flags.js';
 import { getPlayerIndex } from '../../state-utils.js';
 import { CardStatus } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
-import type { CardEffect, OnEventEffect, ForceReturnToOriginEffect, GrantActionEffect, ReturnChainEntryCardToHandAction } from '../../types/effects.js';
+import type { OnEventEffect, ForceReturnToOriginEffect, GrantActionEffect, ReturnChainEntryCardToHandAction } from '../../types/effects.js';
 import { isSiteCard, isCharacterCard } from '../../types/cards.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { cardStatusToName } from '../../types/common.js';
@@ -322,7 +322,7 @@ function playSkillCancelChainActions(state: GameState, playerId: PlayerId): Eval
     if (!def || def.cardType !== 'hazard-event') continue;
     const hazDef = def;
     if (hazDef.eventType !== 'short') continue;
-    const effects = (hazDef as { effects?: readonly CardEffect[] }).effects ?? [];
+    const effects = getCardEffects(hazDef);
 
     const cancelEffect = effects.find(
       (e): e is OnEventEffect & { apply: import('../../types/effects.js').CancelChainEntryAction } =>
@@ -404,7 +404,7 @@ function playReturnChainEntryCardActions(state: GameState, playerId: PlayerId): 
     if (!def || def.cardType !== 'hazard-event') continue;
     const hazDef = def;
     if (hazDef.eventType !== 'short') continue;
-    const effects = (hazDef as { effects?: readonly CardEffect[] }).effects ?? [];
+    const effects = getCardEffects(hazDef);
 
     const returnEffect = effects.find(
       (e): e is OnEventEffect & { apply: ReturnChainEntryCardToHandAction } =>
