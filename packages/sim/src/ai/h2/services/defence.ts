@@ -100,7 +100,7 @@ export interface Defence {
    */
   harmFrom(roster: readonly StrikeTarget[], profiles: readonly AttackProfile[]): number;
   /**
-   * Expected TSD lost by a roster once one card in play is gone.
+   * Expected TSD lost by a roster once one card in play — or several, for a sweep — is gone.
    *
    * The question a removal asks: taking the opponent's Minions Stir off the
    * board makes every Orc attack weaker again, and what that is worth is the
@@ -108,7 +108,7 @@ export interface Defence {
    * because the typical attack is this service's number and a second copy of it
    * would be a second opinion.
    */
-  harmWithout(instanceId: string, roster: readonly StrikeTarget[], slots: number): number;
+  harmWithout(instanceId: string | readonly string[], roster: readonly StrikeTarget[], slots: number): number;
   /** The attack the harm was computed against when none is named. */
   readonly typical: TypicalAttack;
 }
@@ -282,7 +282,7 @@ function buildComputeDefence(
       return this.harmFrom(roster, new Array(slots).fill(profile));
     },
 
-    harmWithout(instanceId: string, roster: readonly StrikeTarget[], slots: number): number {
+    harmWithout(instanceId: string | readonly string[], roster: readonly StrikeTarget[], slots: number): number {
       if (roster.length === 0 || slots <= 0) return 0;
       const without = typicalUnder(boostInPlay(view, cardPool, { excluding: instanceId }));
       const profile: AttackProfile = {

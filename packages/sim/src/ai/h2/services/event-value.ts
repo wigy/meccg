@@ -39,6 +39,8 @@ import { computeBeliefs } from './beliefs.js';
 import { computeCharacterValue } from './character-value.js';
 import { computeDefence, hazardSlots } from './defence.js';
 import { computeDrawValue } from './draw-value.js';
+import { inPlayNamed } from './attack-modifiers.js';
+import { unseenDeckCards } from './deck-reach.js';
 import { rosterOf } from './strike/prowess.js';
 import type { StrikeTarget } from './strike/prowess.js';
 
@@ -60,6 +62,7 @@ export interface Effect {
   readonly when?: unknown;
   readonly target?: string;
   readonly modifier?: number;
+  readonly select?: string;
 }
 
 /** A DSL filter, as far as this module reads one. */
@@ -541,7 +544,12 @@ export function gainOf(
     };
   }
 
-  const removal = effects.find(e => e.type === 'move'
+  // A permanent event's sweep happens as it enters play — Gates of Morning
+  // discarding every hazard environment — so it is read under its trigger too.
+  // Other triggers (end of turn, a later event) are not the play's effect.
+  const onEntry = effects.flatMap(e => (e.type === 'on-event' && e.event === 'self-enters-play' && e.apply
+    ? [e.apply] : []));
+  const removal = [...effects, ...onEntry].find(e => e.type === 'move'
     && e.to === 'discard'
     && (fromIncludes(e, 'in-play') || String(e.from ?? '').startsWith('attached')));
   if (removal) {
@@ -606,7 +614,7 @@ function reliefFromRemoval(
     size: company.characters.length,
   }));
   const now = companies.reduce((sum, c) => sum + defence.expectedHarm(c.roster, hazardSlots(c.size)), 0);
-  const reliefFrom = (instanceId: string): number => now - companies.reduce(
+  const reliefFrom = (instanceId: string | readonly string[]): number => now - companies.reduce(
     (sum, c) => sum + defence.harmWithout(instanceId, c.roster, hazardSlots(c.size)), 0,
   );
 
@@ -647,21 +655,44 @@ function reliefFromRemoval(
     };
   }
 
-  // Sweep mode: no single named target, so price the best reachable match —
-  // the effect takes all of them regardless.
-  let best: { relief: number; name: string } | null = null;
+  // Sweep mode: no single named target. A `filter-all` sweep takes every
+  // free-standing match at once, so it is priced as one removal of all of them
+  // — Minions Stir loses its Doors of Night upgrade only when both go together,
+  // and the best single card misses that. Any other sweep picks one, so the
+  // best reachable match.
+  const matches: { instanceId: string; name: string; ours: boolean; hazard: boolean }[] = [];
   for (const zone of [view.self.cardsInPlay, view.opponent.cardsInPlay]) {
     for (const card of zone) {
       const def = cardPool[card.definitionId];
       if (!couldMatch(removal.filter, def)) continue;
-      const relief = reliefFrom(card.instanceId as string);
-      if (relief > 0 && (!best || relief > best.relief)) {
-        best = {
-          relief,
-          name: (def as unknown as { name?: string } | undefined)?.name ?? (card.definitionId as string),
-        };
-      }
+      matches.push({
+        instanceId: card.instanceId as string,
+        name: (def as unknown as { name?: string } | undefined)?.name ?? (card.definitionId as string),
+        ours: ownerOf(card.instanceId) === view.self.id,
+        hazard: (def as unknown as { cardType?: string } | undefined)?.cardType === 'hazard-event',
+      });
     }
+  }
+  if (removal.select === 'filter-all' && matches.length > 0) {
+    // Our own hazard swept with theirs gives up what it does to the opponent's
+    // companies, which is not priced here — the same zero the named case gives.
+    const own = matches.find(m => m.ours && m.hazard);
+    if (own) {
+      return { tsd: 0, reason: `would also discard our own ${own.name} — what it does to the opponent's `
+        + 'companies is given up' };
+    }
+    const relief = reliefFrom(matches.map(m => m.instanceId));
+    if (relief <= 0) return null;
+    return {
+      tsd: relief,
+      reason: `discarding ${matches.map(m => m.name).join(', ')} takes ${relief.toFixed(1)} of harm off `
+        + 'our companies — the attacks they were strengthening go back to their printed numbers',
+    };
+  }
+  let best: { relief: number; name: string } | null = null;
+  for (const match of matches) {
+    const relief = reliefFrom(match.instanceId);
+    if (relief > 0 && (!best || relief > best.relief)) best = { relief, name: match.name };
   }
   if (!best) return null;
   return {
@@ -835,6 +866,66 @@ const PERMANENT_ASSUMPTIONS: readonly string[] = [
 ];
 
 /**
+ * What a permanent resource event is worth to our own cards that read it.
+ *
+ * Strong players play Gates of Morning with no hazard environment to discard
+ * — fifteen times in the rated corpus — because their decks are full of cards
+ * that do more while it is out: Dark Quarrels halves every attack's strikes,
+ * The Cock Crows discards a hazard permanent-event, Vanish in Sunlight! gives
+ * -4 instead of -2, and Clear Skies or Cloudless Day cannot be played at all
+ * without it. Priced only by what it discards, it was worth nothing there,
+ * lost to a pass, and was the first card thrown away at the hand reset.
+ *
+ * Those modes are mostly alternatives this module cannot price one by one, so
+ * each card that names it in an `inPlay` condition is credited one draw
+ * (`resourceDrawValue`): the mode upgrades a card we will hold, and the
+ * stronger mode is usually the one played. A card in hand counts in full; one
+ * still in the deck (`ownDeck`) by the chance it is drawn over
+ * `planHorizonTurns`, two draws a turn — that chance is the discount, so it is
+ * not discounted again. Half a draw each, as first tried, still left the play
+ * below a pass at most of the recorded positions where winners made it. Only resource cards count — our own
+ * hazards that read it ("only if Gates of Morning is not in play") are the
+ * other seat's business — and nothing is credited once it is already out.
+ */
+function enablerGain(
+  def: CardDefinition | undefined,
+  instanceId: string,
+  context: ModuleContext,
+): EventGain | null {
+  const { view, cardPool, tunables, ownDeck } = context;
+  const printed = def as unknown as { name?: string; eventType?: string; cardType?: string } | undefined;
+  if (printed?.eventType !== 'permanent' || !printed.name || printed.cardType?.includes('hazard')) return null;
+  const name = printed.name;
+  if (inPlayNamed(view, cardPool, name)) return null;
+  const reads = (id: string): boolean => {
+    const card = cardPool[id] as unknown as { name?: string; cardType?: string; effects?: unknown } | undefined;
+    if (!card || card.name === name || String(card.cardType ?? '').includes('hazard')) return false;
+    return JSON.stringify(card.effects ?? []).includes(`"inPlay":"${name}"`);
+  };
+  const unseen = ownDeck ? unseenDeckCards(view, ownDeck) : [];
+  const draws = 2 * tunables.planHorizonTurns;
+  const each = tunables.resourceDrawValue;
+  const credited = new Map<string, number>();
+  for (const card of view.self.hand) {
+    if ((card.instanceId as string) === instanceId || !reads(card.definitionId as string)) continue;
+    credited.set(card.definitionId as string, (credited.get(card.definitionId as string) ?? 0) + 1);
+  }
+  const inDeck = new Map<string, number>();
+  for (const id of unseen) if (reads(id)) inDeck.set(id, (inDeck.get(id) ?? 0) + 1);
+  for (const [id, copies] of inDeck) {
+    credited.set(id, (credited.get(id) ?? 0) + Math.min(copies, copies * draws / unseen.length));
+  }
+  if (credited.size === 0) return null;
+  const options = [...credited.values()].reduce((sum, n) => sum + n, 0);
+  const names = [...credited.keys()].map(id => (cardPool[id] as unknown as { name?: string } | undefined)?.name ?? id);
+  return {
+    tsd: options * each,
+    reason: `${names.join(', ')} do more with ${name} in play — about ${options.toFixed(1)} card(s) in hand or `
+      + `drawn while it lasts, ${each.toFixed(2)} each`,
+  };
+}
+
+/**
  * Score playing one event from hand, by what its declared effects achieve.
  *
  * The whole of what `events` does with a card, made callable, because a second
@@ -868,12 +959,18 @@ export function declaredEventEvaluation(
   // that happens when it resolves, does nothing when it resolves. That is a
   // reading of the DSL rather than a judgement about the card, and it is the
   // one case where charging for the card is an opinion rather than a guess.
-  const gain = declaresAnEffect(effects)
+  let gain = declaresAnEffect(effects)
     ? gainOf(effects, context, action)
     : {
       tsd: 0,
       reason: 'the card declares no effect this engine will execute — only how it may be played',
     };
+  const enabled = enablerGain(def, instanceId as string, context);
+  if (enabled) {
+    gain = gain && gain.tsd !== 0
+      ? { tsd: gain.tsd + enabled.tsd, reason: `${gain.reason}; ${enabled.reason}` }
+      : enabled;
+  }
   const { standing, tunables } = context;
 
   // A permanent event stays in play, so its printed marshalling points are
