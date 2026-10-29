@@ -764,6 +764,19 @@ export interface MovementHazardPhaseState {
    * resolves (move chosen or passed).
    */
   readonly extraMHMoveRequiresSitePathIncludes?: readonly RegionType[];
+  /**
+   * Tracks a `character-tap-extra-mh-phase` (Carambor le-5) offer made at the
+   * end of the company's movement/hazard phase **before** the hands are reset
+   * (CoE 2.IV.viii — the tap happens at the end of the phase, ahead of the
+   * draw/discard to hand size):
+   * - `'pre-reset'` — the `character-tap-mh-offer` step was entered ahead of
+   *   `reset-hand`; resolving it continues into the hand reset.
+   * - `'tapped'` / `'declined'` — the choice already made; once the hand
+   *   reset completes, `advanceAfterCompanyMH` goes straight to the extra
+   *   move offer (or skips the Carambor offer) instead of offering it again.
+   * Absent when no such pre-reset offer is in progress.
+   */
+  readonly characterTapExtraMH?: 'pre-reset' | 'tapped' | 'declined';
 }
 
 /**
