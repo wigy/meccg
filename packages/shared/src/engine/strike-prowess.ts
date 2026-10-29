@@ -49,6 +49,37 @@ export interface StrikeProwessTerms {
   readonly need: number;
 }
 
+/**
+ * Each defending character's prowess against the current attack, for display
+ * on the combat view's stats badges. A character's `effectiveStats.prowess`
+ * excludes combat-only modifiers keyed to the attacking race (Fram Framson
+ * td-91's "+3 prowess against Dragon and Drake attacks"), so without this the
+ * badge understates the prowess {@link strikeProwessTerms} actually rolls with.
+ *
+ * Holds only the character-card base term (the same
+ * `computeCombatProwessBreakdown` sum the strike roll starts from); per-strike
+ * penalties (tapped, wounded, excess strikes, support) are not folded in.
+ * Returns an empty record when there is no race-keyed combat to apply, or the
+ * defender's prowess comes from mind (Neeker-breekers).
+ */
+export function defenderCombatProwess(state: GameState): Readonly<Record<string, number>> {
+  const combat = state.combat;
+  if (!combat?.creatureRace || combat.defenderProwessFromMind) return {};
+  const defPlayer = state.players[getPlayerIndex(state, combat.defendingPlayerId)];
+  const company = companyById(defPlayer.companies, combat.companyId);
+  if (!company) return {};
+  const result: Record<string, number> = {};
+  for (const charId of company.characters) {
+    const charData = defPlayer.characters[charId];
+    const charDef = charData ? defById(state, charData.definitionId) : undefined;
+    if (!charData || !charDef || !isCharacterCard(charDef)) continue;
+    result[charId as string] = sumTerms(computeCombatProwessBreakdown(
+      state, charData, charDef, combat.creatureRace, undefined, combat.weaponsIneffective,
+    ));
+  }
+  return result;
+}
+
 /** Sum the values of a term list. */
 export function sumTerms(terms: readonly RollTerm[]): number {
   return terms.reduce((sum, t) => sum + t.value, 0);

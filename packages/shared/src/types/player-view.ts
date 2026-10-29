@@ -270,6 +270,14 @@ export interface PlayerView {
    */
   readonly combat: CombatState | null;
   /**
+   * Prowess of each defending character against the current attack, keyed by
+   * character instance ID — includes combat-only bonuses keyed to the attacking
+   * race (e.g. Fram Framson's +3 against Dragons) that `effectiveStats.prowess`
+   * omits. Empty or absent when no such combat is in progress; clients fall
+   * back to `effectiveStats.prowess`.
+   */
+  readonly combatProwess?: Readonly<Record<string, number>>;
+  /**
    * Active chain of effects sub-state, or null when no chain is in progress.
    * Chain state is public information — both players see all declared cards.
    */

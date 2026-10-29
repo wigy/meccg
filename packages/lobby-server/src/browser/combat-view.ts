@@ -73,6 +73,14 @@ let cachedInstanceLookup: ((id: CardInstanceId) => CardDefinitionId | undefined)
 let cachedItemCp: Map<string, number> = new Map();
 
 /**
+ * Defending characters' prowess against the current attack (server-computed
+ * `PlayerView.combatProwess`), rebuilt each render. Includes race-keyed combat
+ * bonuses such as Fram Framson's +3 against Dragons that `effectiveStats`
+ * omits, so the stats badge shows the prowess the strike is rolled with.
+ */
+let cachedCombatProwess: Readonly<Record<string, number>> = {};
+
+/**
  * Wrap an attachment card with its CP badge (same look as the company
  * view's item badges) when the instance carries corruption points.
  */
@@ -108,6 +116,7 @@ export function renderCombatView(
   if (!combat) return;
 
   cachedInstanceLookup = buildInstanceLookup(view);
+  cachedCombatProwess = view.combatProwess ?? {};
 
   // CP badges for every attached card on the arena: items use the same
   // effective-CP computation as the company view; permanent corruption
@@ -936,7 +945,8 @@ function renderCombatCharacterColumn(
     : 0;
   const badge = document.createElement('div');
   badge.className = 'char-stats-badge';
-  badge.textContent = `${char.effectiveStats.prowess + strikeBonus}/${char.effectiveStats.body}`;
+  const prowess = cachedCombatProwess[char.instanceId as string] ?? char.effectiveStats.prowess;
+  badge.textContent = `${prowess + strikeBonus}/${char.effectiveStats.body}`;
   inner.appendChild(badge);
 
   // Excess strikes indicator
