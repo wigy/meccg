@@ -47,6 +47,7 @@ import { playResourcesActions } from './site.js';
 import { logDetail } from './log.js';
 import { canPayCost } from '../cost-evaluator.js';
 import { collectFactionCardEffects, cardName, matchesDefinition, findCharacterCompany, riddlingCompanyBonus, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, countCopiesInPlay, defById, findEventMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, defNamesOf, itemKeywordsOf, itemSubtypesOf, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, siteRegionTypeOf, deckSearchCancellerFor, buildFactionCheckContext, buildFactionControllerContext, regionTypeCounts, regionAdjacentSwapEligibleSites, isCardNameEffectCanceled, fetchZoneItemInstanceIds, characterHasCannotUntapConstraint, onGuardEventDuplicationBlocked, findCardEffect, hasCardEffect } from '../reducer-utils.js';
+import { extraGeneralInfluence } from '../../alignment-rules.js';
 import { isBalrogAvatarDef } from '../../state-utils.js';
 import { effectiveItemCorruptionPoints } from '../../item-corruption.js';
 import { afterAttackPlayTargets, afterAttackCharacterPlayTarget } from '../post-attack-play.js';
@@ -768,8 +769,10 @@ export function diceCheckActions(
     if (m.kind === 'constant') {
       mod += m.value;
     } else {
+      // Must match the resolver (applyDiceCheckResolution): a Ringwraith or
+      // Balrog player's unused GI includes their flat +5 (CoE 1.12.R1/B1).
       const p = playerById(state, m.player);
-      if (p) mod += effectiveGeneralInfluence(state, m.player) - p.generalInfluenceUsed;
+      if (p) mod += effectiveGeneralInfluence(state, m.player) - p.generalInfluenceUsed + extraGeneralInfluence(p.alignment);
     }
   }
   const cmp = kind.comparison === 'gt' ? '>' : '>=';
