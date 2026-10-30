@@ -30,7 +30,7 @@ import { resolveDef, enemyRaceContext, getEffectiveSkills } from '../effects/ind
 import { canPayCost } from '../cost-evaluator.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { buildPlayOptionContext, getPlayTargetEffect, grantedActionActivations, playerStateGateMet } from './organization.js';
-import { attackSourceCreatureInstanceId, findCharacterCompany, playerById, getCardEffects, getOnEventEffects, companyById, defById, defNamesOf, itemKeywordsOf, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, inPlayNamesForPlayerDeep, isCardNameInPlayForPlayer, isCardNameInPlayOrCharacters, isCombatReactiveShortEvent, untappedAltPermanentEvents, countCopiesInPlay, companyShadowMagicUsers, resolveCreatureBodyForCheck, findCardEffect, hasCardEffect } from '../reducer-utils.js';
+import { attackSourceCreatureInstanceId, findCharacterCompany, playerById, getCardEffects, getOnEventEffects, companyById, defById, defNamesOf, itemKeywordsOf, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, inPlayNamesForPlayerDeep, isCardNameInPlayForPlayer, isCardNameInPlayOrCharacters, isCombatReactiveShortEvent, untappedAltPermanentEvents, countCopiesInPlay, companyShadowMagicUsers, resolveCreatureBodyForCheck, findCardEffect, hasCardEffect, characterHasRequiredRace } from '../reducer-utils.js';
 import { holdableAttackCreatureInstanceId } from '../held-creature.js';
 import { countConstraintsFromDefinition, constraintsOnCompany, multiStrikeAllowance } from '../pending.js';
 import { allyEffectiveBody } from '../ally-stats.js';
@@ -3247,7 +3247,7 @@ function cancelAttackActions(
         return charDef.skills.includes(cancelEffect.requiredSkill as import('../../types/common.js').Skill);
       }
       if (cancelEffect.requiredRace) {
-        return charDef.race === cancelEffect.requiredRace;
+        return characterHasRequiredRace(charDef, cancelEffect.requiredRace);
       }
       return true;
     };
@@ -4515,7 +4515,7 @@ function companyCombatBoostActions(
         const charDef = defById(state, charData.definitionId);
         if (!charDef || !isCharacterCard(charDef)) continue;
         if (costEffect.requiredSkill && !charDef.skills.includes(costEffect.requiredSkill as import('../../types/common.js').Skill)) continue;
-        if (costEffect.requiredRace && charDef.race !== costEffect.requiredRace) continue;
+        if (costEffect.requiredRace && !characterHasRequiredRace(charDef, costEffect.requiredRace)) continue;
         if (costEffect.requiredItemFilter) {
           const bearsMatchingItem = charData.items.some(item => {
             const itemDef = defById(state, item.definitionId);

@@ -18,6 +18,7 @@
  * | 5 | Cancels combat (nullifies state.combat)        | IMPLEMENTED | reducer sets combat to null          |
  * | 6 | Creature moves to attacker's discard           | IMPLEMENTED | reducer handles creature cleanup     |
  * | 7 | Tapped wizard can still pay the cost           | IMPLEMENTED | corruption check doesn't require untapped |
+ * | 8 | Fallen-wizard avatar counts as "Wizard"        | IMPLEMENTED | CoE g.wiz.F1 via characterHasRequiredRace |
  *
  * Playable: YES
  */
@@ -36,8 +37,10 @@ import {
   handCardId, companyIdAt, dispatch, expectInDiscardPile,
   resolveChain, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
-import type { CancelAttackAction } from '../../index.js';
-import { RegionType, SiteType } from '../../index.js';
+import type { CancelAttackAction, CardDefinitionId } from '../../index.js';
+import { Alignment, RegionType, SiteType } from '../../index.js';
+
+const GANDALF_FW = 'wh-4' as CardDefinitionId;
 
 describe('Vanishment (tw-356)', () => {
   beforeEach(() => resetMint());
@@ -208,5 +211,46 @@ describe('Vanishment (tw-356)', () => {
     expect(declared.pendingResolutions[0].kind.type).toBe('corruption-check');
     const after = resolveChain(declared);
     expect(after.combat).toBeNull();
+  });
+
+  test('Fallen-wizard avatar satisfies "Wizard only" (CoE g.wiz.F1)', () => {
+    // Bug report: Fallen-wizard Gandalf's company attacked, Vanishment in
+    // hand, but no cancel-attack was offered.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, alignment: Alignment.FallenWizard, companies: [{ site: MORIA, characters: [GANDALF_FW, ARAGORN] }], hand: [VANISHMENT], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [ORC_PATROL], siteDeck: [RIVENDELL] },
+      ],
+    });
+
+    const mhState = makeMHState({
+      activeCompanyIndex: 0,
+      resolvedSitePath: [RegionType.Wilderness],
+      resolvedSitePathNames: ['Hithaeglir'],
+      destinationSiteType: SiteType.RuinsAndLairs,
+      destinationSiteName: 'Moria',
+    });
+    const stateAtMH = { ...base, phaseState: mhState };
+
+    const orcPatrolId = handCardId(stateAtMH, HAZARD_PLAYER);
+    const targetCompanyId = companyIdAt(stateAtMH, RESOURCE_PLAYER);
+    const combatState = playCreatureHazardAndResolve(
+      stateAtMH, PLAYER_2, orcPatrolId, targetCompanyId,
+      { method: 'region-type', value: 'wilderness' },
+    );
+
+    expect(combatState.combat).toBeDefined();
+    const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
+    expect(cancelActions).toHaveLength(1);
+    const gandalfId = combatState.players[0].companies[0].characters
+      .find(id => combatState.players[0].characters[id]?.definitionId === GANDALF_FW);
+    expect((cancelActions[0].action as CancelAttackAction).scoutInstanceId).toBe(gandalfId);
+
+    const declared = dispatch(combatState, cancelActions[0].action);
+    expectInDiscardPile(declared, RESOURCE_PLAYER, VANISHMENT);
+    expect(resolveChain(declared).combat).toBeNull();
   });
 });

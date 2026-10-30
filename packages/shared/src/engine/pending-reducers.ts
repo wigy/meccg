@@ -42,7 +42,7 @@ import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { resolveDef, getEffectiveSkills, collectCharacterEffects, resolveCheckModifier } from './effects/index.js';
 import { hasPlayFlag } from '../effects/index.js';
 import { extraGeneralInfluence } from '../alignment-rules.js';
-import { makeCombatState, retargetMergedCompanyConstraints, activePlayerState, characterHasCannotUntapConstraint, markPrisonersRescued, cardName, clearPlannedMovement, companyById, deckSearchCancellerFor, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, discardOrRecyclePlayedEvent, effectiveGeneralInfluence, findById, findCharacterCompany, findEventMaintenanceEffect, riddlingCompanyBonus, gateDeckSearchFetch, getCardEffects, getOnEventEffects, matchesDefinition, nextCompanyId, partitionLeavingAllies, regionAdjacentSwapEligibleSites, removeById, removePrisonerFromHost, rollDiceForPlayer, siteNeverUntapsForOwner, sweepCharacterLeavesCompanyEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, tapCompanyCardsOnItemPlay, updateCharacter, updatePlayer, wrongActionType, findCardEffect } from './reducer-utils.js';
+import { makeCombatState, retargetMergedCompanyConstraints, activePlayerState, characterHasCannotUntapConstraint, markPrisonersRescued, cardName, clearPlannedMovement, companyById, deckSearchCancellerFor, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, discardOrRecyclePlayedEvent, effectiveGeneralInfluence, findById, findCharacterCompany, findEventMaintenanceEffect, riddlingCompanyBonus, gateDeckSearchFetch, getCardEffects, getOnEventEffects, matchesDefinition, nextCompanyId, partitionLeavingAllies, regionAdjacentSwapEligibleSites, removeById, removePrisonerFromHost, rollDiceForPlayer, siteNeverUntapsForOwner, sweepCharacterLeavesCompanyEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, tapCompanyCardsOnItemPlay, updateCharacter, updatePlayer, wrongActionType, findCardEffect, characterHasRequiredRace } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
 import { influenceOverflowAmount, influenceOverflowStep } from './influence-overflow.js';
@@ -1170,7 +1170,6 @@ function applyCancelInfluence(
 
   // Resolve the paying character's race and skills to find the matching effect
   const charDef = resolveDef(state, action.characterId);
-  const charRace = charDef && isCharacterCard(charDef) ? charDef.race : undefined;
   const charData = action.characterId ? player.characters[action.characterId] : undefined;
   const charSkills = charDef && isCharacterCard(charDef)
     ? (charData ? [...getEffectiveSkills(state, charData, charDef)] : [...charDef.skills])
@@ -1182,7 +1181,7 @@ function applyCancelInfluence(
   // Pick the first effect that matches the current context (character + targetKind)
   const cancelEffect = allCancelEffects.find(e => {
     if (e.type !== 'cancel-influence') return false;
-    if (e.requiredRace && charRace !== e.requiredRace) return false;
+    if (e.requiredRace && !characterHasRequiredRace(charDef, e.requiredRace)) return false;
     if (e.requiredSkill && !charSkills.includes(e.requiredSkill)) return false;
     if (e.targetKindFilter && e.targetKindFilter.length > 0 && targetKind) {
       if (!e.targetKindFilter.includes(targetKind)) return false;
