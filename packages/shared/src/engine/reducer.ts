@@ -28,6 +28,7 @@ import { baseAttackEntry, newAttackLogEntries } from './attack-log.js';
 import { Phase } from '../types/state-phases.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { recomputeDerived } from './recompute-derived.js';
+import { sweepSuspendedShortEventConstraints } from './short-event-suspension.js';
 import { applyManifestationCascade } from './manifestations.js';
 import { handleChainAction } from './chain-reducer.js';
 import { accrueRevealedInstances } from './visibility.js';
@@ -124,7 +125,11 @@ function postReduce(state: GameState, prevState?: GameState): GameState {
   const afterNeverUntaps = prevState
     ? applyNeverUntapsLock(prevState, afterHeldCreatureSweep)
     : afterHeldCreatureSweep;
-  return accrueRevealedInstances(recomputeDerived(afterNeverUntaps));
+  // Noose of the Sea (td-51): lift organization-phase resource short-event
+  // constraints out of play for affected companies (and restore them once
+  // the suspension lapses) — see `short-event-suspension.ts`.
+  const afterSuspension = sweepSuspendedShortEventConstraints(afterNeverUntaps);
+  return accrueRevealedInstances(recomputeDerived(afterSuspension));
 }
 
 export type { ReducerResult } from './reducer-utils.js';

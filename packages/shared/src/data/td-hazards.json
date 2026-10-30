@@ -1359,10 +1359,23 @@
     "cardType": "hazard-event",
     "id": "td-51",
     "name": "Noose of the Sea",
+    "certified": "2026-10-30",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/NooseoftheSea.jpg",
     "unique": false,
     "eventType": "long",
-    "effects": [],
+    "effects": [
+      {
+        "type": "suspend-short-event-effects",
+        "playedDuring": [
+          "organization"
+        ],
+        "suspendDuring": [
+          "movement-hazard",
+          "site"
+        ],
+        "sitePathRegionType": "coastal"
+      }
+    ],
     "text": "Affects each company with a Coastal Sea [{c}] in its site path. The on-going effects of all resource short-events that were played during the organization phase are cancelled for the duration of the movement/hazard phase and the site phase. Such short-events have no effect on this card (i. e., it may not be canceled by such a short-event)."
   },
   {
