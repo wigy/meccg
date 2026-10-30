@@ -45,3 +45,52 @@ export function corruptionCheckBannerText(
     detail: `${actions.length} characters must make a corruption check — click a highlighted character to choose who rolls next`,
   };
 }
+
+/** The Free Council check awaiting support taps (`FreeCouncilPhaseState.pendingCheck`). */
+export interface FreeCouncilPendingCheck {
+  readonly corruptionPoints: number;
+  readonly corruptionModifier: number;
+  readonly explanation: string;
+  readonly supportCount: number;
+}
+
+/**
+ * Build the banner text for a declared-but-unrolled Free Council corruption
+ * check (CoE 7.1.1 support window).
+ *
+ * Once a check is declared no `corruption-check` action is offered any more —
+ * only `support-corruption-check` taps and the "Roll" pass — so
+ * {@link corruptionCheckBannerText} shows nothing and the supporters glow
+ * exactly like the characters that were offered for checking a moment ago.
+ * This banner names the character who is rolling, the current support
+ * total and the resulting target, and says whose characters may support.
+ *
+ * @param check - The pending check from the Free Council phase state.
+ * @param characterName - Name of the character making the check.
+ * @param isSelf - Whether the viewing player owns the checking character.
+ * @param hasSupportActions - Whether the viewer has support taps available.
+ */
+export function freeCouncilPendingCheckBannerText(
+  check: FreeCouncilPendingCheck,
+  characterName: string,
+  isSelf: boolean,
+  hasSupportActions: boolean,
+): CorruptionCheckBannerText {
+  const owner = isSelf ? '' : "Opponent's ";
+  const parts = [check.explanation];
+  if (check.supportCount > 0) {
+    const target = check.corruptionPoints - check.corruptionModifier - check.supportCount;
+    parts.push(`Support +${check.supportCount} from tapped characters — now need roll > ${target}`);
+  } else {
+    parts.push('No support yet');
+  }
+  if (isSelf) {
+    parts.push(hasSupportActions
+      ? `Click highlighted characters in ${characterName}'s company to tap them in support (+1 each), then Roll`
+      : 'Click Roll to make the check');
+  }
+  return {
+    title: `${owner}Corruption Check — ${characterName} is rolling`,
+    detail: parts.join(' · '),
+  };
+}

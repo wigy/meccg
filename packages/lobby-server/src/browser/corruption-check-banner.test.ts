@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { CorruptionCheckAction, CardInstanceId, PlayerId } from '@meccg/shared';
-import { corruptionCheckBannerText } from './corruption-check-banner.js';
+import { corruptionCheckBannerText, freeCouncilPendingCheckBannerText } from './corruption-check-banner.js';
 
 /**
  * Regression test for the corruption-check banner (game muo4z4lp-da7ry2,
@@ -54,5 +54,37 @@ describe('corruptionCheckBannerText', () => {
 
   it('returns null when no check is pending', () => {
     expect(corruptionCheckBannerText([], nameOf)).toBeNull();
+  });
+});
+
+/**
+ * Regression test for game mvufyzxp-jo2x5r (seq 2274-2277, Free Council):
+ * once a check is declared only support taps and "Roll" are offered, so no
+ * banner named the character rolling and the supporters glowed exactly like
+ * the characters offered for checking — the player could not tell who was
+ * rolling and who was supporting whom.
+ */
+describe('freeCouncilPendingCheckBannerText', () => {
+  const pending = { corruptionPoints: 0, corruptionModifier: -1, explanation: 'Need roll > 1 (CP 0, modifier -1)', supportCount: 0 };
+
+  it('names the rolling character and tells the owner how to support', () => {
+    const text = freeCouncilPendingCheckBannerText(pending, 'Gandalf', true, true);
+    expect(text.title).toBe('Corruption Check — Gandalf is rolling');
+    expect(text.detail).toContain('Need roll > 1 (CP 0, modifier -1)');
+    expect(text.detail).toContain('No support yet');
+    expect(text.detail).toContain("characters in Gandalf's company to tap them in support");
+  });
+
+  it('shows the support total and adjusted target after supporters tap', () => {
+    const text = freeCouncilPendingCheckBannerText({ ...pending, supportCount: 2 }, 'Gandalf', true, false);
+    expect(text.detail).toContain('Support +2');
+    expect(text.detail).toContain('now need roll > -1');
+    expect(text.detail).toContain('Click Roll');
+  });
+
+  it("marks the opponent's check without support instructions", () => {
+    const text = freeCouncilPendingCheckBannerText(pending, 'Gandalf', false, false);
+    expect(text.title).toBe("Opponent's Corruption Check — Gandalf is rolling");
+    expect(text.detail).not.toContain('Click');
   });
 });
