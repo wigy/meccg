@@ -2568,8 +2568,46 @@
       {
         "type": "stage-points",
         "value": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "corruption-points",
+        "value": 1
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.name": "Gandalf" }
+      },
+      {
+        "type": "play-option",
+        "id": "no-gandalf",
+        "untargeted": true,
+        "when": { "player.avatarInPlay": false },
+        "apply": { "type": "sequence", "apps": [] }
+      },
+      {
+        "type": "on-event",
+        "event": "avatar-enters-play",
+        "apply": { "type": "move", "select": "self", "from": "self-location", "to": "in-play-on-character" }
+      },
+      {
+        "type": "grant-action",
+        "action": "grey-hat-fetch",
+        "cost": { "tap": "self" },
+        "endOfTurnOnly": true,
+        "apply": {
+          "type": "move",
+          "select": "target",
+          "from": "discard",
+          "to": "hand",
+          "filter": {
+            "name": { "$in": ["New Friendship", "Wizard’s Test", "Hobbit-lore"] }
+          }
+        }
       }
     ],
+    "certified": "2026-10-30",
     "text": "Unique. Gandalf specific. Place this card on Gandalf if he is in play. If on Gandalf, you may tap The Grey Hat during your end-of-turn phase to take New Friendship, Wizard’s Test, or Hobbit-lore from your discard pile to your hand."
   },
   {
