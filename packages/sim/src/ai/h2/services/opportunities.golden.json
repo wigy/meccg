@@ -43,48 +43,6 @@
       ]
     },
     {
-      "id": "resources/p2-27@tw-409",
-      "module": "resources",
-      "goal": {
-        "label": "play Scroll of Isildur at Lossadan Cairn",
-        "source": "item",
-        "mp": 4,
-        "cardInstanceId": "p2-27",
-        "siteDefinitionId": "tw-409"
-      },
-      "payoffTsd": 5.113194444444445,
-      "deadline": 8,
-      "requirements": [
-        {
-          "kind": "company-at-site",
-          "companyId": "company-p2-0",
-          "siteDefinitionId": "tw-409",
-          "byTurn": 8
-        }
-      ],
-      "steps": [
-        {
-          "label": "route to Lossadan Cairn",
-          "p": 0.0625,
-          "owner": "travel",
-          "tag": "route",
-          "source": "3 region(s) away, at planUnroutedReachProbability per region"
-        },
-        {
-          "label": "still hold Scroll of Isildur",
-          "p": 1,
-          "owner": "hand",
-          "tag": "card-in-hand"
-        },
-        {
-          "label": "someone left untapped to play it",
-          "p": 1,
-          "owner": "characters",
-          "tag": "carrier"
-        }
-      ]
-    },
-    {
       "id": "resources/p2-27@tw-413",
       "module": "resources",
       "goal": {
@@ -847,48 +805,6 @@
       ]
     },
     {
-      "id": "resources/p2-27@tw-409",
-      "module": "resources",
-      "goal": {
-        "label": "play Scroll of Isildur at Lossadan Cairn",
-        "source": "item",
-        "mp": 4,
-        "cardInstanceId": "p2-27",
-        "siteDefinitionId": "tw-409"
-      },
-      "payoffTsd": 2.9611111111111112,
-      "deadline": 7,
-      "requirements": [
-        {
-          "kind": "company-at-site",
-          "companyId": "company-p2-0",
-          "siteDefinitionId": "tw-409",
-          "byTurn": 7
-        }
-      ],
-      "steps": [
-        {
-          "label": "route to Lossadan Cairn",
-          "p": 0.25,
-          "owner": "travel",
-          "tag": "route",
-          "source": "2 region(s) away, at planUnroutedReachProbability per region"
-        },
-        {
-          "label": "still hold Scroll of Isildur",
-          "p": 1,
-          "owner": "hand",
-          "tag": "card-in-hand"
-        },
-        {
-          "label": "someone left untapped to play it",
-          "p": 1,
-          "owner": "characters",
-          "tag": "carrier"
-        }
-      ]
-    },
-    {
       "id": "resources/p2-27@tw-413",
       "module": "resources",
       "goal": {
@@ -1094,48 +1010,6 @@
           "owner": "travel",
           "tag": "route",
           "source": "already there or already headed there"
-        },
-        {
-          "label": "still hold Scroll of Isildur",
-          "p": 1,
-          "owner": "hand",
-          "tag": "card-in-hand"
-        },
-        {
-          "label": "someone left untapped to play it",
-          "p": 1,
-          "owner": "characters",
-          "tag": "carrier"
-        }
-      ]
-    },
-    {
-      "id": "resources/p2-27@tw-409",
-      "module": "resources",
-      "goal": {
-        "label": "play Scroll of Isildur at Lossadan Cairn",
-        "source": "item",
-        "mp": 4,
-        "cardInstanceId": "p2-27",
-        "siteDefinitionId": "tw-409"
-      },
-      "payoffTsd": 11.5625,
-      "deadline": 7,
-      "requirements": [
-        {
-          "kind": "company-at-site",
-          "companyId": "company-p2-0",
-          "siteDefinitionId": "tw-409",
-          "byTurn": 7
-        }
-      ],
-      "steps": [
-        {
-          "label": "route to Lossadan Cairn",
-          "p": 0.25,
-          "owner": "travel",
-          "tag": "route",
-          "source": "2 region(s) away, at planUnroutedReachProbability per region"
         },
         {
           "label": "still hold Scroll of Isildur",
@@ -2363,48 +2237,6 @@
       ]
     },
     {
-      "id": "resources/p2-18@tw-409",
-      "module": "resources",
-      "goal": {
-        "label": "play Orcrist at Lossadan Cairn",
-        "source": "item",
-        "mp": 4,
-        "cardInstanceId": "p2-18",
-        "siteDefinitionId": "tw-409"
-      },
-      "payoffTsd": 9.708333333333334,
-      "deadline": 7,
-      "requirements": [
-        {
-          "kind": "company-at-site",
-          "companyId": "company-p2-0",
-          "siteDefinitionId": "tw-409",
-          "byTurn": 7
-        }
-      ],
-      "steps": [
-        {
-          "label": "route to Lossadan Cairn",
-          "p": 0.25,
-          "owner": "travel",
-          "tag": "route",
-          "source": "2 region(s) away, at planUnroutedReachProbability per region"
-        },
-        {
-          "label": "still hold Orcrist",
-          "p": 1,
-          "owner": "hand",
-          "tag": "card-in-hand"
-        },
-        {
-          "label": "someone left untapped to play it",
-          "p": 1,
-          "owner": "characters",
-          "tag": "carrier"
-        }
-      ]
-    },
-    {
       "id": "resources/p2-18@tw-413",
       "module": "resources",
       "goal": {
@@ -2864,48 +2696,6 @@
           "owner": "travel",
           "tag": "route",
           "source": "2 region(s) away, at planUnroutedReachProbability per region"
-        },
-        {
-          "label": "still hold Scroll of Isildur",
-          "p": 1,
-          "owner": "hand",
-          "tag": "card-in-hand"
-        },
-        {
-          "label": "someone left untapped to play it",
-          "p": 1,
-          "owner": "characters",
-          "tag": "carrier"
-        }
-      ]
-    },
-    {
-      "id": "resources/p2-27@tw-409",
-      "module": "resources",
-      "goal": {
-        "label": "play Scroll of Isildur at Lossadan Cairn",
-        "source": "item",
-        "mp": 4,
-        "cardInstanceId": "p2-27",
-        "siteDefinitionId": "tw-409"
-      },
-      "payoffTsd": 4.826388888888889,
-      "deadline": 9,
-      "requirements": [
-        {
-          "kind": "company-at-site",
-          "companyId": "company-p2-0",
-          "siteDefinitionId": "tw-409",
-          "byTurn": 9
-        }
-      ],
-      "steps": [
-        {
-          "label": "route to Lossadan Cairn",
-          "p": 0.0625,
-          "owner": "travel",
-          "tag": "route",
-          "source": "3 region(s) away, at planUnroutedReachProbability per region"
         },
         {
           "label": "still hold Scroll of Isildur",
@@ -3855,48 +3645,6 @@
           "owner": "travel",
           "tag": "route",
           "source": "already there or already headed there"
-        },
-        {
-          "label": "still hold Scroll of Isildur",
-          "p": 1,
-          "owner": "hand",
-          "tag": "card-in-hand"
-        },
-        {
-          "label": "someone left untapped to play it",
-          "p": 1,
-          "owner": "characters",
-          "tag": "carrier"
-        }
-      ]
-    },
-    {
-      "id": "resources/p2-27@tw-409",
-      "module": "resources",
-      "goal": {
-        "label": "play Scroll of Isildur at Lossadan Cairn",
-        "source": "item",
-        "mp": 4,
-        "cardInstanceId": "p2-27",
-        "siteDefinitionId": "tw-409"
-      },
-      "payoffTsd": 11.310185185185185,
-      "deadline": 7,
-      "requirements": [
-        {
-          "kind": "company-at-site",
-          "companyId": "company-p2-0",
-          "siteDefinitionId": "tw-409",
-          "byTurn": 7
-        }
-      ],
-      "steps": [
-        {
-          "label": "route to Lossadan Cairn",
-          "p": 0.25,
-          "owner": "travel",
-          "tag": "route",
-          "source": "2 region(s) away, at planUnroutedReachProbability per region"
         },
         {
           "label": "still hold Scroll of Isildur",
