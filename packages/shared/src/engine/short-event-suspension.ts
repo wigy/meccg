@@ -83,13 +83,19 @@ function companySitePath(state: GameState, companyId: string): readonly RegionTy
  */
 function recordActiveCompanySitePath(state: GameState): GameState {
   const ps = state.phaseState;
-  if (ps.phase !== Phase.MovementHazard || ps.resolvedSitePath.length === 0) return state;
+  if (ps.phase !== Phase.MovementHazard) return state;
+  // This sweep runs after *every* reducer step, so it also sees movement/hazard
+  // states that were never built by `beginMovementHazard` (tests enter the
+  // phase with only `phase` set). Treat a missing path as "nothing declared
+  // yet" rather than dereferencing it.
+  const resolvedSitePath = ps.resolvedSitePath ?? [];
+  if (resolvedSitePath.length === 0) return state;
   const player = state.players.find(p => p.id === state.activePlayer);
   const company = player?.companies[ps.activeCompanyIndex];
   if (!company) return state;
   const fresh = state.sitePathsThisTurn?.turnNumber === state.turnNumber ? state.sitePathsThisTurn.byCompany : {};
   const known = fresh[company.id as string] ?? [];
-  const added = ps.resolvedSitePath.filter((t, i, arr) => !known.includes(t) && arr.indexOf(t) === i);
+  const added = resolvedSitePath.filter((t, i, arr) => !known.includes(t) && arr.indexOf(t) === i);
   if (added.length === 0 && state.sitePathsThisTurn?.turnNumber === state.turnNumber) return state;
   return {
     ...state,
