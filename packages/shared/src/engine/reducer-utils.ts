@@ -1024,6 +1024,10 @@ export function siteRuleAllowsCreatureByRace(
  * - `hasWoundedCharacter` — true if any character in the company is Inverted
  *   (wounded), for "only if a character in target company is wounded" clauses
  *   (Morgul-rats td-49).
+ * - `facedRaces` — creature races of every attack the company has already
+ *   faced this turn (the turn-scoped `Company.facedHazardRaces`), for
+ *   "playable on a company that has already faced a Dragon or Drake attack
+ *   this turn" (Worm's Stench td-88).
  *
  * Also exposes `inPlay` — the list of card names the active player has in
  * play (via {@link buildInPlayNames}), so a condition can combine a company
@@ -1038,7 +1042,7 @@ export function siteRuleAllowsCreatureByRace(
 export function buildTargetCompanyConditionContext(
   state: GameState,
   owner: PlayerState,
-  company: { readonly characters: readonly CardInstanceId[]; readonly id?: CompanyId },
+  company: { readonly characters: readonly CardInstanceId[]; readonly id?: CompanyId; readonly facedHazardRaces?: readonly Race[] },
   alignment?: string,
 ): Record<string, unknown> {
   const homeSites: string[] = [];
@@ -1074,6 +1078,7 @@ export function buildTargetCompanyConditionContext(
     company: {
       homeSites, characterNames, maxUntappedWarriorProwess, containsWizard,
       alignment: alignment ?? null, covert, itemNames, itemKeywords, hasWoundedCharacter,
+      facedRaces: company.facedHazardRaces ?? [],
     },
     inPlay: buildInPlayNames(state),
   };
