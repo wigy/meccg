@@ -764,7 +764,8 @@ function showShortEventTargetMenu(
  * several indistinguishable "Play hazard" buttons: a character-targeting
  * hazard names the character, and an agent-targeting hazard (Never Seen Him
  * dm-74, Inner Cunning dm-68) names the agent through `agentNames` — the
- * agent-id → name map built by `buildAgentNames`.
+ * agent-id → name map built by `buildAgentNames`. A hazard played by tapping
+ * an agent names the tapped agent and, if it takes a prisoner, the prison site.
  */
 export function hazardPlayLabel(
   action: PlayHazardAction,
@@ -779,6 +780,19 @@ export function hazardPlayLabel(
     label = charDef ? `Play on ${charDef.name}` : `Play on ${action.targetCharacterId as string}`;
   } else if (action.targetAgentId) {
     label = `Play on agent ${agentNames[action.targetAgentId as string] ?? 'agent'}`;
+  }
+  // Tap-an-agent hazards (To Get You Away dm-92): one action per tappable
+  // agent and, for take-prisoner strikes, per prison site — name both.
+  if (action.agentInstanceId && cardPool) {
+    const nameOf = (id: CardInstanceId): string | undefined => {
+      const defId = instanceLookup(id);
+      return defId ? cardPool[defId as string]?.name : undefined;
+    };
+    label = `${label} (tap agent ${nameOf(action.agentInstanceId) ?? 'agent'}`;
+    if (action.prisonSiteInstanceId) {
+      label = `${label}; prisoner held at ${nameOf(action.prisonSiteInstanceId) ?? 'a home site'}`;
+    }
+    label = `${label})`;
   }
   // Mutually-exclusive arrival modes (Choking Shadows tw-21): one action
   // per mode, so name the mode the hazard player is choosing.
