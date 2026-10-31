@@ -173,6 +173,28 @@ describe('resourcePlayableAt', () => {
       expect(resourcePlayableAt(sapling, glitteringCaves)).toBe(true);
     });
   });
+
+  // A site's `deny-item` site-rule narrows its printed playable line. Missing
+  // it parked a company at Lossadan Cairn for Orcrist turn after turn, facing
+  // the automatic-attack for an item the engine refused (game mvv7nce6-stuaij).
+  describe('site deny-item rule', () => {
+    const pool = loadCardPool();
+    const lossadanCairn = pool['tw-409'] as AnySiteCard; // greater items: Palantíri only
+    const orcrist = pool['tw-295']; // greater weapon, no palantír keyword
+    const palantirOfAnnuminas = pool['tw-297']; // greater palantír
+
+    test('Orcrist is not playable at Lossadan Cairn', () => {
+      expect(resourcePlayableAt(orcrist, lossadanCairn)).toBe(false);
+    });
+
+    test('a greater palantír is still playable at Lossadan Cairn', () => {
+      expect(resourcePlayableAt(palantirOfAnnuminas, lossadanCairn)).toBe(true);
+    });
+
+    test('a major item is untouched by the greater-only rule', () => {
+      expect(resourcePlayableAt(pool['tw-322'], lossadanCairn)).toBe(true);
+    });
+  });
 });
 
 describe('siteDangerFor', () => {
