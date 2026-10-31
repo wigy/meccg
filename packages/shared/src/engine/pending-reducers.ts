@@ -4252,7 +4252,7 @@ export function applySelectCardBearerResolution(
   // dm-164). Trigger-attack storable cards without the lock would tap the bearer
   // for the attack but untap normally.
   const cardDef = cardDefId ? defById(s, cardDefId) : undefined;
-  if (hasPlayFlag(cardDef as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined, 'bearer-cannot-untap-until-stored')) {
+  if (hasPlayFlag(cardDef, 'bearer-cannot-untap-until-stored')) {
     s = addConstraint(s, {
       source: cardInstanceId,
       sourceDefinitionId: (cardDefId ?? cardInstanceId) as import('../types/common.js').CardDefinitionId,
@@ -4267,7 +4267,7 @@ export function applySelectCardBearerResolution(
   // the rest of this site phase (Pass the Doors of Dol Guldur dm-154 keys on it
   // together with the site name). The declined (`pass`) branch above
   // discards the card instead and deliberately does not mark it.
-  if (hasPlayFlag(cardDef as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined, 'rescues-prisoners')) {
+  if (hasPlayFlag(cardDef, 'rescues-prisoners')) {
     s = markPrisonersRescued(s, bearerCompany);
   }
 

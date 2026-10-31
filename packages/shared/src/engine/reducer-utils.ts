@@ -704,7 +704,7 @@ export function applyTapSiteOnPlayFlag(
   def: CardDefinition | undefined,
   playerIndex: number,
 ): GameState {
-  if (!hasPlayFlag(def as { effects?: readonly CardEffect[] }, 'tap-site-on-play')) return state;
+  if (!hasPlayFlag(def, 'tap-site-on-play')) return state;
   const ps = state.phaseState as { activeCompanyIndex?: number };
   const activeCompanyIndex = ps.activeCompanyIndex ?? 0;
   const company = state.players[playerIndex].companies[activeCompanyIndex];
@@ -3739,7 +3739,7 @@ export function extendHealingToCompany(
     const ch = player.characters[charId];
     if (!ch) return false;
     const charDef = defById(state, ch.definitionId);
-    return hasPlayFlag(charDef as { effects?: readonly CardEffect[] }, 'healing-affects-all');
+    return hasPlayFlag(charDef, 'healing-affects-all');
   });
   let hasSiteRule = false;
   if (company.currentSite) {
@@ -7505,7 +7505,7 @@ export function companyBlocksJoins(state: GameState, companyId: CompanyId): bool
     for (const card of player.cardsInPlay) {
       if (card.companyId !== companyId) continue;
       const def = defById(state, card.definitionId);
-      if (def && hasPlayFlag(def as { effects?: readonly CardEffect[] }, 'block-company-joins')) return true;
+      if (def && hasPlayFlag(def, 'block-company-joins')) return true;
     }
   }
   return false;
@@ -7529,7 +7529,7 @@ export function companyHasNoAllyRestriction(
     if (!char) continue;
     for (const item of char.items) {
       const def = defById(state, item.definitionId);
-      if (def && hasPlayFlag(def as { effects?: readonly CardEffect[] }, 'no-allies-in-company')) return true;
+      if (def && hasPlayFlag(def, 'no-allies-in-company')) return true;
     }
   }
   return false;
@@ -7602,10 +7602,10 @@ export function companyHasImmobileCharacter(
     const char = player.characters[charId];
     if (!char) continue;
     const charDef = defById(state, char.definitionId);
-    if (charDef && hasPlayFlag(charDef as { effects?: readonly CardEffect[] }, 'bearer-cannot-move')) return true;
+    if (charDef && hasPlayFlag(charDef, 'bearer-cannot-move')) return true;
     for (const attached of char.items) {
       const def = defById(state, attached.definitionId);
-      if (def && hasPlayFlag(def as { effects?: readonly CardEffect[] }, 'bearer-cannot-move')) return true;
+      if (def && hasPlayFlag(def, 'bearer-cannot-move')) return true;
     }
   }
   return false;
@@ -7660,7 +7660,7 @@ export function characterHasCannotUntapConstraint(
  */
 export function bearsNeverUntapCard(state: GameState, char: CharacterInPlay): boolean {
   return [...char.hazards, ...char.items, ...char.allies].some(card =>
-    hasPlayFlag(defById(state, card.definitionId) as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined, 'bearer-never-untaps'),
+    hasPlayFlag(defById(state, card.definitionId), 'bearer-never-untaps'),
   );
 }
 

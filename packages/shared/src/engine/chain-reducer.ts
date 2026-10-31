@@ -3012,7 +3012,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
   // 2.II.2.2.3 "moved back under control ... or discarded" resolution) happens
   // at the start of the bearer's owning player's next organization phase; see
   // the no-direct-influence sweep in reducer-untap.ts.
-  if (targetCharId && hasPlayFlag(def as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'no-direct-influence')) {
+  if (targetCharId && hasPlayFlag(def, 'no-direct-influence')) {
     for (let pi = 0; pi < 2; pi++) {
       const char = newPlayers[pi].characters[targetCharId];
       if (char && char.controlledBy !== 'general') {
@@ -3048,7 +3048,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
         // No Secret (le-240) tap the bearer on play yet untap it normally. The
         // store-item handler clears this constraint automatically when the card
         // leaves the character.
-        if (hasPlayFlag(def as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'bearer-cannot-untap-until-stored')) {
+        if (hasPlayFlag(def, 'bearer-cannot-untap-until-stored')) {
           newState = addConstraint(newState, {
             source: card.instanceId,
             sourceDefinitionId: card.definitionId,
@@ -3097,7 +3097,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
   }
 
   // tap-character-on-play: tap the targeted character when the card enters play.
-  if (targetCharId && hasPlayFlag(def as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'tap-character-on-play')) {
+  if (targetCharId && hasPlayFlag(def, 'tap-character-on-play')) {
     for (let pi = 0; pi < 2; pi++) {
       const char = newState.players[pi].characters[targetCharId];
       if (char) {
@@ -3114,7 +3114,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
   // tap-bearer-on-play: for an item-targeting permanent event, tap the character
   // bearing the targeted item (Barrow-blade dm-119: "Tap the bearer of a Dagger
   // of Westernesse … and play this with the Dagger").
-  if (targetItemId && hasPlayFlag(def as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'tap-bearer-on-play')) {
+  if (targetItemId && hasPlayFlag(def, 'tap-bearer-on-play')) {
     for (let pi = 0; pi < 2; pi++) {
       const entry2 = Object.entries(newState.players[pi].characters).find(([, ch]) =>
         ch.items.some(it => it.instanceId === targetItemId),
@@ -3222,7 +3222,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
   const storableEffect = getCardEffects(def).find(
     (e): e is import('../types/effects.js').StorableAtEffect => e.type === 'storable-at',
   );
-  const locksBearer = hasPlayFlag(def as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'bearer-cannot-untap-until-stored');
+  const locksBearer = hasPlayFlag(def, 'bearer-cannot-untap-until-stored');
   if (targetCharId && storableEffect && locksBearer) {
     const hasTriggeredAttack = hasCardEffect(def, 'trigger-attack-on-play');
     if (!hasTriggeredAttack) {
@@ -3244,7 +3244,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
   // (The ongoing "none may join" gate is enforced in the legal-action layer
   // via `companyBlocksJoins`.)
   const boundCompanyId = entry.payload.type === 'permanent-event' ? entry.payload.targetCompanyId : undefined;
-  if (boundCompanyId && hasPlayFlag(def as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'block-company-joins')) {
+  if (boundCompanyId && hasPlayFlag(def, 'block-company-joins')) {
     logDetail(`"${def?.name ?? '?'}" block-company-joins — purging allies and followers from company ${boundCompanyId as string}`);
     newState = purgeCompanyAlliesAndFollowers(newState, playerIndex, boundCompanyId);
   }
@@ -5186,7 +5186,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   // fresh call into this function, this block never runs for it.
   if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
     const cardDef = defById(current, entry.card.definitionId);
-    if (hasPlayFlag(cardDef as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'remove-from-game')) {
+    if (hasPlayFlag(cardDef, 'remove-from-game')) {
       current = removeSpentEventFromGame(current, entry.declaredBy, entry.card.instanceId, cardDef?.name ?? (entry.card.definitionId as string));
     }
   }
@@ -6063,7 +6063,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
         // resolved via `resolveChainEntryAndContinue` this function never
         // runs again for it, so the generic remove-from-game block further
         // down would never fire for News of Doom.
-        if (hasPlayFlag(cardDef as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'remove-from-game')) {
+        if (hasPlayFlag(cardDef, 'remove-from-game')) {
           current = removeSpentEventFromGame(current, entry.declaredBy, entry.card.instanceId, cardLabel);
         }
         return { state: current, needsInput: true };

@@ -1163,7 +1163,7 @@ export function handlePlayHazardCard(
   // would be incremented anyway, and `countsAgainstHazardLimit: true` below
   // would let the card fizzle at resolution (CoE 2.IV.iii.1) whenever the
   // count it wasn't supposed to affect happens to exceed the limit.
-  const bypassesLimit = hasPlayFlag(def as { effects?: readonly CardEffect[] }, 'no-hazard-limit');
+  const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
   const newHazardCount = bypassesLimit ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
   logDetail(`Play-hazards: hazard player plays ${def.eventType}-event "${def.name}" (${newHazardCount}/${currentHazardLimit(state, mhState, action.targetCompanyId)})${bypassesLimit ? ' [no-hazard-limit]' : ''} → enters chain`);
 
@@ -1314,7 +1314,7 @@ export function handleSwapNewSite(
 
   logDetail(`${def.name}: replacing "${destDef.name}" (company ${company.id as string}'s new site) with "${replacementDef.name}" from ${hazardPlayer.name}'s location deck`);
 
-  const bypassesLimit = hasPlayFlag(def as { effects?: readonly CardEffect[] }, 'no-hazard-limit');
+  const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
   const newHazardCount = bypassesLimit ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
 
   // Discard the short-event and remove the replacement from the hazard
@@ -1396,7 +1396,7 @@ export function handleRollThenSwapNewSite(
 
   logDetail(`${def.name}: company ${company.id as string} has ${rangerCount} ranger(s) (${formatSignedNumber(rangerTotalModifier)}); roll must exceed ${effect.threshold}`);
 
-  const bypassesLimit = hasPlayFlag(def as { effects?: readonly CardEffect[] }, 'no-hazard-limit');
+  const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
   const newHazardCount = bypassesLimit ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
 
   let newState: GameState = updatePlayer(state, hazardIndex, p => ({

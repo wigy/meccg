@@ -1160,7 +1160,7 @@ export function moveToInfluenceActions(state: GameState, playerId: PlayerId): Ev
         // a move is blocked instead of silently hiding the target.
         const baseMind = char.effectiveStats.mind ?? charDef.mind;
         const controlCost = controlCostOf(state, char, baseMind) ?? baseMind;
-        const noDIHazard = char.hazards.find(h => hasPlayFlag(defById(state, h.definitionId) as { readonly effects?: readonly CardEffect[] } | undefined, 'no-direct-influence'));
+        const noDIHazard = char.hazards.find(h => hasPlayFlag(defById(state, h.definitionId), 'no-direct-influence'));
         for (const ctrlInstId of company.characters) {
           if (ctrlInstId === charInstId) continue;
           if (ctrlInstId === char.controlledBy) continue;
