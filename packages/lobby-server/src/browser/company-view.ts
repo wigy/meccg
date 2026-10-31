@@ -20,12 +20,13 @@ import type {
   GameAction,
   CardDefinition,
   CompanyId,
+  CardInstanceId,
   CorruptionCheckAction,
   OpposedRollAction,
 } from '@meccg/shared';
 import { Phase, viableActions, buildInstanceLookup, isCharacterCard } from '@meccg/shared';
 import { $ } from './render-utils.js';
-import { corruptionCheckBannerText } from './corruption-check-banner.js';
+import { corruptionCheckBannerText, freeCouncilPendingCheckBannerText } from './corruption-check-banner.js';
 import { opposedRollBannerText } from './opposed-roll-banner.js';
 import { setTargetingInstruction } from './render.js';
 import { renderCombatView, clearCombatButtons } from './combat-view.js';
@@ -101,11 +102,23 @@ function renderCorruptionCheckBanner(
   const ccActions = viableActions(view.legalActions)
     .filter((a): a is CorruptionCheckAction => a.type === 'corruption-check');
   const cachedInstanceLookup = getCachedInstanceLookup();
-  const text = corruptionCheckBannerText(ccActions, action => {
-    const defId = cachedInstanceLookup(action.characterId);
+  const nameOfCharacter = (id: CardInstanceId): string => {
+    const defId = cachedInstanceLookup(id);
     const def = defId ? cardPool[defId as string] : undefined;
     return def && isCharacterCard(def) ? def.name : '?';
-  });
+  };
+  let text = corruptionCheckBannerText(ccActions, action => nameOfCharacter(action.characterId));
+  // Free Council support window: the check is already declared, so no
+  // corruption-check action is offered — name the rolling character instead.
+  const fc = view.phaseState.phase === Phase.FreeCouncil ? view.phaseState : null;
+  if (!text && fc?.pendingCheck) {
+    text = freeCouncilPendingCheckBannerText(
+      fc.pendingCheck,
+      nameOfCharacter(fc.pendingCheck.characterId),
+      fc.currentPlayer === view.self.id,
+      view.legalActions.some(ea => ea.viable && ea.action.type === 'support-corruption-check'),
+    );
+  }
   if (!text) return;
 
   const row = document.createElement('div');
@@ -633,11 +646,23 @@ export function renderCompanyViews(
     const checkedSet = new Set<string>(
       view.phaseState.phase === Phase.FreeCouncil ? view.phaseState.checkedCharacters : [],
     );
+    const rollingId = view.phaseState.phase === Phase.FreeCouncil
+      ? view.phaseState.pendingCheck?.characterId as string | undefined
+      : undefined;
     for (const col of board.querySelectorAll<HTMLElement>('.character-column[data-instance-id]')) {
       const instId = col.dataset.instanceId!;
       const ccAction = ccActions.get(instId);
       const supportAction = ccSupportActions.get(instId);
-      if (ccAction) {
+      if (instId === rollingId) {
+        // The character whose declared check is awaiting support taps — marked
+        // distinctly so it is not mistaken for one of its supporters.
+        col.classList.add('cc-rolling');
+        const badge = document.createElement('div');
+        badge.className = 'cc-rolling-badge';
+        badge.textContent = 'Rolling';
+        const wrap = col.querySelector('.character-card-wrap');
+        if (wrap) wrap.appendChild(badge);
+      } else if (ccAction) {
         col.classList.add('cc-pending');
         col.style.cursor = 'pointer';
         col.onclick = (e) => {
@@ -645,7 +670,7 @@ export function renderCompanyViews(
           onAction(ccAction);
         };
       } else if (supportAction) {
-        col.classList.add('cc-pending');
+        col.classList.add('cc-pending', 'cc-supporter');
         col.style.cursor = 'pointer';
         col.onclick = (e) => {
           e.stopPropagation();
