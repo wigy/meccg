@@ -48,6 +48,37 @@ function clearTier(id: string): HTMLElement | null {
   return el;
 }
 
+/**
+ * Render one "Return <name>" button per viable
+ * `select-return-to-hand-character` action (Unhappy Blows, as-42) into
+ * `tier`. The selection is repeatable and has no safe default, so each
+ * candidate gets its own button; the finalizing `pass` (offered once the
+ * selected mind meets the threshold) is rendered by the ordinary bottom-tier
+ * button. Returns true when at least one button was rendered.
+ */
+function renderReturnToHandButtons(
+  view: PlayerView,
+  onAction: (action: GameAction) => void,
+  tier: HTMLElement | null,
+): boolean {
+  let rendered = false;
+  for (const ea of view.legalActions) {
+    const selectAction = ea.action;
+    if (!ea.viable || selectAction.type !== 'select-return-to-hand-character') continue;
+    const defId = appState.lastInstanceLookup(selectAction.characterInstanceId);
+    const def = defId ? cardPool[defId as string] : undefined;
+    const mind = view.self.characters[selectAction.characterInstanceId]?.effectiveStats.mind
+      ?? (def && 'mind' in def ? def.mind : null);
+    const returnBtn = document.createElement('button');
+    returnBtn.className = 'enter-site-btn return-to-hand-select-btn';
+    returnBtn.textContent = `Return ${def?.name ?? selectAction.characterInstanceId as string}${mind !== null && mind !== undefined ? ` (mind ${mind})` : ''}`;
+    returnBtn.onclick = () => onAction(selectAction);
+    tier?.appendChild(returnBtn);
+    rendered = true;
+  }
+  return rendered;
+}
+
 /** Render the pass/stop button in the visual view if a pass-like action is available. */
 export function renderPassButton(view: PlayerView, onAction: (action: GameAction) => void): void {
   const btn = document.getElementById('pass-btn') as HTMLButtonElement | null;
@@ -232,6 +263,19 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
         discardBtn.onclick = () => onAction(discardAction);
         inPhaseTier?.appendChild(discardBtn);
       }
+      return;
+    }
+
+    // Unhappy Blows (as-42): the company's owner must pick characters to
+    // return to hand until their combined mind meets the rolled threshold
+    // (`select-return-to-hand-character`, repeatable). Until it is met no
+    // `pass` exists, so without this branch we fell through to the "no pass
+    // action" case below and hid the whole panel — bug report
+    // b8875b817a1ce939 (game mvry8ilh-e14ten, seq 2029): "ai opponent played
+    // Unhappy blows, now game frozen, no options for me to perform".
+    if (renderReturnToHandButtons(view, onAction, inPhaseTier)) {
+      btn.classList.add('hidden');
+      waitingEl?.classList.add('hidden');
       return;
     }
 
@@ -450,6 +494,11 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
     peekBtn.onclick = () => onAction(peekAction);
     inPhaseTier?.appendChild(peekBtn);
   }
+
+  // Unhappy Blows (as-42): once the selection meets the mind threshold the
+  // `pass` (finalize) button appears, but the player may still return more
+  // characters ("any number ... whose total mind equals or exceeds").
+  renderReturnToHandButtons(view, onAction, inPhaseTier);
 
   // When the primary button is a non-pass action (e.g. Draw) and a pass action
   // also exists, show a secondary Pass button so both options are available.
