@@ -2332,7 +2332,8 @@
         "race": "dragon"
       }
     ],
-    "text": "Unique. Manifestation of Itangast. Playable at Gold Hill if the influence check is greater than 15. Modifications: influencer discards a major item (+4) or a greater item (+8).All attacks by manifestations of Itangast against any of your companies are canceled. Any company moving in Withered Heath, Iron Hills, Northern Rhovanion, and/or Grey Mountain Narrows faces one attack: Dragon — 3 strikes at 18/8."
+    "text": "Unique. Manifestation of Itangast. Playable at Gold Hill if the influence check is greater than 15. Modifications: influencer discards a major item (+4) or a greater item (+8).All attacks by manifestations of Itangast against any of your companies are canceled. Any company moving in Withered Heath, Iron Hills, Northern Rhovanion, and/or Grey Mountain Narrows faces one attack: Dragon — 3 strikes at 18/8.",
+    "certified": "2026-11-01"
   },
   {
     "cardType": "minion-resource-faction",
