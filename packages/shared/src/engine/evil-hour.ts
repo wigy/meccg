@@ -122,7 +122,7 @@ export function applyEvilHourTaps(prev: GameState, next: GameState): GameState {
       // A card newly in the opponent's in-play scoring zones — i.e. just played.
       for (const trigger of triggers) {
         const eff = findCardEffect(defById(next, trigger.definitionId), 'evil-hour-tap-trigger');
-        if (eff?.type !== 'evil-hour-tap-trigger') continue;
+        if (!eff) continue;
         const mp = printedMarshallingPoints(next, id as CardInstanceId, opponent);
         if (mp >= eff.mpThreshold) { opponentScored = true; scoredMax = Math.max(scoredMax, mp); }
       }

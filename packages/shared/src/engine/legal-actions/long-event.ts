@@ -31,7 +31,7 @@ import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext, play
 import { playPermanentEventActions } from './organization-events.js';
 import type { WithdrawAgentEffect } from '../../types/effects.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
-import { characterEntries, companyMHPhaseOptionSpent, playerById, defById, getCardEffects, countCopiesInPlay, countCopiesDeclaredInChain, altShortEventReshuffleEffect, playerHasReshuffleMatch, findPlayConditionEffect, isCardNameInPlayForPlayer, collectTapDiscardInPlayTargets, itemsMatchingFilter, findCharacterCompany } from '../reducer-utils.js';
+import { characterEntries, companyMHPhaseOptionSpent, playerById, defById, getCardEffects, countCopiesInPlay, countCopiesDeclaredInChain, altShortEventReshuffleEffect, playerHasReshuffleMatch, findPlayConditionEffect, isCardNameInPlayForPlayer, collectTapDiscardInPlayTargets, itemsMatchingFilter, findCharacterCompany, hasCardEffect, findCardEffect } from '../reducer-utils.js';
 import { buildInPlayNames } from '../recompute-derived.js';
 
 /**
@@ -231,7 +231,7 @@ export function heroResourceShortEventActions(
     // action. Falling through to the generic handling below would offer a
     // bare no-op `play-short-event` (no recruit target) that discards the
     // card for zero effect.
-    if (def.effects?.some(e => e.type === 'recruit-character')) continue;
+    if (hasCardEffect(def, 'recruit-character')) continue;
     // Burglary (td-103): its only effect is `burglary-attempt`, resolved
     // exclusively via the dedicated `declare-burglary` action offered during
     // the site phase's `automatic-attacks` step (see
@@ -240,7 +240,7 @@ export function heroResourceShortEventActions(
     // (no burglary-attempt handler in the reducer for that action type) that
     // silently discards the card for zero effect — e.g. during a combat's
     // pre-assignment window once the declare-burglary window has passed.
-    if (def.effects?.some(e => e.type === 'burglary-attempt')) continue;
+    if (hasCardEffect(def, 'burglary-attempt')) continue;
     // A "Permanent-event/Short-event" card (Great Army of the North ba-38) is a
     // permanent event that also carries an alternative short-event reshuffle
     // mode; admit it here alongside true short events. It is viable only when
@@ -271,8 +271,7 @@ export function heroResourceShortEventActions(
 
     // Skip cards that declare a play-window restricting them to a
     // different phase/step (e.g. Stealth plays only at end-of-org).
-    const playWindow = def.effects?.find(e => e.type === 'play-window') as
-      { phase?: string; step?: string; siteTypes?: readonly string[]; crossTurn?: boolean } | undefined;
+    const playWindow = findCardEffect(def, 'play-window');
     if (!isOwnTurn) {
       // Called from the M/H hazard-side branch for the non-active player:
       // CoE 2.1.1's default window ("any phase of the resource player's own
@@ -686,7 +685,7 @@ export function heroResourceShortEventActions(
       // characters. Offering a scout ally (Gollum borne by Dori) was accepted
       // here and rejected by the reducer — "scout not in any company" — which
       // ended 5 of 800 gate games on challenge decks c/d.
-      const needsCharacter = def.effects?.some(e => e.type === 'deck-search-attack') ?? false;
+      const needsCharacter = hasCardEffect(def, 'deck-search-attack');
       const targets = eligibleTapTargets(state, player, playTarget)
         .filter(id => !needsCharacter || player.characters[id] !== undefined);
       if (targets.length === 0) {

@@ -41,7 +41,7 @@ import { buildBearerContext, resolveDef, collectCharacterEffects, checkCondition
 import { buildInPlayNames, buildControllerInPlayNames, buildPlayerItemNamesInPlay } from '../recompute-derived.js';
 import { buildSiteFilterContext, getEffectiveRegionType } from '../effective.js';
 import { controlCostOf } from '../control-cost.js';
-import { activePlayerState, companyMHPhaseOptionSpent, cardName, characterEntries, companyAttemptSupportBonus, companyEffectiveSize, companyEffectiveSizeOf, companySiteName, defById, defNamesOf, effectiveInPlayDef, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, isCorruptionCardDef, itemKeywordsOf, itemsMatchingFilter, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, protectedWizardhavenCount, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer, altShortEventReshuffleEffect, playerHasReshuffleMatch, playerPlaysAsSauron, findAttachment, findCardEffect } from '../reducer-utils.js';
+import { activePlayerState, companyMHPhaseOptionSpent, cardName, characterEntries, companyAttemptSupportBonus, companyEffectiveSize, companyEffectiveSizeOf, companySiteName, defById, defNamesOf, effectiveInPlayDef, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, isCorruptionCardDef, itemKeywordsOf, itemsMatchingFilter, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, protectedWizardhavenCount, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer, altShortEventReshuffleEffect, playerHasReshuffleMatch, playerPlaysAsSauron, findAttachment, findCardEffect, hasCardEffect } from '../reducer-utils.js';
 import { constraintFromCard, countConstraintsFromDefinition } from '../pending.js';
 import { fetchZoneItemInstanceIds, hasSitePlayableFetchCandidate, isUniqueCharacterInPlay, hasSiteFlag, isUnderDeepsSiteRef, getOnEventEffects, collectTapTakeItemCandidates, characterHasCannotUntapConstraint } from '../reducer-utils.js';
 import { manifestationOfEntityInPlay, charactersInPlayNames } from '../manifestations.js';
@@ -696,7 +696,7 @@ export function itemCacheHandStoreActions(state: GameState, playerId: PlayerId):
   for (const host of player.cardsInPlay) {
     const hostDef = defById(state, host.definitionId);
     const cacheEffect = findCardEffect(hostDef, 'item-cache-hand-store');
-    if (!cacheEffect || cacheEffect.type !== 'item-cache-hand-store') continue;
+    if (!cacheEffect) continue;
     for (const card of player.hand) {
       const itemDef = defById(state, card.definitionId);
       if (!itemDef || !isItemCard(itemDef)) continue;
@@ -4281,14 +4281,14 @@ export function playResourceShortEventActions(
     // action. Falling through to the generic handling below would offer a
     // bare no-op `play-short-event` (no recruit target) that discards the
     // card for zero effect.
-    if (def.effects?.some(e => e.type === 'recruit-character')) continue;
+    if (hasCardEffect(def, 'recruit-character')) continue;
     // Burglary (td-103): its only effect is `burglary-attempt`, resolved
     // exclusively via the dedicated `declare-burglary` action offered during
     // the site phase's `automatic-attacks` step (see
     // `automaticAttacksActions` in legal-actions/site.ts). Falling through to
     // the generic handling below would offer a bare no-op `play-short-event`
     // that silently discards the card for zero effect.
-    if (def.effects?.some(e => e.type === 'burglary-attempt')) continue;
+    if (hasCardEffect(def, 'burglary-attempt')) continue;
     // "Permanent-event/Short-event" card (Great Army of the North ba-38): admit
     // its alternative short-event reshuffle mode during the organization phase
     // (its permanent-event mode is offered separately by playPermanentEventActions).
@@ -4315,7 +4315,7 @@ export function playResourceShortEventActions(
       });
       continue;
     }
-    const playWindow = def.effects?.find(e => e.type === 'play-window') as { phase?: string; step?: string; siteTypes?: readonly string[]; crossTurn?: boolean } | undefined;
+    const playWindow = findCardEffect(def, 'play-window');
     // Cards with a play-window restricting them to a different phase
     // are skipped — they'll be marked not-playable by the caller's
     // catch-all loop (or by fillNotPlayable in legal-actions/index.ts).

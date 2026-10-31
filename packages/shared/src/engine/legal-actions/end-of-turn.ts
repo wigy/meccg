@@ -385,7 +385,7 @@ function runHomeActions(state: GameState, playerId: PlayerId): GameAction[] {
       for (const ally of char.allies) {
         const allyDef = defById(state, ally.definitionId);
         const effect = findCardEffect(allyDef, 'run-home-to-haven');
-        if (!effect || effect.type !== 'run-home-to-haven') continue;
+        if (!effect) continue;
         if (size > effect.maxCompanySize) {
           logDetail(`run-home: ${allyDef?.name ?? ally.definitionId as string} — company size ${size} exceeds max ${effect.maxCompanySize}`);
           continue;

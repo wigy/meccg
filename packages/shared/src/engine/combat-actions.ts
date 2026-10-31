@@ -2189,8 +2189,8 @@ export function handleCombatTapAltPermanentEvent(state: GameState, action: GameA
   const def = defById(state, card.definitionId);
   if (!def) return { state, error: 'Card definition not found' };
   const effects = getCardEffects(def);
-  const altEvent = effects.find(e => e.type === 'creature-alt-event');
-  if (altEvent?.type !== 'creature-alt-event' || altEvent.mode !== 'permanent-event' || altEvent.persistent) {
+  const altEvent = findCardEffect(def, 'creature-alt-event');
+  if (!altEvent || altEvent.mode !== 'permanent-event' || altEvent.persistent) {
     return { state, error: 'tap-alt-permanent-event: not a convertible creature-permanent-event' };
   }
   const statMod = effects.find(
@@ -2459,7 +2459,7 @@ export function handleModifyAttack(state: GameState, action: GameAction, combat:
 
     if (altPermanentEvent) {
       const altEvent = findCardEffect(cardDef, 'creature-alt-event');
-      if (altEvent?.type !== 'creature-alt-event' || altEvent.mode !== 'permanent-event' || altEvent.persistent) {
+      if (!altEvent || altEvent.mode !== 'permanent-event' || altEvent.persistent) {
         return { state, error: 'modify-attack: card in play is not a convertible creature-permanent-event' };
       }
       // Printed timing: "tapped during the opponent's movement/hazard phase".

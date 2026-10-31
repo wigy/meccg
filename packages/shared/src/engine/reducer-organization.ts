@@ -533,7 +533,7 @@ function handleDiscardForEvilHourMovement(state: GameState, action: GameAction):
   if (card.status !== CardStatus.Tapped) return { state, error: 'A More Evil Hour must be tapped to grant movement' };
   const def = defById(state, card.definitionId);
   const eff = def ? findCardEffect(def, 'evil-hour-grant-movement') : undefined;
-  if (!eff || eff.type !== 'evil-hour-grant-movement') {
+  if (!eff) {
     return { state, error: 'Card does not grant the A More Evil Hour movement bonus' };
   }
   const company = player.companies.find(c => c.id === action.companyId);
@@ -564,7 +564,7 @@ function handleActivateOrgFetch(state: GameState, action: GameAction): ReducerRe
   if (!card) return { state, error: 'Org-phase-fetch source not found in play' };
   const def = defById(state, card.definitionId);
   const fetchEffect = def ? findCardEffect(def, 'org-phase-fetch') : undefined;
-  if (!fetchEffect || fetchEffect.type !== 'org-phase-fetch') {
+  if (!fetchEffect) {
     return { state, error: 'Target does not grant an organization-phase fetch' };
   }
   const orgState = requirePhaseState(state, Phase.Organization);
@@ -1913,7 +1913,7 @@ export function handleStoreItemInCache(state: GameState, action: GameAction): Re
   if (!host) return { state, error: 'Cache host not found in play' };
   const hostDef = defById(state, host.definitionId);
   const cacheEffect = findCardEffect(hostDef, 'item-cache-hand-store');
-  if (!cacheEffect || cacheEffect.type !== 'item-cache-hand-store') {
+  if (!cacheEffect) {
     return { state, error: `${hostDef?.name ?? 'This card'} does not accept items placed under it from hand` };
   }
 
