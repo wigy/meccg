@@ -5337,7 +5337,7 @@
     "manifestId": "tw-3",
     "playableAt": [
       {
-        "site": "Caves"
+        "site": "Caves of Ûlund"
       }
     ],
     "effects": [],
@@ -5810,7 +5810,7 @@
     "race": "orc",
     "playableAt": [
       {
-        "site": "Cirith"
+        "site": "Cirith Ungol"
       }
     ],
     "effects": [],
