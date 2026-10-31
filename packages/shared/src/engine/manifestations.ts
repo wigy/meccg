@@ -471,7 +471,7 @@ function findCancelAutoAttacksRule(
   siteDef: SiteCard,
   scope: 'printed' | 'first',
 ): CancelAutoAttacksSiteRule | undefined {
-  return (siteDef as { effects?: readonly CardEffect[] }).effects?.find(
+  return getCardEffects(siteDef).find(
     (e): e is CancelAutoAttacksSiteRule =>
       e.type === 'site-rule' && e.rule === 'cancel-auto-attacks' && e.scope === scope,
   );

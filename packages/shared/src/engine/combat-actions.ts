@@ -491,7 +491,7 @@ export function handlePlayStrikeEvent(state: GameState, action: GameAction, comb
   const handCard = findById(defPlayer.hand, action.cardInstanceId);
   if (!handCard) return { state, error: 'Card not found in hand' };
   const cardDef = defById(state, handCard.definitionId);
-  const effects = (cardDef as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined)?.effects ?? [];
+  const effects = getCardEffects(cardDef);
   const strikeEffect = effects.find((e): e is StrikeModifierEffect => e.type === 'strike-modifier');
   if (!strikeEffect) return { state, error: 'Card has no strike-modifier effect' };
 

@@ -284,7 +284,7 @@ export function onGuardWindowActions(
       // check that the deferred short's source card carries a matching
       // `requiredSkill` on its apply — no match ⇒ reveal is not legal.
       const ogEffects = 'effects' in def
-        ? ((def as { effects?: readonly import('../../types/effects.js').CardEffect[] }).effects ?? [])
+        ? getCardEffects(def)
         : [];
       const matchesDeferred = ogEffects.some(e => {
         if (e.type !== 'on-guard-reveal') return false;

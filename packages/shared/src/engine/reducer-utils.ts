@@ -3864,7 +3864,7 @@ export function extendHealingToCompany(
   if (company.currentSite) {
     const siteDef = defById(state, company.currentSite.definitionId);
     hasSiteRule = !!(siteDef && 'effects' in siteDef &&
-      (siteDef as { effects?: readonly CardEffect[] }).effects?.some(
+      getCardEffects(siteDef).some(
         e => e.type === 'site-rule' && e.rule === 'healing-affects-all',
       ));
   }
