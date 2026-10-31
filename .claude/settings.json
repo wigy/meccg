@@ -13,8 +13,8 @@
           },
           {
             "type": "command",
-            "command": "npm run lint 2>&1 >/tmp/.meccg-lint-check.log; rc=$?; cat /tmp/.meccg-lint-check.log >&2; [ $rc -eq 0 ] || printf '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"Lint failed — fix errors before pushing\"}}\\n'; exit $rc",
-            "if": "Bash(git push*)",
+            "command": "jq -r '.tool_input.command // empty' | grep -qE '(^|[^[:alnum:]_-])git[[:space:]]+push([[:space:]]|$)' || exit 0; cd \"$CLAUDE_PROJECT_DIR\" && npm run lint >/tmp/.meccg-lint-check.log 2>&1; rc=$?; cat /tmp/.meccg-lint-check.log >&2; [ $rc -eq 0 ] || printf '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"Lint failed — fix errors before pushing\"}}\\n'; exit $rc",
+            "if": "Bash(git push:*)",
             "timeout": 120,
             "statusMessage": "Running lint before push..."
           }
