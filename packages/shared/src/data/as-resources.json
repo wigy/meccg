@@ -2303,10 +2303,35 @@
     "unique": true,
     "marshallingPoints": 6,
     "marshallingCategory": "faction",
-    "influenceNumber": 0,
+    "influenceNumber": 16,
     "race": "dragon",
-    "playableAt": [],
-    "effects": [],
+    "manifestId": "td-36",
+    "playableAt": [
+      {
+        "site": "Gold Hill"
+      }
+    ],
+    "effects": [
+      {
+        "type": "influence-modification",
+        "options": [
+          { "discardItemSubtype": "major", "value": 4 },
+          { "discardItemSubtype": "greater", "value": 8 }
+        ]
+      },
+      {
+        "type": "cancel-manifestation-attacks",
+        "manifestId": "td-36"
+      },
+      {
+        "type": "ahunt-attack",
+        "regionNames": ["Withered Heath", "Iron Hills", "Northern Rhovanion", "Grey Mountain Narrows"],
+        "strikes": 3,
+        "prowess": 18,
+        "body": 8,
+        "race": "dragon"
+      }
+    ],
     "text": "Unique. Manifestation of Itangast. Playable at Gold Hill if the influence check is greater than 15. Modifications: influencer discards a major item (+4) or a greater item (+8).All attacks by manifestations of Itangast against any of your companies are canceled. Any company moving in Withered Heath, Iron Hills, Northern Rhovanion, and/or Grey Mountain Narrows faces one attack: Dragon — 3 strikes at 18/8."
   },
   {

@@ -44,7 +44,6 @@ import type {
 import { isCharacterCard, isSiteCard } from '../../types/cards.js';
 import { Alignment, Race } from '../../types/common.js';
 import type {
-  CardEffect,
   RecruitCharacterEffect,
 } from '../../types/effects.js';
 import { logDetail } from './log.js';
@@ -61,6 +60,7 @@ import {
   playerById,
   playerPlaysAsSauron,
   ringwraithFollowerSlotCount,
+  getCardEffects,
 } from '../reducer-utils.js';
 import { manifestationOfEntityInPlay } from '../manifestations.js';
 import { getEffectiveSiteType } from '../effective.js';
@@ -198,7 +198,7 @@ export function recruitViaEventActions(state: GameState, playerId: PlayerId): Ev
   const events: RecruitEvent[] = [];
   for (const card of player.hand) {
     const def = defById(state, card.definitionId);
-    const effects = (def as { effects?: readonly CardEffect[] } | undefined)?.effects ?? [];
+    const effects = getCardEffects(def);
     const eff = effects.find((e): e is RecruitCharacterEffect => e.type === 'recruit-character');
     if (eff) {
       events.push({

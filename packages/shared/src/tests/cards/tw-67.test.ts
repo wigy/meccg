@@ -109,4 +109,25 @@ describe('Muster Disperses (tw-67)', () => {
     expect(s.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.definitionId === EASTERLINGS)).toBe(true);
     expect(s.players[RESOURCE_PLAYER].discardPile.some(c => c.definitionId === EASTERLINGS)).toBe(false);
   });
+
+  test('[MINION] the roll prompt includes the Ringwraith +5 so it matches the resolver', () => {
+    // Reproduces a bug report (game mvoyk46u-y7vtfl, stateSeq 711): the
+    // prompt read "roll +3 ... (need roll >= 8)" for a Ringwraith player with
+    // 3 unused base GI, but the resolver also adds the flat +5 (CoE 1.12.R1),
+    // so a roll of 3 (3 + 3 + 5 = 11) kept the faction and looked like a bug.
+    const state = buildMusterState();
+    const mhState: GameState = { ...state, phaseState: makeMHState() };
+    const playAction = computeLegalActions(mhState, PLAYER_2)
+      .find(a => a.viable && a.action.type === 'play-hazard')!.action as PlayHazardAction;
+
+    let s = dispatch(mhState, playAction);
+    s = dispatch(s, { type: 'pass-chain-priority', player: PLAYER_1 });
+    s = dispatch(s, { type: 'pass-chain-priority', player: PLAYER_2 });
+
+    const rollAction = computeLegalActions(s, PLAYER_1)
+      .find(a => a.viable && a.action.type === 'resolve-dice-check')!.action as ResolveDiceCheckAction;
+    // 0 unused base GI + 5 minion bonus → need 6 to reach 11.
+    expect(rollAction.explanation).toContain('+5');
+    expect(rollAction.explanation).toContain('need roll >= 6');
+  });
 });

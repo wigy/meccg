@@ -9,7 +9,7 @@
  * Effects: 3 —
  *   1. `fw-kill-mp-full` — hazards his companies defeat (even detainment `*`)
  *      score full kill MP instead of the MEWH §4 flat-1 clamp.
- *   2. `detainment-attacks-normal` (stagePointsAbove 7) — above 7 stage points,
+ *   2. `detainment-attacks-normal` (when player.stagePoints > 7) — above 7 stage points,
  *      all detainment attacks against his companies attack normally instead.
  *   3. `on-event: creature-attack-begins` → `offer-char-join-attack` — at one of
  *      his Wizardhavens he may join an attacked company (discard his allies,

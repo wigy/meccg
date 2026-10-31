@@ -429,7 +429,7 @@ function autoAssignEachCharacterStrikes(state: GameState, combat: CombatState): 
           logDetail(`Each character faces one strike: ally ${ally.instanceId as string} is protected from strike assignment — skipping`);
           return false;
         }
-        const allyDef = defById(state, ally.definitionId) as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined;
+        const allyDef = defById(state, ally.definitionId);
         if (hasPlayFlag(allyDef, 'no-attack')) {
           logDetail(`Each character faces one strike: ally ${ally.instanceId as string} has no-attack — excluded`);
           return false;

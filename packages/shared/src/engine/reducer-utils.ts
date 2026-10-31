@@ -704,7 +704,7 @@ export function applyTapSiteOnPlayFlag(
   def: CardDefinition | undefined,
   playerIndex: number,
 ): GameState {
-  if (!hasPlayFlag(def as { effects?: readonly CardEffect[] }, 'tap-site-on-play')) return state;
+  if (!hasPlayFlag(def, 'tap-site-on-play')) return state;
   const ps = state.phaseState as { activeCompanyIndex?: number };
   const activeCompanyIndex = ps.activeCompanyIndex ?? 0;
   const company = state.players[playerIndex].companies[activeCompanyIndex];
@@ -1024,6 +1024,10 @@ export function siteRuleAllowsCreatureByRace(
  * - `hasWoundedCharacter` — true if any character in the company is Inverted
  *   (wounded), for "only if a character in target company is wounded" clauses
  *   (Morgul-rats td-49).
+ * - `facedRaces` — creature races of every attack the company has already
+ *   faced this turn (the turn-scoped `Company.facedHazardRaces`), for
+ *   "playable on a company that has already faced a Dragon or Drake attack
+ *   this turn" (Worm's Stench td-88).
  *
  * Also exposes `inPlay` — the list of card names the active player has in
  * play (via {@link buildInPlayNames}), so a condition can combine a company
@@ -1038,7 +1042,7 @@ export function siteRuleAllowsCreatureByRace(
 export function buildTargetCompanyConditionContext(
   state: GameState,
   owner: PlayerState,
-  company: { readonly characters: readonly CardInstanceId[]; readonly id?: CompanyId },
+  company: { readonly characters: readonly CardInstanceId[]; readonly id?: CompanyId; readonly facedHazardRaces?: readonly Race[] },
   alignment?: string,
 ): Record<string, unknown> {
   const homeSites: string[] = [];
@@ -1074,6 +1078,7 @@ export function buildTargetCompanyConditionContext(
     company: {
       homeSites, characterNames, maxUntappedWarriorProwess, containsWizard,
       alignment: alignment ?? null, covert, itemNames, itemKeywords, hasWoundedCharacter,
+      facedRaces: company.facedHazardRaces ?? [],
     },
     inPlay: buildInPlayNames(state),
   };
@@ -2032,125 +2037,6 @@ export function playerHasKillMpExemption(state: GameState, player: PlayerState):
     }
   }
   return false;
-}
-
-/**
- * True when `player` has an in-play character carrying a
- * `detainment-attacks-normal` effect (Alatar wh-1) whose stage-point gate is
- * satisfied — the player's `stagePoints` total is strictly greater than the
- * effect's `stagePointsAbove` (default 0). While true, every attack the engine
- * would treat as detainment against the player's companies is resolved as a
- * normal attack instead (see {@link isDetainmentAttack} / its call sites).
- */
-function playerConvertsDetainmentToNormal(state: GameState, player: PlayerState): boolean {
-  for (const char of Object.values(player.characters)) {
-    const def = resolveDef(state, char.instanceId);
-    for (const effect of getCardEffects(def)) {
-      if (effect.type !== 'detainment-attacks-normal') continue;
-      const threshold = effect.stagePointsAbove ?? 0;
-      if (player.stagePoints > threshold) return true;
-    }
-  }
-  return false;
-}
-
-/**
- * Site types for which the given company currently converts keyed hazard
- * attacks into normal (non-detainment) attacks — the union of the `siteTypes`
- * of every active `keyed-attacks-normal` constraint targeting the company
- * (World Gnawed by the Nameless as-110, turn-scoped). Threaded into
- * {@link isDetainmentAttack} as `normalIfKeyedToSiteTypes` at hazard-creature
- * combat initiation. Empty array when no such constraint is active.
- */
-function companyKeyedAttacksNormalSiteTypes(
-  state: GameState,
-  companyId: CompanyId,
-): readonly SiteType[] {
-  const types: SiteType[] = [];
-  for (const c of state.activeConstraints) {
-    if (c.kind.type !== 'keyed-attacks-normal') continue;
-    if (c.target.kind !== 'company' || c.target.companyId !== companyId) continue;
-    for (const s of c.kind.siteTypes) {
-      if (!types.includes(s)) types.push(s);
-    }
-  }
-  if (types.length > 0) {
-    logDetail(`keyed-attacks-normal: company ${companyId as string} converts attacks keyed to [${types.join(', ')}] to normal`);
-  }
-  return types;
-}
-
-/**
- * True when some in-play long hazard-event (either player's `cardsInPlay`)
- * carries an `auto-attacks-normal` effect whose `siteTypes` include
- * `effectiveSiteType` — Awaken Defenders (le-103): "each detainment
- * automatic-attack at a Free-hold or Border-hold becomes a normal
- * automatic-attack." When true, the site's automatic-attacks are resolved as
- * normal attacks (threaded into `isDetainmentAttack` via
- * `defenderForcesNormalAttacks`, mirroring
- * {@link playerConvertsDetainmentToNormal}). Site-type-scoped and global, so it
- * applies to any company entering a matching site regardless of alignment.
- */
-function siteTypeForcesAutoAttacksNormal(
-  state: GameState,
-  effectiveSiteType: SiteType,
-): boolean {
-  for (const player of state.players) {
-    for (const card of player.cardsInPlay) {
-      const def = resolveDef(state, card.instanceId);
-      for (const effect of getCardEffects(def)) {
-        if (effect.type !== 'auto-attacks-normal') continue;
-        if (effect.siteTypes.includes(effectiveSiteType)) return true;
-      }
-    }
-  }
-  return false;
-}
-
-/**
- * The detainment-to-normal overrides in force for an attack against
- * `player`'s company — shaped to spread straight into an
- * `isDetainmentAttack` context.
- */
-export interface NormalAttackOverride {
-  /**
-   * Every detainment attack resolves normally: the defender converts all
-   * detainment attacks (Alatar wh-1), or — when `autoAttackSiteType` was
-   * given — a global effect makes automatic-attacks at that site type normal
-   * (Awaken Defenders le-103).
-   */
-  readonly defenderForcesNormalAttacks: boolean;
-  /**
-   * Site types whose keyed attacks against the company resolve normally
-   * (World Gnawed by the Nameless as-110). Empty when no `companyId` was given.
-   */
-  readonly normalIfKeyedToSiteTypes: readonly SiteType[];
-}
-
-/**
- * Collects every source that turns a detainment attack against `player`'s
- * company into a normal attack, in one place:
- *
- * - `detainment-attacks-normal` on one of the player's characters (Alatar
- *   wh-1, stage-point gated) — always consulted;
- * - `auto-attacks-normal` on an in-play long-event (Awaken Defenders le-103)
- *   — only when `opts.autoAttackSiteType` is given, i.e. the attack is an
- *   automatic-attack at a site of that effective type;
- * - turn-scoped `keyed-attacks-normal` constraints on the company (World
- *   Gnawed by the Nameless as-110) — only when `opts.companyId` is given.
- */
-export function normalAttackOverride(
-  state: GameState,
-  player: PlayerState,
-  opts: { readonly companyId?: CompanyId; readonly autoAttackSiteType?: SiteType } = {},
-): NormalAttackOverride {
-  return {
-    defenderForcesNormalAttacks: playerConvertsDetainmentToNormal(state, player)
-      || (opts.autoAttackSiteType !== undefined && siteTypeForcesAutoAttacksNormal(state, opts.autoAttackSiteType)),
-    normalIfKeyedToSiteTypes: opts.companyId !== undefined
-      ? companyKeyedAttacksNormalSiteTypes(state, opts.companyId)
-      : [],
-  };
 }
 
 /**
@@ -3869,13 +3755,13 @@ export function extendHealingToCompany(
     const ch = player.characters[charId];
     if (!ch) return false;
     const charDef = defById(state, ch.definitionId);
-    return hasPlayFlag(charDef as { effects?: readonly CardEffect[] }, 'healing-affects-all');
+    return hasPlayFlag(charDef, 'healing-affects-all');
   });
   let hasSiteRule = false;
   if (company.currentSite) {
     const siteDef = defById(state, company.currentSite.definitionId);
     hasSiteRule = !!(siteDef && 'effects' in siteDef &&
-      (siteDef as { effects?: readonly CardEffect[] }).effects?.some(
+      getCardEffects(siteDef).some(
         e => e.type === 'site-rule' && e.rule === 'healing-affects-all',
       ));
   }
@@ -6748,8 +6634,10 @@ export function siteEddyLock(
 /**
  * The prisoners that the player at `playerIndex` may rescue at the company's
  * current site (CoE rule 8.36): a hazard host whose `rescueSiteCard` matches
- * the company's current site location and that holds at least one prisoner who
- * is a member of the active company. Returns the host instance and the
+ * the company's current site location and that holds at least one prisoner
+ * owned by the player. Prisoners are held off to the side at the rescue site
+ * (CoE 3.III.1), not in any company, so any of the player's companies that
+ * enters the site may rescue them. Returns the host instance and the
  * rescuable prisoner ids, or null if no rescue is available. Shared by the
  * legal-action layer (which offers `rescue-prisoner`) and the reducer (which
  * resolves it).
@@ -6763,11 +6651,10 @@ export function rescuablePrisonersAtSite(
   const company = player.companies[companyIndex];
   if (!company?.currentSite) return null;
   const siteDefId = company.currentSite.definitionId;
-  const companyChars = new Set(company.characters.map(c => c as string));
   for (const host of state.hazardHosts) {
     if (host.prisoners.length === 0) continue;
     if (host.rescueSiteCard.definitionId !== siteDefId) continue;
-    const prisonerIds = host.prisoners.filter(p => companyChars.has(p as string));
+    const prisonerIds = host.prisoners.filter(p => player.characters[p] !== undefined);
     if (prisonerIds.length > 0) {
       return { hostInstanceId: host.hostCard.instanceId, prisonerIds };
     }
@@ -7635,7 +7522,7 @@ export function companyBlocksJoins(state: GameState, companyId: CompanyId): bool
     for (const card of player.cardsInPlay) {
       if (card.companyId !== companyId) continue;
       const def = defById(state, card.definitionId);
-      if (def && hasPlayFlag(def as { effects?: readonly CardEffect[] }, 'block-company-joins')) return true;
+      if (def && hasPlayFlag(def, 'block-company-joins')) return true;
     }
   }
   return false;
@@ -7659,7 +7546,7 @@ export function companyHasNoAllyRestriction(
     if (!char) continue;
     for (const item of char.items) {
       const def = defById(state, item.definitionId);
-      if (def && hasPlayFlag(def as { effects?: readonly CardEffect[] }, 'no-allies-in-company')) return true;
+      if (def && hasPlayFlag(def, 'no-allies-in-company')) return true;
     }
   }
   return false;
@@ -7732,10 +7619,10 @@ export function companyHasImmobileCharacter(
     const char = player.characters[charId];
     if (!char) continue;
     const charDef = defById(state, char.definitionId);
-    if (charDef && hasPlayFlag(charDef as { effects?: readonly CardEffect[] }, 'bearer-cannot-move')) return true;
+    if (charDef && hasPlayFlag(charDef, 'bearer-cannot-move')) return true;
     for (const attached of char.items) {
       const def = defById(state, attached.definitionId);
-      if (def && hasPlayFlag(def as { effects?: readonly CardEffect[] }, 'bearer-cannot-move')) return true;
+      if (def && hasPlayFlag(def, 'bearer-cannot-move')) return true;
     }
   }
   return false;
@@ -7790,7 +7677,7 @@ export function characterHasCannotUntapConstraint(
  */
 export function bearsNeverUntapCard(state: GameState, char: CharacterInPlay): boolean {
   return [...char.hazards, ...char.items, ...char.allies].some(card =>
-    hasPlayFlag(defById(state, card.definitionId) as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined, 'bearer-never-untaps'),
+    hasPlayFlag(defById(state, card.definitionId), 'bearer-never-untaps'),
   );
 }
 

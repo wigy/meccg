@@ -12,6 +12,13 @@
  * The golden pins the scenarios it holds; a scenario added later is simply
  * not covered by it, which keeps the corpus growable without regenerating
  * history.
+ *
+ * It is edited only when a proposal it recorded was wrong, and then only by
+ * deleting that proposal — never by re-recording the file wholesale, which
+ * would launder an unrelated drift through the same commit. So far: six
+ * greater-item plans at Lossadan Cairn (tw-409), whose `deny-item` site-rule
+ * admits Palantíri only, so the engine would never have let those plays
+ * happen.
  */
 
 import { describe, test, expect } from 'vitest';

@@ -61,7 +61,7 @@ export function inPlayNamed(
   if (hypothetical !== undefined && hypothetical === name) return true;
   for (const zone of [view.self.cardsInPlay, view.opponent.cardsInPlay]) {
     for (const card of zone) {
-      if ((cardPool[card.definitionId] as unknown as { name?: string } | undefined)?.name === name) return true;
+      if (cardPool[card.definitionId]?.name === name) return true;
     }
   }
   return false;
@@ -69,7 +69,7 @@ export function inPlayNamed(
 
 /** The printed name of a definition, or its id. */
 export function nameOfDefinition(def: CardDefinition | undefined, definitionId: string): string {
-  return (def as unknown as { name?: string } | undefined)?.name ?? definitionId;
+  return def?.name ?? definitionId;
 }
 
 /**

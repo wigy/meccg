@@ -710,28 +710,26 @@ export interface FallenWizardKillMpEffect extends EffectBase {
  * into a normal attack (CoE §3.II — a detainment attack taps rather than
  * wounds, suppresses the body check, and awards no kill MP; a normal attack
  * does none of those). While a character carrying this effect is in play and
- * the player's stage-point total is strictly greater than
- * {@link stagePointsAbove}, any attack the engine would otherwise treat as
+ * {@link when} holds, any attack the engine would otherwise treat as
  * detainment — whether from a `combat-detainment` effect, a site-forced
  * detainment rule, or the alignment-based §3.II keying rules — is resolved as a
  * normal attack instead.
  *
  * Used by Alatar (wh-1): "If you have more than 7 stage points, all detainment
- * attacks against your companies attack normally instead." Here
- * `stagePointsAbove` is 7.
+ * attacks against your companies attack normally instead."
  *
  * ```json
- * { "type": "detainment-attacks-normal", "stagePointsAbove": 7 }
+ * { "type": "detainment-attacks-normal", "when": { "player.stagePoints": { "$gt": 7 } } }
  * ```
  */
 export interface DetainmentAttacksNormalEffect extends EffectBase {
   readonly type: 'detainment-attacks-normal';
   /**
-   * The player's stage-point total must be strictly greater than this for the
-   * conversion to apply. Defaults to 0 (always active while in play) when
-   * omitted.
+   * Gate evaluated against the carrier's player-state context
+   * (`buildPlayerStateContext`: `player.stagePoints`, `player.alignment`, …).
+   * Always active while in play when omitted.
    */
-  readonly stagePointsAbove?: number;
+  readonly when?: Condition;
 }
 
 /**
@@ -8024,9 +8022,9 @@ export interface CombatDiscardOpponentItemEffect extends EffectBase {
  *    ever affects untapped cards and the roll outcome (wound/eliminate) does not
  *    depend on status, the observable end-state is identical to applying the tap
  *    after the rolls.
- * 3. **Roll** for each character whose mind is `< characterMindBelow` and each
- *    ally normally worth `< allyMpBelow` marshalling points (the printed MP of
- *    the ally card): the Balrog's controller rolls 2d6 per target. If
+ * 3. **Roll** for each character with a mind stat matching {@link characterFilter}
+ *    and each ally matching {@link allyFilter} (`target.marshallingPoints` is the
+ *    printed MP of the ally card): the Balrog's controller rolls 2d6 per target. If
  *    `roll - 1 > body`, the target is wounded, or — if already wounded
  *    (inverted) — eliminated. Enqueued as one generic `dice-check` per target
  *    with `comparison: 'gt'`, `threshold = body + 1`, and a `wound-or-eliminate`
@@ -8042,10 +8040,16 @@ export interface CombatDiscardOpponentItemEffect extends EffectBase {
  */
 export interface SiteStormDevastationEffect extends EffectBase {
   readonly type: 'site-storm-devastation';
-  /** Characters with a mind stat strictly below this value are rolled against. */
-  readonly characterMindBelow: number;
-  /** Allies whose printed MP value is strictly below this value are rolled against. */
-  readonly allyMpBelow: number;
+  /**
+   * Characters (with a mind stat) rolled against, matched on
+   * `{ target: { race, mind, name, skills } }`. Every such character when omitted.
+   */
+  readonly characterFilter?: Condition;
+  /**
+   * Allies rolled against, matched on `{ target: { name, marshallingPoints } }`
+   * (printed MP). Every ally when omitted.
+   */
+  readonly allyFilter?: Condition;
 }
 
 /**
@@ -8360,6 +8364,10 @@ export interface DeckRestrictionEffect extends EffectBase {
  *   field (comma-separated entries are split). Used for restrictions like
  *   "May not be played against a company containing a character with
  *   Edoras as a home site" (Horse-lords).
+ *   Also checked for hazard short-events played on the moving company,
+ *   where `company.facedRaces` (races of attacks the company already faced
+ *   this turn) backs Worm's Stench (td-88): "Playable on a company that has
+ *   already faced a Dragon or Drake attack this turn."
  * If the condition is not met, the card is not offered as a legal action.
  */
 export interface PlayConditionEffect extends EffectBase {
@@ -8741,6 +8749,42 @@ export interface RemovalProtectionEffect extends EffectBase {
   readonly type: 'removal-protection';
   /** Site types (e.g. `"haven"`) a character must currently occupy to be protected. */
   readonly siteTypes: readonly SiteType[];
+}
+
+/**
+ * Noose of the Sea (td-51): "Affects each company with a Coastal Sea [{c}] in
+ * its site path. The on-going effects of all resource short-events that were
+ * played during the organization phase are cancelled for the duration of the
+ * movement/hazard phase and the site phase. Such short-events have no effect
+ * on this card (i. e., it may not be canceled by such a short-event)."
+ *
+ * While the carrying card is in either player's `cardsInPlay` and the game is
+ * in one of {@link suspendDuring}, every {@link ActiveConstraint} that
+ *
+ * - was installed by a resource **short-event** (`isResourceEventCard`,
+ *   `eventType: "short"`),
+ * - was added during one of {@link playedDuring} (`ActiveConstraint.addedInPhase`), and
+ * - targets a company (or a character in a company) whose site path this turn
+ *   includes {@link sitePathRegionType}
+ *
+ * is moved from `GameState.activeConstraints` to
+ * `GameState.suspendedConstraints` — invisible to every consumer — and moved
+ * back the moment any of those conditions stops holding (the site phase
+ * ends, the card leaves play). The sync runs once after every reducer step
+ * (`sweepSuspendedShortEventConstraints` in `engine/short-event-suspension.ts`).
+ *
+ * The carrying card itself is immune to the suspended class of short-events:
+ * a resource short-event declared during one of {@link playedDuring} may not
+ * pick it as a discard-in-play target (`collectDiscardInPlayTargets`).
+ */
+export interface SuspendShortEventEffectsEffect extends EffectBase {
+  readonly type: 'suspend-short-event-effects';
+  /** {@link Phase} strings the short-event must have been played in. */
+  readonly playedDuring: readonly string[];
+  /** {@link Phase} strings during which those effects are suspended. */
+  readonly suspendDuring: readonly string[];
+  /** Region type the affected company's site path must include. */
+  readonly sitePathRegionType: RegionType;
 }
 
 /**
@@ -11081,6 +11125,7 @@ export type CardEffect =
   | TapDiscardInPlayEffect
   | TapTakeItemEffect
   | RemovalProtectionEffect
+  | SuspendShortEventEffectsEffect
   | ForceAgentAttackEffect
   | DiscardUnrevealedOnGuardEffect
   | AgentAttackOnSkipEffect

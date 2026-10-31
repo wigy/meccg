@@ -10,6 +10,7 @@
  * literals through the reducer and legal-action computers.
  */
 
+import type { CardDefinition } from '../types/cards.js';
 import type { CardEffect, PlayFlag } from '../types/effects.js';
 import type { CardInPlay } from '../types/state-cards.js';
 
@@ -23,12 +24,15 @@ import type { CardInPlay } from '../types/state-cards.js';
  * `when` on Frodo's flag — `{ $not: { reason: 'starting-character' } }`
  * — still documents the intent for when the rule moves into a
  * condition-aware path.
+ *
+ * Accepts any card definition, so callers need not cast definitions whose
+ * card type carries no `effects` field (those simply have no flags).
  */
 export function hasPlayFlag(
-  def: { readonly effects?: readonly CardEffect[] } | undefined,
+  def: CardDefinition | { readonly effects?: readonly CardEffect[] } | null | undefined,
   flag: PlayFlag,
 ): boolean {
-  if (!def?.effects) return false;
+  if (!def || !('effects' in def) || !def.effects) return false;
   return def.effects.some(e => e.type === 'play-flag' && e.flag === flag);
 }
 

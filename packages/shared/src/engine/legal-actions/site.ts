@@ -27,7 +27,7 @@ import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
 import { notPlayable } from './action-builders.js';
 import { availableDI, conditionalDISpentOnFollowers, normalUnusedDI, grantedActionActivations, bareCardGrantActions, playResourceShortEventActions, playerStateGateMet, buildActiveCompanyContext } from './organization.js';
-import { playPermanentEventActions, bundledOrCombatOnlyPermanentEventReason } from './organization-events.js';
+import { playPermanentEventActions, bundledOrCombatOnlyPermanentEventReason, factionTargetPermanentEventActions } from './organization-events.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { recruitViaEventActions } from './recruit-via-event.js';
 import { manifestationSwapActions } from './manifestation-swap.js';
@@ -295,7 +295,7 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
       // company rescued prisoners at Dol Guldur).
       base.push(...inPlayCompanyTapGrantActions(state, playerId, siteState));
       // Prisoner rescue (CoE rule 8.36): if the active company is at a site
-      // holding its own prisoners (e.g. by Troll-purse), offer to face the
+      // where the player has prisoners held (e.g. by Troll-purse), offer to face the
       // host's rescue-attack to free them.
       // Messenger of Mordor (le-204): the active company may store items and
       // resource events "now" — during this site phase — at a site where the
@@ -1266,7 +1266,7 @@ export function playResourcesActions(
     ? player.cardsInPlay.flatMap(host => {
       const hostDef = defById(state, host.definitionId);
       const cacheEffect = findCardEffect(hostDef, 'item-cache-play-source');
-      if (!cacheEffect || cacheEffect.type !== 'item-cache-play-source') return [];
+      if (!cacheEffect) return [];
       if (!cacheEffect.siteTypes.includes(effectiveSiteTypeForCache)) return [];
       return (host.setAside ?? [])
         .map(childId => player.cardsInPlay.find(c => c.instanceId === childId))
@@ -1396,6 +1396,21 @@ export function playResourcesActions(
         const phaseCond = findPlayConditionEffect(eventDef, 'phase');
         if (phaseCond?.phases && !phaseCond.phases.includes(Phase.Site)) {
           logDetail(`Permanent event ${eventDef.name}: playable only during [${phaseCond.phases.join(', ')}] — not in the site phase`);
+          continue;
+        }
+
+        // play-target: faction — Long Grievous Siege (ba-40) targets one of
+        // the player's in-play factions and sets aside an eligible Border-hold
+        // from the location deck. Rule 2.1.1 allows playing it in the site
+        // phase too, but it must carry the same faction + besieged-site
+        // choice as in the organization phase rather than falling through to
+        // the untargeted generic tail below.
+        const factionPlayTarget = eventDef.effects?.find(
+          (e): e is import('../../index.js').PlayTargetEffect => e.type === 'play-target' && e.target === 'faction',
+        );
+        if (factionPlayTarget) {
+          evaluatedInstances.add(cardInstanceId as string);
+          actions.push(...factionTargetPermanentEventActions(state, player, cardInstanceId, eventDef, factionPlayTarget));
           continue;
         }
 

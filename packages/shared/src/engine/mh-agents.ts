@@ -938,7 +938,7 @@ export function handleAgentTapReturnCharacter(
 
   // Tap the agent, discard the short event, count it against the hazard limit.
   const newHand = removeById(hazardPlayer.hand, handCard.instanceId);
-  const bypassesLimit = hasPlayFlag(def as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'no-hazard-limit');
+  const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
   const newHazardCount = bypassesLimit ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
 
   let newState: GameState = updatePlayer(state, hazardIndex, p => ({
@@ -1070,7 +1070,7 @@ export function handleAgentTapFactionInfluence(
 
   // Tap and reveal the agent, discard the short event, count the hazard.
   const newHand = removeById(hazardPlayer.hand, handCard.instanceId);
-  const bypassesLimit = hasPlayFlag(def as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'no-hazard-limit');
+  const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
   const newHazardCount = bypassesLimit ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
 
   let newState: GameState = updatePlayer(state, hazardIndex, p => ({
@@ -1292,7 +1292,7 @@ export function handleAgentTapMultiInfluence(
 
   // Tap and reveal the agent, discard the short event, count the hazard.
   const newHand = removeById(hazardPlayer.hand, handCard.instanceId);
-  const bypassesLimit = hasPlayFlag(def as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'no-hazard-limit');
+  const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
   const newHazardCount = bypassesLimit ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
 
   let newState: GameState = updatePlayer(state, hazardIndex, p => ({
@@ -1377,7 +1377,7 @@ export function handleAgentInfluenceBoost(
   logDetail(`${def.name}: banking +${effect.attemptBonus} influence boost on agent ${agentInstanceId as string}`);
 
   const newHand = removeById(hazardPlayer.hand, handCard.instanceId);
-  const bypassesLimit = hasPlayFlag(def as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'no-hazard-limit');
+  const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
   const newHazardCount = bypassesLimit ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
 
   let newState: GameState = updatePlayer(state, hazardIndex, p => ({
@@ -1531,7 +1531,7 @@ export function handleAgentTapOpponentInfluence(
 
   // Tap and reveal the agent, discard the short event, count the hazard.
   const newHand = removeById(hazardPlayer.hand, handCard.instanceId);
-  const bypassesLimit = hasPlayFlag(def as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'no-hazard-limit');
+  const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
   const newHazardCount = bypassesLimit ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
 
   let newState: GameState = updatePlayer(state, hazardIndex, p => ({
@@ -1657,7 +1657,7 @@ export function handleTapAgentAtSite(
     : { ...p, hand: newHand, discardPile: [...p.discardPile, handCard] });
 
   // --- Increment hazard count (the card counts; the attack does not) ---
-  const bypassesLimit = hasPlayFlag(def as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'no-hazard-limit');
+  const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
   const newHazardCount = bypassesLimit
     ? mhState.hazardsPlayedThisCompany
     : mhState.hazardsPlayedThisCompany + 1;

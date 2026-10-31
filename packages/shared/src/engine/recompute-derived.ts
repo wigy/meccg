@@ -1742,7 +1742,7 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
       // once restored, the printed marshalling points are replaced by the
       // `restored-item-stats` value.
       if (item.restored && hasMarshallingPoints(itemDef)) {
-        const restoredStats = ((itemDef as { effects?: readonly CardEffect[] }).effects ?? []).find(
+        const restoredStats = getCardEffects(itemDef).find(
           (e): e is RestoredItemStatsEffect => e.type === 'restored-item-stats',
         );
         if (restoredStats?.marshallingPoints !== undefined) {
@@ -1866,7 +1866,7 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     for (const attachment of [...char.items, ...char.hazards]) {
       const attDef = resolveDef(state, attachment.instanceId);
       const effects = attDef && 'effects' in attDef
-        ? (attDef as { effects?: readonly CardEffect[] }).effects ?? []
+        ? getCardEffects(attDef)
         : [];
       for (const effect of effects) applyGeneralInfluenceEffect(effect, bearerCtx);
     }
@@ -1875,7 +1875,7 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     if (card.setAsideHost !== undefined) continue;
     const def = resolveDef(state, card.instanceId);
     const effects = def && 'effects' in def
-      ? (def as { effects?: readonly CardEffect[] }).effects ?? []
+      ? getCardEffects(def)
       : [];
     for (const effect of effects) applyGeneralInfluenceEffect(effect, { reason: 'general-influence' });
   }
@@ -1989,7 +1989,7 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     const hostDef = resolveDef(state, host.instanceId);
     if (!hostDef) continue;
     const countBonus = findCardEffect(hostDef, 'item-cache-count-bonus');
-    if (!countBonus || countBonus.type !== 'item-cache-count-bonus') continue;
+    if (!countBonus) continue;
     const cachedCount = host.setAside?.length ?? 0;
     if (cachedCount >= countBonus.count) {
       mp = { ...mp, misc: mp.misc + countBonus.mp };
@@ -2025,7 +2025,7 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     const def = resolveDef(state, card.instanceId);
     if (!def) continue;
     const bonus = findCardEffect(def, 'attached-faction-mp-bonus');
-    if (!bonus || bonus.type !== 'attached-faction-mp-bonus') continue;
+    if (!bonus) continue;
     const targetStillInPlay = player.cardsInPlay.some(c => c.instanceId === card.attachedTo);
     if (!targetStillInPlay) continue;
     const cat = bonus.category ?? MarshallingCategory.Misc;

@@ -143,7 +143,7 @@ function evaluateRestore(action: GameAction, context: ModuleContext): Evaluation
   const { standing, tunables } = context;
   const wounded = character.status === CardStatus.Inverted;
   const gain = wounded ? Math.max(0, tunables.woundTempoCost - tunables.tapTempoCost) : 0;
-  const name = (context.cardPool[character.definitionId] as unknown as { name?: string } | undefined)?.name
+  const name = context.cardPool[character.definitionId]?.name
     ?? (characterId as string);
   const label = wounded ? `heal ${name} to tapped` : `untap ${name}`;
   return scoredEvaluation({

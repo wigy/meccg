@@ -42,7 +42,7 @@ function mintResolutionId(state: GameState): ResolutionId {
 
 /** Mint a fresh, globally-unique constraint ID. */
 function mintConstraintId(state: GameState): ConstraintId {
-  const n = state.activeConstraints.length + state.stateSeq;
+  const n = state.activeConstraints.length + (state.suspendedConstraints?.length ?? 0) + state.stateSeq;
   return `c-${n}-${Date.now().toString(36)}` as ConstraintId;
 }
 
@@ -235,13 +235,16 @@ export function pendingResolutionsFor(state: GameState, actor: PlayerId): readon
 
 // ---- Active constraint helpers ----
 
-/** Append a new active constraint. The id is minted by the helper. */
+/**
+ * Append a new active constraint. The id is minted by the helper, and the
+ * current phase is stamped as `addedInPhase` unless the caller supplied one.
+ */
 export function addConstraint(
   state: GameState,
   c: Omit<ActiveConstraint, 'id'>,
 ): GameState {
   const id = mintConstraintId(state);
-  const entry: ActiveConstraint = { ...c, id };
+  const entry: ActiveConstraint = { addedInPhase: state.phaseState.phase, ...c, id };
   return {
     ...state,
     activeConstraints: [...state.activeConstraints, entry],
@@ -250,9 +253,15 @@ export function addConstraint(
 
 /** Remove the constraint with the given id (no-op if absent). */
 export function removeConstraint(state: GameState, id: ConstraintId): GameState {
+  const suspended = state.suspendedConstraints ?? [];
+  const nextSuspended = suspended.filter(c => c.id !== id);
   const next = state.activeConstraints.filter(c => c.id !== id);
-  if (next.length === state.activeConstraints.length) return state;
-  return { ...state, activeConstraints: next };
+  if (next.length === state.activeConstraints.length && nextSuspended.length === suspended.length) return state;
+  return {
+    ...state,
+    activeConstraints: next,
+    ...(nextSuspended.length !== suspended.length ? { suspendedConstraints: nextSuspended } : {}),
+  };
 }
 
 /**
@@ -494,10 +503,14 @@ export function sweepExpired(state: GameState, boundary: ScopeBoundary): GameSta
 
   const newResolutions = state.pendingResolutions.filter(keepResolution);
   const newConstraints = state.activeConstraints.filter(keepConstraint);
+  // Constraints suspended by Noose of the Sea (td-51) still expire on time.
+  const suspended = state.suspendedConstraints ?? [];
+  const newSuspended = suspended.filter(keepConstraint);
 
   if (
     newResolutions.length === state.pendingResolutions.length &&
-    newConstraints.length === state.activeConstraints.length
+    newConstraints.length === state.activeConstraints.length &&
+    newSuspended.length === suspended.length
   ) {
     return state;
   }
@@ -505,6 +518,7 @@ export function sweepExpired(state: GameState, boundary: ScopeBoundary): GameSta
     ...state,
     pendingResolutions: newResolutions,
     activeConstraints: newConstraints,
+    ...(newSuspended.length !== suspended.length ? { suspendedConstraints: newSuspended } : {}),
   };
 }
 

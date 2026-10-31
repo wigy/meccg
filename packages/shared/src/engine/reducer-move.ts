@@ -152,10 +152,13 @@ export function applyMove(
 export function dropConstraintsSourcedBy(state: GameState, instanceIds: readonly CardInstanceId[]): GameState {
   if (instanceIds.length === 0) return state;
   const ids = new Set<string>(instanceIds.map(id => id as string));
-  if (!state.activeConstraints.some(c => ids.has(c.source as string))) return state;
+  const suspended = state.suspendedConstraints ?? [];
+  if (!state.activeConstraints.some(c => ids.has(c.source as string))
+    && !suspended.some(c => ids.has(c.source as string))) return state;
   return {
     ...state,
     activeConstraints: state.activeConstraints.filter(c => !ids.has(c.source as string)),
+    ...(suspended.length > 0 ? { suspendedConstraints: suspended.filter(c => !ids.has(c.source as string)) } : {}),
   };
 }
 

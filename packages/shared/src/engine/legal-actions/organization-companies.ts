@@ -1160,7 +1160,7 @@ export function moveToInfluenceActions(state: GameState, playerId: PlayerId): Ev
         // a move is blocked instead of silently hiding the target.
         const baseMind = char.effectiveStats.mind ?? charDef.mind;
         const controlCost = controlCostOf(state, char, baseMind) ?? baseMind;
-        const noDIHazard = char.hazards.find(h => hasPlayFlag(defById(state, h.definitionId) as { readonly effects?: readonly CardEffect[] } | undefined, 'no-direct-influence'));
+        const noDIHazard = char.hazards.find(h => hasPlayFlag(defById(state, h.definitionId), 'no-direct-influence'));
         for (const ctrlInstId of company.characters) {
           if (ctrlInstId === charInstId) continue;
           if (ctrlInstId === char.controlledBy) continue;
@@ -1539,7 +1539,7 @@ export function storeItemActions(state: GameState, playerId: PlayerId, onlyCompa
           for (const host of player.cardsInPlay) {
             const hostDef = defById(state, host.definitionId);
             const cacheEffect = findCardEffect(hostDef, 'item-cache-alt-storage');
-            if (!cacheEffect || cacheEffect.type !== 'item-cache-alt-storage') continue;
+            if (!cacheEffect) continue;
             if (!cacheEffect.siteTypes.includes(siteType)) continue;
             if (!cacheEffect.subtypes.includes(itemDef.subtype)) continue;
             logDetail(`  → viable: store ${itemName} from ${charName} under ${hostDef?.name ?? '?'} instead of marshalling-point pile`);

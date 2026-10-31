@@ -471,7 +471,7 @@ function findCancelAutoAttacksRule(
   siteDef: SiteCard,
   scope: 'printed' | 'first',
 ): CancelAutoAttacksSiteRule | undefined {
-  return (siteDef as { effects?: readonly CardEffect[] }).effects?.find(
+  return getCardEffects(siteDef).find(
     (e): e is CancelAutoAttacksSiteRule =>
       e.type === 'site-rule' && e.rule === 'cancel-auto-attacks' && e.scope === scope,
   );
@@ -588,7 +588,7 @@ export function isReduceAttacksToOneInPlay(state: GameState, defendingPlayerInde
     const def = defById(state, card.definitionId);
     if (!def) continue;
     if (!('effects' in def)) continue;
-    if (hasPlayFlag(def as { effects?: readonly CardEffect[] }, 'reduce-attacks-to-one')) return true;
+    if (hasPlayFlag(def, 'reduce-attacks-to-one')) return true;
   }
   return false;
 }

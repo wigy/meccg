@@ -1668,23 +1668,23 @@ kill marshalling points."
 Converts every detainment attack against the carrier's player's companies into a
 normal attack (CoE §3.II — a detainment attack taps rather than wounds, suppresses
 the body check, and awards no kill MP; a normal attack does none of those). While
-a character carrying this effect is in play and the player's `stagePoints` total
-is strictly greater than `stagePointsAbove` (default 0), any attack the engine
+a character carrying this effect is in play and its optional `when` condition
+holds against the player-state context (`player.stagePoints`,
+`player.alignment`, …; always active when omitted), any attack the engine
 would otherwise treat as detainment — whether from a `combat-detainment` effect, a
 site-forced detainment rule, or the alignment-based §3.II keying rules — resolves
 as a normal attack instead. Computed per defending player by
-`normalAttackOverride` (`reducer-utils.ts`, which collects all three
+`normalAttackOverride` (`normal-attack-override.ts`, which collects all three
 detainment-to-normal sources — this one, `auto-attacks-normal` and
 `keyed-attacks-normal`) and spread into `isDetainmentAttack` as
 `defenderForcesNormalAttacks`, which short-circuits the
 whole detainment computation to `false` at every combat-initiation call site.
 
 Used by Alatar (wh-1): "If you have more than 7 stage points, all detainment
-attacks against your companies attack normally instead." Here `stagePointsAbove`
-is 7.
+attacks against your companies attack normally instead."
 
 ```json
-{ "type": "detainment-attacks-normal", "stagePointsAbove": 7 }
+{ "type": "detainment-attacks-normal", "when": { "player.stagePoints": { "$gt": 7 } } }
 ```
 
 ### 3e-bis. `auto-attacks-normal`
@@ -8896,6 +8896,37 @@ reason." Because the central helpers back every removal path, this also
 covers the CRF-22 ruling that Elf-song "will effectively stop influence
 attempts against characters" with no extra wiring.
 
+### 23c. `suspend-short-event-effects`
+
+While the carrying card sits in either player's `cardsInPlay` and the game is
+in one of `suspendDuring`, the on-going effects of resource short-events
+played during one of `playedDuring` are cancelled for every company whose
+site path this turn includes `sitePathRegionType`. The carrying card is also
+immune to those short-events: one declared during a `playedDuring` phase may
+not pick it as a discard-in-play target.
+
+```json
+{
+  "type": "suspend-short-event-effects",
+  "playedDuring": ["organization"],
+  "suspendDuring": ["movement-hazard", "site"],
+  "sitePathRegionType": "coastal"
+}
+```
+
+A short-event's on-going effect is an `ActiveConstraint`; `addConstraint`
+stamps each one with `addedInPhase`. After every reducer step,
+`sweepSuspendedShortEventConstraints` (`engine/short-event-suspension.ts`)
+moves each matching constraint (source a resource short-event, bound to a
+company or to a character in one) from `activeConstraints` to
+`suspendedConstraints`, and moves it back once the suspension lapses (phase
+over, carrying card gone). `sweepExpired` and `removeConstraint` also act on
+the suspended list. The sweep records the active company's resolved site path
+into `GameState.sitePathsThisTurn` during its M/H phase so the site phase can
+still answer "has a Coastal Sea in its site path".
+
+Used by Noose of the Sea (td-51).
+
 ### 24. `mass-body-check`
 
 Forces a body check modified by `modifier` (typically negative) on **every
@@ -9276,8 +9307,8 @@ Implemented in `reducer-utils.ts` (`companyItemDiscardCandidates`),
   keying, evaluated against the defending company via
   `buildTargetCompanyConditionContext` (`reducer-utils.ts`), exposing
   `{ company: { alignment, homeSites, characterNames, maxUntappedWarriorProwess,
-  containsWizard, covert, itemNames, itemKeywords, hasWoundedCharacter },
-  inPlay: [<names>] }`. `company.alignment` is `defenderAlignmentLabel`-mapped
+  containsWizard, covert, itemNames, itemKeywords, hasWoundedCharacter,
+  facedRaces }, inPlay: [<names>] }`. `company.alignment` is `defenderAlignmentLabel`-mapped
   (a Wizard player's companies read `"hero"`); `company.hasWoundedCharacter` is
   `true` when any company member's status is Inverted (wounded); `inPlay` lets
   the same condition combine a company predicate with a named in-play
@@ -9292,6 +9323,12 @@ Implemented in `reducer-utils.ts` (`companyItemDiscardCandidates`),
   `company.covert`; and Morgul-rats (td-49): "playable... only if a character
   in target company is wounded or Doors of Night is in play" —
   `{ "$or": [{ "company.hasWoundedCharacter": true }, { "inPlay": "Doors of Night" }] }`.
+  Also checked for **hazard short-events** played on the moving company (the
+  short-event branch of the same module); the context additionally exposes
+  `company.facedRaces` (the turn-scoped `facedHazardRaces` stamp). Used by
+  Worm's Stench (td-88): "Playable on a company that has already faced a
+  Dragon or Drake attack this turn" — `{ "$or": [{ "company.facedRaces":
+  { "$includes": "dragon" } }, { "company.facedRaces": { "$includes": "drake" } }] }`.
 
 - `player-state` — for resource short-events **and** permanent-events: a
   generic DSL `condition` evaluated against the active player's
@@ -18431,20 +18468,24 @@ fixed order:
 2. **Tap** every untapped ally and every untapped character *with a mind stat*.
    Avatars (Balrog/Wizard/Ringwraith — printed mind `null`) are left untapped;
    all other untapped characters and all remaining untapped allies are tapped.
-3. **Roll** for each character whose mind is `< characterMindBelow` and each ally
-   normally worth `< allyMpBelow` marshalling points (the ally card's printed
-   MP). The Balrog's controller rolls 2d6 per target; on `roll - 1 > body` the
-   target is **wounded**, or **eliminated** if already wounded. Each roll is a
-   separate explicit action.
+3. **Roll** for each character with a mind stat matching `characterFilter` and
+   each ally matching `allyFilter` (`target.marshallingPoints` is the ally
+   card's printed MP). The Balrog's controller rolls 2d6 per target; on
+   `roll - 1 > body` the target is **wounded**, or **eliminated** if already
+   wounded. Each roll is a separate explicit action.
 
 ```json
-{ "type": "site-storm-devastation", "characterMindBelow": 8, "allyMpBelow": 3 }
+{
+  "type": "site-storm-devastation",
+  "characterFilter": { "target.mind": { "$lt": 8 } },
+  "allyFilter": { "target.marshallingPoints": { "$lt": 3 } }
+}
 ```
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `characterMindBelow` | yes | Characters with a mind stat strictly below this are rolled against. |
-| `allyMpBelow` | yes | Allies whose printed MP is strictly below this are rolled against. |
+| `characterFilter` | no | Condition on `{ target: { race, mind, name, skills } }` selecting the characters (with a mind stat) rolled against. All of them when omitted. |
+| `allyFilter` | no | Condition on `{ target: { name, marshallingPoints } }` (printed MP) selecting the allies rolled against. All of them when omitted. |
 
 The tap (step 2) is applied at play time before the rolls are enqueued; because
 tapping only ever affects untapped cards and the roll outcome does not depend on

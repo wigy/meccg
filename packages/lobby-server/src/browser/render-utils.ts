@@ -6,7 +6,7 @@
  * duplication of card image creation and common DOM utilities.
  */
 
-import type { CardDefinition, CardEffect, CardInstanceId, CardDefinitionId, CharacterInPlay, GameAction, RegionType, PlayerView, ViewCard, Alignment } from '@meccg/shared';
+import type { CardDefinition, CardInstanceId, CardDefinitionId, CharacterInPlay, GameAction, RegionType, PlayerView, ViewCard, Alignment } from '@meccg/shared';
 import { cardImageProxyPath, effectiveItemCorruptionPoints, isItemCard, isCharacterCard, hasPlayFlag } from '@meccg/shared';
 
 /**
@@ -203,7 +203,7 @@ export function findIsolatingEventName(
   cardPool: Readonly<Record<string, CardDefinition>>,
 ): string | undefined {
   return inPlayCardDefs(view, cardPool)
-    .find(def => hasPlayFlag(def as { effects?: readonly CardEffect[] }, 'reduce-attacks-to-one'))
+    .find(def => hasPlayFlag(def, 'reduce-attacks-to-one'))
     ?.name;
 }
 

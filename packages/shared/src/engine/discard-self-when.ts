@@ -46,7 +46,7 @@ export function sweepDiscardSelfWhen(state: GameState): GameState {
     (card, player) => {
       const def = defById(state, card.definitionId);
       const effect = findCardEffect(def, 'discard-self-when');
-      if (!effect || effect.type !== 'discard-self-when') return false;
+      if (!effect) return false;
       const ctx = buildPlayerStateContext(state, player, player.id);
       return matchesCondition(effect.condition, ctx);
     },
@@ -68,7 +68,7 @@ function sweepDiscardSelfWhenItems(state: GameState): GameState {
       for (const item of [...ch.items]) {
         const def = defById(working, item.definitionId);
         const effect = findCardEffect(def, 'discard-self-when');
-        if (!effect || effect.type !== 'discard-self-when') continue;
+        if (!effect) continue;
         const ctx = buildPlayerStateContext(working, player, player.id);
         if (!matchesCondition(effect.condition, ctx)) continue;
         logDetail(`discard-self-when: discarding item "${def?.name ?? (item.definitionId as string)}" from ${ch.instanceId as string} — condition holds`);

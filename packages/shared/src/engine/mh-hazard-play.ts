@@ -1163,7 +1163,7 @@ export function handlePlayHazardCard(
   // would be incremented anyway, and `countsAgainstHazardLimit: true` below
   // would let the card fizzle at resolution (CoE 2.IV.iii.1) whenever the
   // count it wasn't supposed to affect happens to exceed the limit.
-  const bypassesLimit = hasPlayFlag(def as { effects?: readonly CardEffect[] }, 'no-hazard-limit');
+  const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
   const newHazardCount = bypassesLimit ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
   logDetail(`Play-hazards: hazard player plays ${def.eventType}-event "${def.name}" (${newHazardCount}/${currentHazardLimit(state, mhState, action.targetCompanyId)})${bypassesLimit ? ' [no-hazard-limit]' : ''} → enters chain`);
 
@@ -1314,7 +1314,7 @@ export function handleSwapNewSite(
 
   logDetail(`${def.name}: replacing "${destDef.name}" (company ${company.id as string}'s new site) with "${replacementDef.name}" from ${hazardPlayer.name}'s location deck`);
 
-  const bypassesLimit = hasPlayFlag(def as { effects?: readonly CardEffect[] }, 'no-hazard-limit');
+  const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
   const newHazardCount = bypassesLimit ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
 
   // Discard the short-event and remove the replacement from the hazard
@@ -1396,7 +1396,7 @@ export function handleRollThenSwapNewSite(
 
   logDetail(`${def.name}: company ${company.id as string} has ${rangerCount} ranger(s) (${formatSignedNumber(rangerTotalModifier)}); roll must exceed ${effect.threshold}`);
 
-  const bypassesLimit = hasPlayFlag(def as { effects?: readonly CardEffect[] }, 'no-hazard-limit');
+  const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
   const newHazardCount = bypassesLimit ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
 
   let newState: GameState = updatePlayer(state, hazardIndex, p => ({
@@ -2258,6 +2258,24 @@ export function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState
   // bearer's company having arrived at a Haven this turn.
   updatedState = fireCharacterCorruptionAtSiteTriggers(updatedState, mhStateLocal);
 
+  // Carambor (le-5) taps "at the end of his company's movement/hazard phase":
+  // offer the tap before the hands are reset, so the player chooses before
+  // discarding down to hand size. The choice is remembered and acted upon
+  // once the reset completes (see `advanceAfterCompanyMH`).
+  if (needsDiscard && characterTapOfferReachable(updatedState, mhStateLocal)) {
+    logDetail(`Step 8: Carambor-style character tap available — offering it before reset-hand`);
+    return {
+      state: {
+        ...updatedState,
+        phaseState: {
+          ...mhStateLocal,
+          step: 'character-tap-mh-offer' as const,
+          characterTapExtraMH: 'pre-reset' as const,
+        },
+      },
+    };
+  }
+
   if (needsDiscard) {
     logDetail(`Step 8: player(s) over hand size or exhausting — entering reset-hand`);
     return {
@@ -2775,6 +2793,25 @@ function findCharacterTapExtraMHPhase(
  * player who declines the offer still has their site phase at this site,
  * where River must keep binding.
  */
+/**
+ * Whether {@link advanceAfterCompanyMH} would reach the
+ * `character-tap-mh-offer` step (Carambor le-5) for the active company — no
+ * higher-precedence follow-up (Left Behind, Turning Hope to Despair, granted
+ * or constraint-based extra M/H phase, ally tap) applies, and an untapped
+ * `character-tap-extra-mh-phase` bearer is in the company. Used to offer the
+ * tap before the end-of-phase hand reset.
+ */
+function characterTapOfferReachable(state: GameState, mhState: MovementHazardPhaseState): boolean {
+  const activeIndex = getPlayerIndex(state, state.activePlayer!);
+  const player = state.players[activeIndex];
+  const company = player.companies[mhState.activeCompanyIndex];
+  if (!company) return false;
+  if (company.leftBehindExtraPhasePending || company.forcedSoloExtraPhasePending || company.extraMHPhasePending) return false;
+  if (extraMHPhaseConstraint(state, company)) return false;
+  if (findAllyTapExtraMHPhase(state, player, company)) return false;
+  return findCharacterTapExtraMHPhase(state, player, company) !== null;
+}
+
 function dropPendingSitePhaseConstraints(state: GameState, companyId: CompanyId): GameState {
   return sweepExpired(state, { kind: 'company-site-end', companyId });
 }
@@ -2879,7 +2916,24 @@ export function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardP
   // active player may tap the qualifying untapped bearer character to send
   // the company through the shared extra-move offer step, or decline and
   // finalize normally.
-  const characterTapMatch = findCharacterTapExtraMHPhase(state, state.players[activeIndex], currentCompany);
+  // A pre-reset Carambor offer (see `endCompanyMH`) was already resolved
+  // before the hand reset: act on the remembered choice instead of offering
+  // the tap again.
+  if (mhState.characterTapExtraMH === 'tapped') {
+    logDetail(`Character-tap extra M/H phase: bearer tapped before the hand reset — company ${currentCompany.id as string} → extra-mh-move-offer`);
+    return {
+      state: {
+        ...state,
+        phaseState: { ...mhState, step: 'extra-mh-move-offer' as const, characterTapExtraMH: undefined },
+      },
+    };
+  }
+  const characterTapDeclined = mhState.characterTapExtraMH === 'declined';
+  if (characterTapDeclined) {
+    logDetail(`Character-tap extra M/H phase: declined before the hand reset — not offering again`);
+    mhState = { ...mhState, characterTapExtraMH: undefined };
+  }
+  const characterTapMatch = characterTapDeclined ? null : findCharacterTapExtraMHPhase(state, state.players[activeIndex], currentCompany);
   if (characterTapMatch) {
     logDetail(`Character-tap extra M/H phase: ${characterTapMatch.characterName} is untapped in company ${currentCompany.id as string} → character-tap-mh-offer`);
     return {
@@ -3549,13 +3603,23 @@ export function handleAllyTapExtraMHOffer(
  * `requiresDestinationSitePathIncludes`, that restriction is threaded onto
  * `extraMHMoveRequiresSitePathIncludes` so the destination offer (and its
  * resolution) only considers matching sites.
+ *
+ * When the offer was made before the end-of-phase hand reset
+ * (`characterTapExtraMH === 'pre-reset'`), either choice continues into the
+ * `reset-hand` step and the remembered choice is acted on once it completes.
  */
 export function handleCharacterTapExtraMHOffer(
   state: GameState,
   action: GameAction,
   mhState: MovementHazardPhaseState,
 ): ReducerResult {
+  const preReset = mhState.characterTapExtraMH === 'pre-reset';
+
   if (action.type === 'pass') {
+    if (preReset) {
+      logDetail(`Character-tap extra M/H phase: active player declined before the hand reset → reset-hand`);
+      return { state: { ...state, phaseState: { ...mhState, step: 'reset-hand' as const, characterTapExtraMH: 'declined' as const } } };
+    }
     logDetail(`Character-tap extra M/H phase: active player declined — finalizing company`);
     return finalizeCompanyMH(state, mhState);
   }
@@ -3577,6 +3641,21 @@ export function handleCharacterTapExtraMHOffer(
   }
 
   const updatedPlayer = updateCharacter(player, match.characterInstanceId, c => ({ ...c, status: CardStatus.Tapped }));
+
+  if (preReset) {
+    logDetail(`Character-tap extra M/H phase: tapping ${match.characterName} before the hand reset → reset-hand, then extra-mh-move-offer`);
+    return {
+      state: {
+        ...updatePlayer(state, activeIndex, () => updatedPlayer),
+        phaseState: {
+          ...mhState,
+          step: 'reset-hand' as const,
+          characterTapExtraMH: 'tapped' as const,
+          extraMHMoveRequiresSitePathIncludes: match.effect.requiresDestinationSitePathIncludes,
+        },
+      },
+    };
+  }
 
   logDetail(`Character-tap extra M/H phase: tapping ${match.characterName} — company ${action.companyId as string} may move to an additional site → extra-mh-move-offer`);
 

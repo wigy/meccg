@@ -437,6 +437,16 @@ export function resourcePlayableAt(
       if (itemDenyPlaySite.sites?.includes(site.name)) return false;
       if (itemDenyPlaySite.filter && matchesCondition(itemDenyPlaySite.filter, itemSiteContext(site))) return false;
     }
+    // The site's own `deny-item` site-rule refuses matching items even when
+    // its `playableResources` lists their tier (Lossadan Cairn tw-409:
+    // "greater* — Palantíri only"). Ignoring it made the AI park a company at
+    // Lossadan Cairn for Orcrist, re-facing the automatic-attack every turn
+    // for an item the engine never let it play (game mvv7nce6-stuaij).
+    const siteDenied = (site.effects ?? []).some(
+      e => e.type === 'site-rule' && e.rule === 'deny-item'
+        && matchesCondition(e.when, def as unknown as Record<string, unknown>),
+    );
+    if (siteDenied) return false;
     // An item that carries its own (non-deny) `item-play-site` effect defines
     // exactly where it may be played (gold rings, Shadow/Dark-hold-restricted
     // items, etc.). Honour that — it mirrors the engine's `item-play-site` gate.

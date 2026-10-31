@@ -50,9 +50,14 @@ import type { CombatState } from '../types/state-combat.js';
 import { CardStatus } from '../types/common.js';
 import { getPlayerIndex } from '../state-utils.js';
 import {
-  defById, companyById, updatePlayer, updateCharacter, makeCombatState,
-  normalAttackOverride, isCovertCompany,
+  defById,
+  companyById,
+  updatePlayer,
+  updateCharacter,
+  makeCombatState,
+  isCovertCompany,
 } from './reducer-utils.js';
+import { normalAttackOverride } from './normal-attack-override.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody } from './effects/resolver.js';
 import { isDetainmentAttack } from './detainment.js';

@@ -38,11 +38,13 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM,
   Alignment,
   draftInstId,
+  attachSiteAutomaticAttackCombat,
 } from '../test-helpers.js';
 import type { CardDefinitionId, GameConfig, CharacterCard } from '../../index.js';
 import { Phase, Race } from '../../index.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
 import { computeCombatProwess } from '../../engine/recompute-derived.js';
+import { defenderCombatProwess } from '../../engine/strike-prowess.js';
 
 const FRAM_FRAMSON = 'td-91' as CardDefinitionId;
 
@@ -162,5 +164,31 @@ describe('Fram Framson (td-91)', () => {
 
     expect(computeCombatProwess(state, fram, framDef, Race.Orc)).toBe(framDef.prowess);
     expect(computeCombatProwess(state, fram, framDef, Race.Wolf)).toBe(framDef.prowess);
+  });
+
+  test('combat badge prowess includes +3 against a Dragon automatic-attack', () => {
+    // Bug report (game mvplprdb-lz01oe): at Irerock's Dragon automatic-attack
+    // the combat view showed Fram at his plain effective prowess (7) instead
+    // of the 10 his strike would be resolved with.
+    const base = buildTestState({
+      phase: Phase.Site,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [FRAM_FRAMSON, ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const framId = findCharInstanceId(base, RESOURCE_PLAYER, FRAM_FRAMSON);
+    const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
+    const framDef = pool[FRAM_FRAMSON as string] as CharacterCard;
+    const aragornDef = pool[ARAGORN as string] as CharacterCard;
+
+    const vsDragon = defenderCombatProwess(attachSiteAutomaticAttackCombat(base, { creatureRace: Race.Dragon, strikeProwess: 14 }));
+    expect(vsDragon[framId as string]).toBe(framDef.prowess + 3);
+    expect(vsDragon[aragornId as string]).toBe(aragornDef.prowess);
+
+    const vsOrc = defenderCombatProwess(attachSiteAutomaticAttackCombat(base, { creatureRace: Race.Orc }));
+    expect(vsOrc[framId as string]).toBe(framDef.prowess);
   });
 });

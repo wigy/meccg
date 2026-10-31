@@ -12,7 +12,7 @@ import { requirePhaseState, isBalrogAvatarDef } from '../../state-utils.js';
 import { isCharacterCard, isSiteCard, isAvatarCharacter } from '../../types/cards.js';
 import { SiteType, RegionType, Alignment, Race } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
-import type { PlayFlagEffect, RingwraithSelfFollowerEffect, RecruitmentVehicleEffect, CardEffect } from '../../types/effects.js';
+import type { PlayFlagEffect, RingwraithSelfFollowerEffect, RecruitmentVehicleEffect } from '../../types/effects.js';
 import { logDetail } from './log.js';
 import { evaluateAction } from '../../rules/evaluator.js';
 import { CHARACTER_PLAY_RULES } from '../../rules/definitions/character-play.js';
@@ -119,7 +119,7 @@ function recruitmentVehiclesInHand(
   const out: { instanceId: CardInstanceId; maxMind: number; agentRecruit: boolean }[] = [];
   for (const card of player.hand) {
     const def = defById(state, card.definitionId);
-    const effects = (def as { effects?: readonly CardEffect[] } | undefined)?.effects ?? [];
+    const effects = getCardEffects(def);
     const eff = effects.find((e): e is RecruitmentVehicleEffect => e.type === 'recruitment-vehicle');
     if (eff) out.push({ instanceId: card.instanceId, maxMind: eff.maxMind, agentRecruit: eff.agentRecruit === true });
   }

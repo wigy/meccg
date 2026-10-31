@@ -72,7 +72,7 @@ function inPlayNames(
   // evaluator's own hand-built contexts as well as from a real projection.
   for (const zone of [view.self?.cardsInPlay ?? [], view.opponent?.cardsInPlay ?? []]) {
     for (const card of zone) {
-      const name = (cardPool[card.definitionId] as unknown as { name?: string } | undefined)?.name;
+      const name = cardPool[card.definitionId]?.name;
       if (name) names.push(name);
     }
   }

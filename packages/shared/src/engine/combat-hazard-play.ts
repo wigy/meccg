@@ -410,7 +410,8 @@ export function findTakePrisonerHazard(
  * Bind a defeated character as a prisoner (CoE 8.35): discard its non-ring
  * items (or, when `discardRings` is set, *all* its items — Spells of the
  * Barrow-wights dm-90 overrides the default rule that lets a prisoner keep
- * its rings), revert its followers (and itself) to general influence, add a
+ * its rings), revert its followers (and itself) to general influence, remove
+ * it from its company (it is held off to the side at the rescue site), add a
  * `character-is-prisoner` constraint pointing at `hostCard`, and append a
  * {@link HazardHost} record. Shared by the location-deck rescue-site path
  * ({@link applyTakePrisoner}) and the Troll-purse at-site path
@@ -478,7 +479,15 @@ function bindPrisoner(
         updatedChars[followerId] = { ...follower, controlledBy: 'general', influenceUnsubtracted: true, ...ringwraithReclaimMark(state, follower) };
       }
     }
-    return { ...p, characters: updatedChars, discardPile: [...p.discardPile, ...discardedItems.map(i => toCardInstance(i))] };
+    // A prisoner is held off to the side at the rescue site (CoE 3.III.1), not
+    // with its former company: drop it from every company so it no longer
+    // moves, faces strikes or counts toward company size. The card itself stays
+    // in `characters`. An emptied company is pruned when the combat completes,
+    // as for a character eliminated mid-combat.
+    const companies = p.companies.map(c => (c.characters.includes(charInstanceId)
+      ? { ...c, characters: c.characters.filter(id => id !== charInstanceId) }
+      : c));
+    return { ...p, characters: updatedChars, companies, discardPile: [...p.discardPile, ...discardedItems.map(i => toCardInstance(i))] };
   });
   newState = addConstraint(newState, {
     source: hostCard.instanceId,

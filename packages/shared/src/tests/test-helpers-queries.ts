@@ -330,6 +330,11 @@ export function baseProwess(defId: CardDefinitionId): number {
   return (pool[defId as string] as CharacterCard).prowess;
 }
 
+/** Base body of a character card definition (before any effects/items). */
+export function baseBody(defId: CardDefinitionId): number {
+  return (pool[defId as string] as CharacterCard).body;
+}
+
 /**
  * Viable `activate-granted-action` actions emitted for the given character
  * and action ID. Used to check which granted-action variants (e.g. the

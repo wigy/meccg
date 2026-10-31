@@ -33,7 +33,7 @@ import type {
   CharacterDeckDraftPlayerState,
 } from '@meccg/shared';
 import { UNKNOWN_CARD, UNKNOWN_SITE, getPlayerIndex, Phase, effectiveGeneralInfluence, ownerOf, PALLANDO, THE_GREAT_HUNT } from '@meccg/shared';
-import { computeLegalActions, stampActionIds } from '@meccg/shared';
+import { computeLegalActions, stampActionIds, defenderCombatProwess } from '@meccg/shared';
 import type { EvaluatedAction } from '@meccg/shared';
 
 /** Convert a pile of card instances to view cards (structurally identical). */
@@ -423,6 +423,7 @@ export function projectSpectatorView(state: GameState): PlayerView {
     activePlayer: state.activePlayer,
     phaseState: redactPhaseForSpectator(state.phaseState),
     combat: state.combat,
+    combatProwess: defenderCombatProwess(state),
     chain: state.chain,
     pendingEffects: state.pendingEffects,
     turnNumber: state.turnNumber,
@@ -635,6 +636,7 @@ function buildPlayerView(
     activePlayer: state.activePlayer,
     phaseState: redactedPhase,
     combat: state.combat,
+    combatProwess: defenderCombatProwess(state),
     chain: state.chain,
     pendingEffects: state.pendingEffects,
     turnNumber: state.turnNumber,

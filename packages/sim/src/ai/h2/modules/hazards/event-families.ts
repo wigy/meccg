@@ -179,7 +179,7 @@ export function influencePenaltyGain(
   const shedTap = effects.some(e => e.type === 'grant-action' && e.action === 'remove-self-on-roll'
     && e.cost?.tap === 'bearer') ? tunables.tapTempoCost : 0;
   const tsd = tunables.potentialDiscount * share * spoiled * factionWorth + shedTap;
-  const name = (cardPool[character.definitionId as string] as unknown as { name?: string } | undefined)?.name
+  const name = cardPool[character.definitionId as string]?.name
     ?? (characterId as string);
   return {
     tsd,
@@ -226,7 +226,7 @@ export function directInfluencePenaltyGain(
   const character = view.opponent.characters[characterId];
   if (!character) return null;
   const nameOf = (id: CardInstanceId): string =>
-    (cardPool[view.opponent.characters[id]?.definitionId as string] as unknown as { name?: string } | undefined)?.name
+    cardPool[view.opponent.characters[id]?.definitionId as string]?.name
     ?? (id as string);
   const influenceOf = (id: CardInstanceId): number => Math.max(0,
     view.opponent.characters[id]?.effectiveStats.directInfluence ?? 0);

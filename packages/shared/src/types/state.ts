@@ -21,6 +21,7 @@ import {
   CardDefinitionId,
   ById,
   ByCardDefinitionId,
+  RegionType,
 } from './common.js';
 import { CardDefinition } from './cards.js';
 import type { GameLength } from './cards.js';
@@ -160,6 +161,28 @@ export interface GameState {
    * future modal-restriction cards.
    */
   readonly activeConstraints: readonly ActiveConstraint[];
+  /**
+   * Constraints temporarily lifted out of {@link activeConstraints} by a
+   * `suspend-short-event-effects` card (Noose of the Sea td-51): the on-going
+   * effects of organization-phase resource short-events, cancelled for an
+   * affected company during the movement/hazard and site phases. Restored by
+   * `sweepSuspendedShortEventConstraints` once the suspension lapses; scope
+   * sweeps (`sweepExpired`) and `removeConstraint` apply here too. Absent
+   * means empty.
+   */
+  readonly suspendedConstraints?: readonly ActiveConstraint[];
+  /**
+   * Region types of each company's site path this turn, keyed by company id
+   * and stamped with the turn they belong to (a stale `turnNumber` counts as
+   * empty). Recorded by `sweepSuspendedShortEventConstraints` from the active
+   * company's `resolvedSitePath` during its movement/hazard phase, so "a
+   * company with a Coastal Sea in its site path" (Noose of the Sea td-51)
+   * stays answerable through the site phase.
+   */
+  readonly sitePathsThisTurn?: {
+    readonly turnNumber: number;
+    readonly byCompany: Readonly<Record<string, readonly RegionType[]>>;
+  };
   /**
    * Active hazard hosts — hazard permanent-events with a `take-prisoner`
    * effect that are currently holding one or more characters prisoner.

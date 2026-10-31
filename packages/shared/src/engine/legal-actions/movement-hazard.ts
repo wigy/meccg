@@ -3016,6 +3016,22 @@ function playHazardsActionsForCompany(
           }
         }
 
+        // play-condition: target-company — a DSL condition over the target
+        // company (e.g. Worm's Stench td-88: "Playable on a company that has
+        // already faced a Dragon or Drake attack this turn" →
+        // `company.facedRaces`).
+        {
+          const targetCompanyCond = findPlayConditionEffect(def, 'target-company');
+          if (targetCompanyCond?.condition) {
+            const targetCtx = buildTargetCompanyConditionContext(state, resourcePlayer, targetCompany, defenderAlignmentLabel(resourcePlayer.alignment));
+            if (!matchesCondition(targetCompanyCond.condition, targetCtx)) {
+              logDetail(`Hazard short-event "${def.name}": target-company play-condition not met (faced races [${(targetCompany.facedHazardRaces ?? []).join(', ')}]) — not playable`);
+              actions.push({ action, viable: false, reason: `${def.name}: cannot be played on this company` });
+              continue;
+            }
+          }
+        }
+
         // play-condition: player-state — a generic DSL condition evaluated
         // against the hazard player's own alignment/avatar context (e.g.
         // Winds of Wrath td-82: "opponent is using the same type of location

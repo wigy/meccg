@@ -6,7 +6,6 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction } from '../../index.js';
-import type { CardEffect } from '../../types/effects.js';
 import { ITEM_DRAFT_RULES, MAX_STARTING_ITEMS } from '../../rules/definitions/item-draft.js';
 import { evaluateAction } from '../../rules/evaluator.js';
 import { setupStepContext } from '../../state-utils.js';
@@ -15,7 +14,7 @@ import { SetupStep } from '../../types/state-phases.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { matchesCharacterPlayTarget } from '../../stage-resource-characters.js';
 import { logDetail } from './log.js';
-import { defById, countStartingMinorItems, hasAgentSummonsEffect, isAgentCharacter, hasUnassignedMandatoryStageResource, findDuplicationLimitEffect } from '../reducer-utils.js';
+import { defById, countStartingMinorItems, hasAgentSummonsEffect, isAgentCharacter, hasUnassignedMandatoryStageResource, findDuplicationLimitEffect, getCardEffects } from '../reducer-utils.js';
 
 export function itemDraftActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const ctx = setupStepContext(state, playerId, SetupStep.ItemDraft);
@@ -140,7 +139,7 @@ export function itemDraftActions(state: GameState, playerId: PlayerId): Evaluate
       if (seenEventDefIds.has(defId as string)) continue;
       const def = defById(state, defId);
       const isItem = isItemCard(def);
-      const effects = isItem ? [] : ((def as { effects?: readonly CardEffect[] } | undefined)?.effects ?? []);
+      const effects = isItem ? [] : getCardEffects(def);
       if (!effects.some(e => e.type === 'starting-company-placement')) continue;
       seenEventDefIds.add(defId as string);
       // Recruitment vehicle (Thrall of the Voice, wh-82) is "placed with a

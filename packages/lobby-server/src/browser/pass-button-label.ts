@@ -75,6 +75,14 @@ export function passButtonLabel(passAction: GameAction, view: PlayerView): strin
     return 'Skip Untap/Heal';
   }
 
+  // Unhappy Blows (as-42) return-to-hand-mind-threshold resolution: `pass`
+  // finalizes the selection (returning the chosen characters), not the
+  // ordinary "Pass Hazards" it would otherwise read as during M/H.
+  if (passAction.type === 'pass'
+    && view.legalActions.some(ea => ea.viable && ea.action.type === 'select-return-to-hand-character')) {
+    return 'Confirm Return';
+  }
+
   if (view.phaseState.phase === Phase.Untap) return 'End Untap';
   // Deliberately not "Long-event" (naming the next phase, per the usual
   // convention below): Organization is where long-event cards actually get

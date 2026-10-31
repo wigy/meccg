@@ -1190,3 +1190,68 @@ describe('renderPassButton — play-site-auto-attack (The Under-leas 2nd automat
     expect(passBtn.textContent).toBe('Skip Auto-attack');
   });
 });
+
+/**
+ * Regression test for bug report b8875b817a1ce939 (game mvry8ilh-e14ten, seq
+ * 2029): "ai opponent played Unhappy blows, now game frozen, no options for
+ * me to perform". Unhappy Blows (as-42) enqueues a
+ * `return-to-hand-mind-threshold` resolution whose only legal actions are one
+ * `select-return-to-hand-character` per Orc/Troll (or Elf/Dwarf) in the
+ * company — `pass` is offered only once the selected characters' combined
+ * mind meets the rolled threshold. Nothing in {@link renderPassButton}
+ * rendered the select action, so the panel hid entirely and the game froze.
+ */
+const selectReturnToHand = (characterInstanceId: string): EvaluatedAction => ({
+  action: { type: 'select-return-to-hand-character', player: 'p1', characterInstanceId },
+  viable: true,
+} as EvaluatedAction);
+
+const unhappyBlowsView = (legalActions: EvaluatedAction[]): PlayerView =>
+  ({
+    phaseState: { phase: Phase.MovementHazard, step: 'play-hazards' },
+    legalActions,
+    self: {
+      id: 'p1',
+      characters: {
+        'p1-237': { effectiveStats: { mind: 1 } },
+        'p1-1': { effectiveStats: { mind: 3 } },
+      },
+    },
+    activePlayer: 'p1',
+  } as unknown as PlayerView);
+
+describe('renderPassButton — select-return-to-hand-character (Unhappy Blows, as-42)', () => {
+  test('renders one Return button per candidate while the threshold is unmet', () => {
+    appState.lastInstanceLookup = lookupOf({ 'p1-237': 'le-30', 'p1-1': 'ba-7' }); // Orc Brawler, Hill-troll
+
+    renderPassButton(
+      unhappyBlowsView([selectReturnToHand('p1-237'), selectReturnToHand('p1-1')]),
+      () => { /* no-op */ },
+    );
+
+    expect(passBtn.classList.contains('hidden')).toBe(true);
+    expect(tierInPhasePass.children.map(c => c.textContent))
+      .toEqual(['Return Orc Brawler (mind 1)', 'Return Hill-troll (mind 3)']);
+  });
+
+  test('clicking a Return button sends that character\'s select action', () => {
+    let sent: unknown = null;
+    appState.lastInstanceLookup = lookupOf({ 'p1-1': 'ba-7' });
+    const candidate = selectReturnToHand('p1-1');
+
+    renderPassButton(unhappyBlowsView([candidate]), action => { sent = action; });
+    tierInPhasePass.children[0].onclick?.();
+
+    expect(sent).toEqual(candidate.action);
+  });
+
+  test('keeps the Return buttons alongside a "Confirm Return" button once the threshold is met', () => {
+    appState.lastInstanceLookup = lookupOf({ 'p1-1': 'ba-7' });
+
+    renderPassButton(unhappyBlowsView([selectReturnToHand('p1-1'), passEval()]), () => { /* no-op */ });
+
+    expect(passBtn.classList.contains('hidden')).toBe(false);
+    expect(passBtn.textContent).toBe('Confirm Return');
+    expect(tierInPhasePass.children.map(c => c.textContent)).toEqual(['Return Hill-troll (mind 3)']);
+  });
+});

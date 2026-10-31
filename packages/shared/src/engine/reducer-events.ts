@@ -22,7 +22,7 @@ import { ownerOf, resolveInstanceId } from '../types/state.js';
 import { resolveDef, getEffectiveSkills, buildBearerContext, collectCharacterEffects } from './effects/index.js';
 import { revealInstances } from './visibility.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { makeCombatState, clearPlannedMovement, companyById, deckSearchCancellerFor, companySiteName, companySiteRegion, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, factionPlayableSiteRegions, findAttachment, findById, findCharacterCompany, findDuplicationLimitEffect, gateDeckSearchFetch, getCardEffects, getOnEventEffects, influenceRegionPenalty, isCovertCompany, matchesDefinition, playedAfterFactionMpPin, removeAttachment, removeById, roll2d6, rollDiceForPlayer, toCardInstance, updateCharacter, updatePlayer, wrongActionType, applyTapSiteOnPlayFlag, attackSourceCreatureInstanceId, findCardEffect } from './reducer-utils.js';
+import { makeCombatState, clearPlannedMovement, companyById, deckSearchCancellerFor, companySiteName, companySiteRegion, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, factionPlayableSiteRegions, findAttachment, findById, findCharacterCompany, findDuplicationLimitEffect, gateDeckSearchFetch, getCardEffects, getOnEventEffects, influenceRegionPenalty, isCovertCompany, matchesDefinition, playedAfterFactionMpPin, removeAttachment, removeById, roll2d6, rollDiceForPlayer, toCardInstance, updateCharacter, updatePlayer, wrongActionType, applyTapSiteOnPlayFlag, attackSourceCreatureInstanceId, findCardEffect, hasCardEffect } from './reducer-utils.js';
 import { flagCouncilCall } from './reducer-end-of-turn.js';
 import { addRemovalProtection } from './removal-protection.js';
 import { addConstraint, dequeueResolution, enqueueCorruptionCheck, enqueueResolution, sweepExpired } from './pending.js';
@@ -571,7 +571,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
   // declared on the chain of effects (CoE 9.4/9.5); the chosen target rides the
   // chain entry and is applied by `resolveEntry` on un-negated resolution. The
   // region-transform alternative uses the generic region-transform path below.
-  if (action.targetAutoAttackIndex !== undefined && def.effects?.some(e => e.type === 'auto-attack-strike-halving')) {
+  if (action.targetAutoAttackIndex !== undefined && hasCardEffect(def, 'auto-attack-strike-halving')) {
     const ps = state.phaseState;
     const company = ps.phase === Phase.Site ? player.companies[ps.activeCompanyIndex] : undefined;
     if (!company?.currentSite) return { state, error: `${def.name}: no active company at a site` };
@@ -584,7 +584,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
       },
     });
   }
-  if (action.targetSiteInstanceId && action.newSiteType && def.effects?.some(e => e.type === 'site-transform')) {
+  if (action.targetSiteInstanceId && action.newSiteType && hasCardEffect(def, 'site-transform')) {
     const siteDefId = resolveInstanceId(state, action.targetSiteInstanceId);
     if (!siteDefId) return { state, error: `${def.name}: target site not in play` };
     return routeShortEventToChain(state, playerIndex, action.player, handCard, `site ${siteDefId as string} → ${action.newSiteType}`, {
@@ -897,7 +897,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
   // and its new type. `resolveEntry` installs the permanent region-type
   // override and the follow-up corruption check once both players pass
   // priority.
-  if (action.targetRegionName && action.newRegionType && def.effects?.some(e => e.type === 'region-transform')) {
+  if (action.targetRegionName && action.newRegionType && hasCardEffect(def, 'region-transform')) {
     logDetail(`${def.name} → chain of effects (region ${action.targetRegionName} → ${action.newRegionType} resolves on chain resolution)`);
     const afterHand = updatePlayer(workingState, playerIndex, p => ({ ...p, hand: newHand }));
     const payload: ChainEntryPayload = {
@@ -920,7 +920,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
   // region-transform mode above. The sage's tap cost was already paid;
   // `resolveEntry` untaps the chosen site and enqueues the sage's follow-up
   // corruption check once both players pass priority.
-  if (action.targetSiteInstanceId && def.effects?.some(e => e.type === 'site-untap')) {
+  if (action.targetSiteInstanceId && hasCardEffect(def, 'site-untap')) {
     logDetail(`${def.name} → chain of effects (site ${action.targetSiteInstanceId as string} untaps on chain resolution)`);
     const afterHand = updatePlayer(workingState, playerIndex, p => ({ ...p, hand: newHand }));
     const payload: ChainEntryPayload = {
@@ -936,7 +936,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
   // the same CoE 9.4/9.5 reason as the site-untap mode above. The
   // character's tap cost was already paid; `resolveEntry` makes the roll and
   // enqueues the ally-placement offer once both players pass priority.
-  if (action.targetScoutInstanceId && def.effects?.some(e => e.type === 'roll-play-ally')) {
+  if (action.targetScoutInstanceId && hasCardEffect(def, 'roll-play-ally')) {
     logDetail(`${def.name} → chain of effects (ally roll resolves on chain resolution)`);
     const afterHand = updatePlayer(workingState, playerIndex, p => ({ ...p, hand: newHand }));
     const payload: ChainEntryPayload = {
@@ -953,7 +953,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
   // the site-untap mode above. The sage's tap cost was already paid;
   // `resolveEntry` untaps the chosen item and enqueues the sage's follow-up
   // corruption check once both players pass priority.
-  if (action.targetItemInstanceId && def.effects?.some(e => e.type === 'item-untap')) {
+  if (action.targetItemInstanceId && hasCardEffect(def, 'item-untap')) {
     logDetail(`${def.name} → chain of effects (item ${action.targetItemInstanceId as string} untaps on chain resolution)`);
     const afterHand = updatePlayer(workingState, playerIndex, p => ({ ...p, hand: newHand }));
     const payload: ChainEntryPayload = {
@@ -1876,8 +1876,8 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
   // company-vs-company combat. On resolution, in order: (1) discard all no-body
   // allies at the site; (2) tap every untapped ally and every untapped
   // character with a mind stat; (3) enqueue one wound-or-eliminate roll per
-  // character with a mind stat < characterMindBelow and per ally normally worth
-  // < allyMpBelow MP. The emitter (siteStormAtSiteActions) already gated on the
+  // character with a mind stat matching characterFilter and per ally matching
+  // allyFilter (target.marshallingPoints = the ally's printed MP). The emitter (siteStormAtSiteActions) already gated on the
   // combat being CvCC, the Balrog's company being present and not at an
   // Under-deeps site, and the opposing company containing a Wizard.
   const stormEffect = (def.effects ?? []).find(
@@ -1964,9 +1964,10 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
         const host = working.players[ownerIndex].characters[charId];
         if (!host) continue;
         const charDef = defById(working, host.definitionId);
-        if (charDef && isCharacterCard(charDef) && charDef.mind !== null && charDef.mind < stormEffect.characterMindBelow) {
+        if (charDef && isCharacterCard(charDef) && charDef.mind !== null
+          && (!stormEffect.characterFilter || matchesCondition(stormEffect.characterFilter, { target: { race: charDef.race, mind: charDef.mind, name: charDef.name, skills: charDef.skills } }))) {
           const body = charDef.body ?? 0;
-          logDetail(`${def.name}: enqueueing storm roll for character ${charDef.name} (mind ${charDef.mind} < ${stormEffect.characterMindBelow}, body ${body})`);
+          logDetail(`${def.name}: enqueueing storm roll for character ${charDef.name} (mind ${charDef.mind} matches characterFilter, body ${body})`);
           working = enqueueResolution(working, {
             source: handCard.instanceId,
             actor: action.player,
@@ -1987,9 +1988,9 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
         for (const ally of host.allies) {
           const allyDef = defById(working, ally.definitionId);
           const allyMp = isAllyCard(allyDef) ? allyDef.marshallingPoints : 0;
-          if (allyMp < stormEffect.allyMpBelow) {
+          if (!stormEffect.allyFilter || matchesCondition(stormEffect.allyFilter, { target: { name: allyDef?.name, marshallingPoints: allyMp } })) {
             const body = allyEffectiveBody(working, ally) ?? 0;
-            logDetail(`${def.name}: enqueueing storm roll for ally ${ally.instanceId as string} (MP ${allyMp} < ${stormEffect.allyMpBelow}, body ${body})`);
+            logDetail(`${def.name}: enqueueing storm roll for ally ${ally.instanceId as string} (MP ${allyMp} matches allyFilter, body ${body})`);
             working = enqueueResolution(working, {
               source: handCard.instanceId,
               actor: action.player,

@@ -27,7 +27,8 @@ import { availableDI, conditionalDISpentOnFollowers, normalUnusedDI } from './le
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
-import { collectFactionCardEffects, agentAttackSiteBoost, gateDeckSearchFetch, hasSiteFlag, markPrisonersRescued, makeCombatState, matchesDefinition, companySiteName, resolveAttackerChoosesDefenders, resolveDefenderFreeStrikeAssignment, canAttackAlignment, companyAttemptSupportBonus, companyHasBalrog, companyHasRingwraith, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, companyEffectiveSize, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, globalCheckExtraRollSource, roll2d6KeepBetter, influenceModificationsNullified, characterHomeSiteRegions, defById, diceRollEffect, drawCardsExhausting, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, normalAttackOverride, companySiteDef, playedAfterFactionMpPin, unrevealedOnGuardDiscarded, agentAttackAllowedOnSkip, companySkipsSiteOnGuardCards, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, siteHasWarForgesItemUnlock, sweepCharacterLeavesCompanyEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, tapCompanyCardsOnItemPlay, updatePlayer, wrongActionType, siteStartOfPhaseAttacks, buildFactionCheckContext, buildFactionControllerContext, defNamesOf, findCardEffect } from './reducer-utils.js';
+import { collectFactionCardEffects, agentAttackSiteBoost, gateDeckSearchFetch, hasSiteFlag, markPrisonersRescued, makeCombatState, matchesDefinition, companySiteName, resolveAttackerChoosesDefenders, resolveDefenderFreeStrikeAssignment, canAttackAlignment, companyAttemptSupportBonus, companyHasBalrog, companyHasRingwraith, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, companyEffectiveSize, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, globalCheckExtraRollSource, roll2d6KeepBetter, influenceModificationsNullified, characterHomeSiteRegions, defById, diceRollEffect, drawCardsExhausting, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, companySiteDef, playedAfterFactionMpPin, unrevealedOnGuardDiscarded, agentAttackAllowedOnSkip, companySkipsSiteOnGuardCards, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, siteHasWarForgesItemUnlock, sweepCharacterLeavesCompanyEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, tapCompanyCardsOnItemPlay, updatePlayer, wrongActionType, siteStartOfPhaseAttacks, buildFactionCheckContext, buildFactionControllerContext, defNamesOf, findCardEffect } from './reducer-utils.js';
+import { normalAttackOverride } from './normal-attack-override.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent, handlePlayShortEvent, dispatchShortEventByCardType } from './reducer-events.js';
 import { goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit, handleStoreItem } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
@@ -2044,13 +2045,14 @@ function rescueAttacksForHost(
 /**
  * Free all prisoners held by `hostInstanceId`: remove their
  * `character-is-prisoner` constraints and drop them from the host's prisoner
- * list (removing the host record if it becomes empty). Used when a rescue-attack
- * has been faced (CoE rule 8.36). If the host card lives only in the host record
+ * list (removing the host record if it becomes empty), and add them to the
+ * rescuing company (they were held off to the side in no company). Used when a
+ * rescue-attack has been faced (CoE rule 8.36). If the host card lives only in the host record
  * (i.e. it is not a permanent in `cardsInPlay`, e.g. Flies and Spiders dm-58),
  * it is discarded to its owner's pile when the record is dropped, so no instance
  * is lost. A site-bound trap (Troll-purse) stays in `cardsInPlay`.
  */
-function freePrisonersOfHost(state: GameState, hostInstanceId: CardInstanceId): GameState {
+function freePrisonersOfHost(state: GameState, hostInstanceId: CardInstanceId, rescuingCompanyId: CompanyId): GameState {
   const host = state.hazardHosts.find(h => h.hostCard.instanceId === hostInstanceId);
   if (!host || host.prisoners.length === 0) return state;
   const freed = new Set(host.prisoners.map(p => p as string));
@@ -2077,7 +2079,14 @@ function freePrisonersOfHost(state: GameState, hostInstanceId: CardInstanceId): 
       for (const id of rescued) {
         characters[id] = { ...characters[id], controlledBy: 'general' };
       }
-      return { ...p, characters };
+      // Prisoners are held off to the side in no company; the rescued ones
+      // join the rescuing company.
+      const joining = rescued.filter(id => !p.companies.some(c => c.characters.includes(id)));
+      if (joining.length > 0) logDetail(`Rescue: ${joining.length} freed prisoner(s) join company ${rescuingCompanyId as string}`);
+      const companies = joining.length === 0 ? p.companies : p.companies.map(c => (c.id === rescuingCompanyId
+        ? { ...c, characters: [...c.characters, ...joining] }
+        : c));
+      return { ...p, characters, companies };
     }) as unknown as GameState['players'],
   };
   // If the host card lives only in the record (not a `cardsInPlay` permanent),
@@ -2918,7 +2927,7 @@ function handleSitePlayResources(
     const handCard = findById(player.hand, action.cardInstanceId);
     const shortDef = handCard ? defById(state, handCard.definitionId) : undefined;
     const shortEffects = shortDef && 'effects' in shortDef
-      ? ((shortDef as { effects?: readonly import('../types/effects.js').CardEffect[] }).effects ?? [])
+      ? getCardEffects(shortDef)
       : [];
     const hasRequiredSkill = shortEffects.some(
       e => typeof (e as { requiredSkill?: string }).requiredSkill === 'string',
@@ -3097,7 +3106,7 @@ function handleSiteRescueTap(
       : c)),
   }));
 
-  const freed = freePrisonersOfHost(tapped, action.hostInstanceId);
+  const freed = freePrisonersOfHost(tapped, action.hostInstanceId, company.id);
   // Record the successful rescue for this company's site phase (read by
   // Pass the Doors of Dol Guldur dm-154's `when`, which adds the site check).
   const marked = markPrisonersRescued(freed, company);
