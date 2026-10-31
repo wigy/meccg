@@ -6,19 +6,19 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1424 | 1424 | 0 | 100.0% |
+| 1431 | 1431 | 0 | 100.0% |
 
 ## Category Breakdown
 
 | Category | Cards | Done | % |
 |:---------|:-----:|:----:|:-:|
-| AS | 133 | 133 | 100.0% |
+| AS | 134 | 134 | 100.0% |
 | BA | 101 | 101 | 100.0% |
 | DM | 158 | 158 | 100.0% |
-| LE | 346 | 346 | 100.0% |
-| TD | 152 | 152 | 100.0% |
+| LE | 349 | 349 | 100.0% |
+| TD | 154 | 154 | 100.0% |
 | TW | 430 | 430 | 100.0% |
-| WH | 104 | 104 | 100.0% |
+| WH | 105 | 105 | 100.0% |
 
 ## Detailed Test Matrix
 
@@ -38,7 +38,7 @@
 | as-12 | Knights of the Prince | — | 8 | ☑ |
 | as-13 | Lady of the Golden Wood | — | 14 | ☑ |
 | as-14 | Lord of the Carrock | — | 19 | ☑ |
-| as-15 | Lord of the Haven | — | 15 | ☑ |
+| as-15 | Lord of the Haven | — | 14 | ☑ |
 | as-16 | Master of the House | — | 18 | ☑ |
 | as-17 | Pallando the Soul-keeper | — | 18 | ☑ |
 | as-18 | Radagast the Tamer | — | 20 | ☑ |
@@ -108,6 +108,7 @@
 | as-111 | Asdriags | — | 9 | ☑ |
 | as-113 | Black Númenóreans | — | 5 | ☑ |
 | as-114 | Corsairs of Rhûn | — | 8 | ☑ |
+| as-117 | Itangast Roused | — | 9 | ☑ |
 | as-119 | Morgul-orcs | — | 12 | ☑ |
 | as-120 | Nûriags | — | 8 | ☑ |
 | as-121 | Orcs of Dol Guldur | — | 12 | ☑ |
@@ -188,13 +189,13 @@
 | ba-30 | Longbottom Leaf | — | 9 | ☑ |
 | ba-31 | Rumours of Rings | — | 8 | ☑ |
 | ba-32 | Show Things Unbidden | — | 7 | ☑ |
-| ba-33 | To Fealty Sworn | — | 11 | ☑ |
+| ba-33 | To Fealty Sworn | — | 12 | ☑ |
 | ba-34 | Elven Rope | — | 11 | ☑ |
 | ba-35 | Cave Troll | — | 9 | ☑ |
 | ba-36 | Ancient Secrets | — | 13 | ☑ |
 | ba-37 | Going Ever Under Dark | — | 17 | ☑ |
 | ba-38 | Great Army of the North | — | 10 | ☑ |
-| ba-40 | Long Grievous Siege | — | 12 | ☑ |
+| ba-40 | Long Grievous Siege | — | 14 | ☑ |
 | ba-41 | No Better Use | — | 10 | ☑ |
 | ba-42 | Prone to Violence | — | 8 | ☑ |
 | ba-43-sauron | Sauron | — | 14 | ☑ |
@@ -342,7 +343,7 @@
 | dm-89 | Shadow out of the Dark | — | 14 | ☑ |
 | dm-90 | Spells of the Barrow-wights | — | 7 | ☑ |
 | dm-91 | Sudden Fury | — | 8 | ☑ |
-| dm-92 | To Get You Away | — | 9 | ☑ |
+| dm-92 | To Get You Away | — | 10 | ☑ |
 | dm-95 | Troll-purse | — | 10 | ☑ |
 | dm-96 | Twisted Tales | — | 16 | ☑ |
 | dm-97 | Two or Three Tribes Present | — | 6 | ☑ |
@@ -367,7 +368,7 @@
 | dm-118 | Balance Between Powers | — | 24 | ☑ |
 | dm-119 | Barrow-blade | — | 12 | ☑ |
 | dm-120 | Choice of Lúthien | — | 16 | ☑ |
-| dm-121 | Crown of Flowers | — | 9 | ☑ |
+| dm-121 | Crown of Flowers | — | 10 | ☑ |
 | dm-122 | Cup of Farewell | — | 12 | ☑ |
 | dm-123 | Dark Numbers | — | 16 | ☑ |
 | dm-124 | The Dwarves Are upon You! | — | 8 | ☑ |
@@ -419,7 +420,7 @@
 | le-1 | Asternak | — | 2 | ☑ |
 | le-2 | Belegorn | — | 3 | ☑ |
 | le-3 | Bróin | — | 7 | ☑ |
-| le-5 | Carambor | — | 12 | ☑ |
+| le-5 | Carambor | — | 14 | ☑ |
 | le-6 | Ciryaher | — | 3 | ☑ |
 | le-7 | Dôgrib | — | 1 | ☑ |
 | le-8 | Dorelas | — | 2 | ☑ |
@@ -607,6 +608,7 @@
 | le-225 | Ruse | — | 11 | ☑ |
 | le-226 | Secrets of Their Forging | — | 21 | ☑ |
 | le-228 | Skies of Fire | — | 9 | ☑ |
+| le-229 | Smart and Secret | — | 10 | ☑ |
 | le-230 | Smoke on the Wind | — | 11 | ☑ |
 | le-231 | Sneakin’ | — | 8 | ☑ |
 | le-232 | Some Secret Art of Flame | — | 5 | ☑ |
@@ -630,6 +632,7 @@
 | le-254 | Where There’s a Whip | — | 11 | ☑ |
 | le-255 | While the Yellow Face Sleeps | — | 13 | ☑ |
 | le-258 | Words of Menace and Deceit | — | 7 | ☑ |
+| le-259 | Agburanar Roused | — | 2 | ☑ |
 | le-260 | Balchoth | — | 8 | ☑ |
 | le-261 | Beornings | — | 5 | ☑ |
 | le-262 | Black Trolls | — | 7 | ☑ |
@@ -658,6 +661,7 @@
 | le-287 | Southrons | — | 9 | ☑ |
 | le-288 | Stone Trolls | — | 7 | ☑ |
 | le-289 | Umbarean Corsairs | — | 7 | ☑ |
+| le-290 | Ungol-orcs | — | 2 | ☑ |
 | le-291 | Uruk-hai | — | 8 | ☑ |
 | le-292 | Variags of Khand | — | 10 | ☑ |
 | le-293 | Wargs of the Forochel | — | 11 | ☑ |
@@ -678,7 +682,7 @@
 | le-324 | Minor Ring | — | 9 | ☑ |
 | le-325 | The Mithril-coat | — | 7 | ☑ |
 | le-327 | The Oracle’s Ring | — | 9 | ☑ |
-| le-328 | Orc-draughts | — | 12 | ☑ |
+| le-328 | Orc-draughts | — | 13 | ☑ |
 | le-331 | Palantír of Annúminas | — | 6 | ☑ |
 | le-332 | Palantír of Elostirion | — | 23 | ☑ |
 | le-333 | Palantír of Minas Tirith | — | 11 | ☑ |
@@ -771,7 +775,7 @@
 | td-8 | Cave Worm | — | 3 | ☑ |
 | td-9 | Cruel Caradhras | — | 10 | ☑ |
 | td-10 | Daelomin Ahunt | — | 9 | ☑ |
-| td-11 | Daelomin at Home | — | 11 | ☑ |
+| td-11 | Daelomin at Home | — | 12 | ☑ |
 | td-14 | Dragon’s Blood | — | 13 | ☑ |
 | td-16 | Dragon’s Curse | — | 17 | ☑ |
 | td-18 | Dragon-sickness | — | 9 | ☑ |
@@ -798,6 +802,7 @@
 | td-46 | Many Sorrows Befall | — | 8 | ☑ |
 | td-47 | Marsh-drake | — | 7 | ☑ |
 | td-49 | Morgul-rats | — | 8 | ☑ |
+| td-51 | Noose of the Sea | — | 6 | ☑ |
 | td-52 | Parsimony of Seclusion | — | 11 | ☑ |
 | td-54 | Peril Returned | — | 5 | ☑ |
 | td-55 | Prowess of Age | — | 10 | ☑ |
@@ -826,9 +831,10 @@
 | td-85 | Withered Lands | — | 9 | ☑ |
 | td-86 | Wolf-riders | — | 7 | ☑ |
 | td-87 | Wolf-riders | — | 4 | ☑ |
+| td-88 | Worm’s Stench | — | 13 | ☑ |
 | td-89 | Worn and Famished | — | 11 | ☑ |
 | td-90 | Brand | — | 3 | ☑ |
-| td-91 | Fram Framson | — | 4 | ☑ |
+| td-91 | Fram Framson | — | 5 | ☑ |
 | td-92 | Galdor | — | 6 | ☑ |
 | td-93 | Ioreth | — | 4 | ☑ |
 | td-94 | Thráin II | — | 4 | ☑ |
@@ -956,7 +962,7 @@
 | tw-041 | — | — | 7 | ☑ |
 | tw-42 | Greed | — | 11 | ☑ |
 | tw-43 | Half-trolls of Far Harad | — | 4 | ☑ |
-| tw-44 | Hoarmûrath of Dír | — | 11 | ☑ |
+| tw-44 | Hoarmûrath of Dír | — | 12 | ☑ |
 | tw-45 | Huorn | — | 10 | ☑ |
 | tw-46 | Indûr Dawndeath | — | 15 | ☑ |
 | tw-47 | Khamûl the Easterling | — | 11 | ☑ |
@@ -981,7 +987,7 @@
 | tw-65 | Mouth of Sauron | — | 6 | ☑ |
 | tw-66 | Mûmak (Oliphant) | — | 11 | ☑ |
 | tw-067 | — | — | 7 | ☑ |
-| tw-67 | Muster Disperses | — | 1 | ☑ |
+| tw-67 | Muster Disperses | — | 2 | ☑ |
 | tw-068 | — | — | 8 | ☑ |
 | tw-69 | Night | — | 14 | ☑ |
 | tw-70 | Old Man Willow | — | 9 | ☑ |
@@ -1093,7 +1099,7 @@
 | tw-178 | Radagast | — | 7 | ☑ |
 | tw-179 | Robin Smallburrow | — | 4 | ☑ |
 | tw-180 | Sam Gamgee | — | 5 | ☑ |
-| tw-181 | Saruman | — | 8 | ☑ |
+| tw-181 | Saruman | — | 9 | ☑ |
 | tw-182 | Théoden | — | 3 | ☑ |
 | tw-183 | Thorin II | — | 7 | ☑ |
 | tw-184 | Thranduil | — | 2 | ☑ |
@@ -1253,7 +1259,7 @@
 | tw-353 | Treebeard | — | 5 | ☑ |
 | tw-354 | True Fána | — | 7 | ☑ |
 | tw-355 | Use Palantír | — | 8 | ☑ |
-| tw-356 | Vanishment | — | 4 | ☑ |
+| tw-356 | Vanishment | — | 5 | ☑ |
 | tw-357 | Variags of Khand | — | 5 | ☑ |
 | tw-358 | Vilya | — | 10 | ☑ |
 | tw-360 | Wizard’s Fire | — | 3 | ☑ |
@@ -1429,6 +1435,7 @@
 | wh-98 | Gandalf’s Friend | — | 9 | ☑ |
 | wh-99 | Give Welcome to the Unexpected | — | 13 | ☑ |
 | wh-100 | Grey Embassy | — | 17 | ☑ |
+| wh-101 | The Grey Hat | — | 14 | ☑ |
 | wh-102 | Ring of Fire | — | 12 | ☑ |
 | wh-103 | Arcane School | — | 9 | ☑ |
 | wh-104 | Pallando’s Apprentice | — | 11 | ☑ |

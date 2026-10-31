@@ -1,5 +1,41 @@
 # Changelog
 
+## 0.226.0 — 2026-10-31
+
+Fallen-Wizards Wield Wizard-Only Cards, Three More Certifications
+
+### Cards
+
+- Certified The Grey Hat (wh-101), Worm's Stench (td-88) and Noose of the Sea (td-51) (#3477, #3476, #3471)
+- Fallen-wizard avatars now satisfy "Wizard only" cards such as Vanishment (#3478)
+- Itangast Roused (as-117) is playable at Gold Hill (#3473)
+- Smart and Secret (le-229) is played as a Command card on a leader instead of in the general area (#3470)
+- Long Grievous Siege is no longer offered untargeted during the site phase (#3464)
+- Carambor's tap is offered before the end-of-movement/hazard hand reset (#3468)
+- Crowned with Storm targets via character/ally filter conditions, and Alatar's detainment-attacks-normal effect is gated by a `when` condition (#3459, #3458)
+
+### Game Engine
+
+- Captured prisoners are removed from their company (#3465)
+- Fixed a crash when the suspension sweep sees a bare movement/hazard state (#3471)
+
+### Web Client
+
+- Fixed a frozen game after Unhappy Blows by rendering its return-to-hand choices (#3466)
+- The Free Council support window shows who is rolling (#3474)
+- Combat view badges show race-keyed combat prowess (#3469)
+- The unused-GI dice-check roll prompt shows the minion +5 GI bonus (#3467)
+- Tap-an-agent hazard choices name the tapped agent and the prison site (#3463)
+- Fixed truncated playable-site names for Agburanar Roused and Ungol-orcs (#3472)
+
+### AI
+
+- Modular AI honours a site's deny-item rule when pricing item plays (#3475)
+
+### Infrastructure
+
+- Engine refactors: the `findCardEffect`/`hasCardEffect` migration is finished, `getCardEffects` replaces hand-rolled effects casts, `hasPlayFlag` accepts any card definition, a `moveInPlayCardToPile` helper in combat-finalize, and redundant name casts dropped from the AI package (#3456, #3457, #3460, #3461, #3462)
+
 ## 0.225.0 — 2026-10-28
 
 Modular AI Learns the Environment Wars, Saruman Fetches Sacrifice of Form
