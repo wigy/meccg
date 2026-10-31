@@ -21,6 +21,7 @@
  * | 4 | Destination offer restricted to sites with a Wilderness in path  | IMPLEMENTED | `requiresDestinationSitePathIncludes` filters `extraMHMoveDestinations` |
  * | 5 | Declining leaves the company untapped and finishes normally      | IMPLEMENTED | `pass` at `character-tap-mh-offer` → `finalizeCompanyMH`        |
  * | 6 | Declining keeps River's site-phase restriction at this site      | IMPLEMENTED | constraints swept only on `extra-mh-move`, not at the offer     |
+ * | 7 | Tap is offered before the end-of-phase hand reset                | IMPLEMENTED | `endCompanyMH` enters `character-tap-mh-offer` ahead of `reset-hand` |
  *
  * Playable: YES
  */
@@ -377,6 +378,76 @@ describe('Carambor (le-5)', () => {
         type: 'extra-mh-move', player: PLAYER_1, companyId, destinationSite: bagEndInst.instanceId,
       });
       expect(moved.activeConstraints.some(c => c.source === riverInst)).toBe(false);
+    });
+  });
+
+  // Bug report (game mvtivm3a-2vg1s5, stateSeq 249–252): with a hand over the
+  // hand size at the end of the company's M/H phase, the player had to discard
+  // down to 8 before Carambor's tap was offered. The tap happens "at the end of
+  // his company's movement/hazard phase", ahead of the hand reset (CoE
+  // 2.IV.viii), so it must be offered first and the discard follows.
+  describe('with a hand over the hand size', () => {
+    function overHandSize(): GameState {
+      const base = buildTestState({
+        activePlayer: PLAYER_1,
+        phase: Phase.MovementHazard,
+        players: [
+          {
+            id: PLAYER_1,
+            alignment: Alignment.Ringwraith,
+            companies: [{ site: CARN_DUM, characters: [CARAMBOR] }],
+            hand: Array.from({ length: 10 }, () => RIVER),
+            siteDeck: [BAG_END, ZARAK_DUM],
+          },
+          { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [] },
+        ],
+      });
+      return passToAdvance({ ...base, phaseState: makeMHState({ activeCompanyIndex: 0 }) });
+    }
+
+    function discardDownTo8(state: GameState): GameState {
+      let s = state;
+      while (s.players[0].hand.length > 8) {
+        s = dispatch(s, { type: 'discard-card', player: PLAYER_1, cardInstanceId: s.players[0].hand[0].instanceId });
+      }
+      return s;
+    }
+
+    test('offers the tap before the reset-hand discard, then resets and offers the extra move', () => {
+      const offered = overHandSize();
+      expect((offered.phaseState as MovementHazardPhaseState).step).toBe('character-tap-mh-offer');
+      expect(offered.players[0].hand.length).toBe(10);
+      expect(viableActions(offered, PLAYER_1, 'character-tap-extra-mh-phase').length).toBe(1);
+
+      const caramborId = offered.players[0].companies[0].characters[0];
+      const companyId = offered.players[0].companies[0].id;
+      const tapped = dispatch(offered, {
+        type: 'character-tap-extra-mh-phase', player: PLAYER_1, companyId, characterInstanceId: caramborId,
+      });
+      expect((tapped.phaseState as MovementHazardPhaseState).step).toBe('reset-hand');
+      expect(tapped.players[0].characters[caramborId].status).toBe(CardStatus.Tapped);
+
+      const reset = discardDownTo8(tapped);
+      expect(reset.players[0].hand.length).toBe(8);
+      expect((reset.phaseState as MovementHazardPhaseState).step).toBe('extra-mh-move-offer');
+
+      // The Wilderness-path restriction still applies after the reset.
+      const bagEndInst = reset.players[0].siteDeck.find(s => s.definitionId === BAG_END)!;
+      const zarakDumInst = reset.players[0].siteDeck.find(s => s.definitionId === ZARAK_DUM)!;
+      const extraMoves = viableActions(reset, PLAYER_1, 'extra-mh-move').map(ea => ea.action as ExtraMHMoveAction);
+      expect(extraMoves.some(a => a.destinationSite === bagEndInst.instanceId)).toBe(true);
+      expect(extraMoves.some(a => a.destinationSite === zarakDumInst.instanceId)).toBe(false);
+    });
+
+    test('declining before the reset discards down to hand size and finishes without re-offering', () => {
+      const offered = overHandSize();
+      const declined = dispatch(offered, { type: 'pass', player: PLAYER_1 });
+      expect((declined.phaseState as MovementHazardPhaseState).step).toBe('reset-hand');
+
+      const reset = discardDownTo8(declined);
+      expect(reset.phaseState.phase).toBe(Phase.Site);
+      const caramborId = offered.players[0].companies[0].characters[0];
+      expect(reset.players[0].characters[caramborId]?.status).toBe(CardStatus.Untapped);
     });
   });
 });
