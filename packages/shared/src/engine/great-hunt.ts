@@ -55,12 +55,12 @@ import {
   cardName,
   updatePlayer,
   companyById,
-  normalAttackOverride,
   makeCombatState,
   resolveAttackerChoosesDefenders,
   isCovertCompany,
   findCardEffect,
 } from './reducer-utils.js';
+import { normalAttackOverride } from './normal-attack-override.js';
 import { isReduceAttacksToOneInPlay } from './manifestations.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, resolveDef } from './effects/resolver.js';

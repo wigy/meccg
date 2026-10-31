@@ -112,7 +112,7 @@
       },
       {
         "type": "detainment-attacks-normal",
-        "stagePointsAbove": 7
+        "when": { "player.stagePoints": { "$gt": 7 } }
       },
       {
         "type": "on-event",

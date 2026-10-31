@@ -61,9 +61,13 @@ import { Race } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { getPlayerIndex } from '../state-utils.js';
 import {
-  defById, companyById, updatePlayer, makeCombatState,
-  normalAttackOverride, isCovertCompany,
+  defById,
+  companyById,
+  updatePlayer,
+  makeCombatState,
+  isCovertCompany,
 } from './reducer-utils.js';
+import { normalAttackOverride } from './normal-attack-override.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody } from './effects/resolver.js';
 import { isDetainmentAttack } from './detainment.js';

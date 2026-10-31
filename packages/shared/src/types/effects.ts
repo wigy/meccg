@@ -710,28 +710,26 @@ export interface FallenWizardKillMpEffect extends EffectBase {
  * into a normal attack (CoE §3.II — a detainment attack taps rather than
  * wounds, suppresses the body check, and awards no kill MP; a normal attack
  * does none of those). While a character carrying this effect is in play and
- * the player's stage-point total is strictly greater than
- * {@link stagePointsAbove}, any attack the engine would otherwise treat as
+ * {@link when} holds, any attack the engine would otherwise treat as
  * detainment — whether from a `combat-detainment` effect, a site-forced
  * detainment rule, or the alignment-based §3.II keying rules — is resolved as a
  * normal attack instead.
  *
  * Used by Alatar (wh-1): "If you have more than 7 stage points, all detainment
- * attacks against your companies attack normally instead." Here
- * `stagePointsAbove` is 7.
+ * attacks against your companies attack normally instead."
  *
  * ```json
- * { "type": "detainment-attacks-normal", "stagePointsAbove": 7 }
+ * { "type": "detainment-attacks-normal", "when": { "player.stagePoints": { "$gt": 7 } } }
  * ```
  */
 export interface DetainmentAttacksNormalEffect extends EffectBase {
   readonly type: 'detainment-attacks-normal';
   /**
-   * The player's stage-point total must be strictly greater than this for the
-   * conversion to apply. Defaults to 0 (always active while in play) when
-   * omitted.
+   * Gate evaluated against the carrier's player-state context
+   * (`buildPlayerStateContext`: `player.stagePoints`, `player.alignment`, …).
+   * Always active while in play when omitted.
    */
-  readonly stagePointsAbove?: number;
+  readonly when?: Condition;
 }
 
 /**
