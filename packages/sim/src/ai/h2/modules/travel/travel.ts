@@ -1047,12 +1047,12 @@ function evaluatePayMovementTax(context: ModuleContext, action: GameAction): Eva
 
   // Another printing of the site the company already stands on (a Fallen-
   // wizard's haven Isengard against the ruins it is at) is not a journey.
-  const originName = (context.cardPool[originId] as unknown as { name?: string } | undefined)?.name;
+  const originName = context.cardPool[originId]?.name;
   let best: { name: string; value: DestinationValue } | null = null;
   for (const card of context.view.self.siteDeck) {
     const definitionId = card.definitionId as string;
     if (definitionId === (originId as string)) continue;
-    if ((context.cardPool[definitionId] as unknown as { name?: string } | undefined)?.name === originName) continue;
+    if (context.cardPool[definitionId]?.name === originName) continue;
     const distance = reach.between(originId as string, definitionId);
     if (distance === null || distance > BASE_MAX_REGION_DISTANCE) continue;
     const site = exposure.siteExposure(card.definitionId);

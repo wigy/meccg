@@ -90,7 +90,7 @@ function nameOf(
   definitionId: string,
   instanceId: CardInstanceId,
 ): string {
-  const name = (cardPool[definitionId] as unknown as { name?: string } | undefined)?.name;
+  const name = cardPool[definitionId]?.name;
   return name ?? (instanceId as string);
 }
 

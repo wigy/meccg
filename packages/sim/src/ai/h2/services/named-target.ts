@@ -55,7 +55,7 @@ function decidable(condition: unknown): boolean {
 
 /** The printed name of a definition. */
 function nameOf(cardPool: Readonly<Record<string, CardDefinition>>, definitionId: string): string | undefined {
-  return (cardPool[definitionId] as unknown as { name?: string } | undefined)?.name;
+  return cardPool[definitionId]?.name;
 }
 
 /** Whether a named card sits in one of a condition's discard sources. */

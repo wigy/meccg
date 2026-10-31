@@ -278,7 +278,7 @@ function nameOf(
 ): string {
   const definitionId = view.self.characters[instanceId as CardInstanceId]?.definitionId;
   const name = definitionId
-    ? (cardPool[definitionId] as unknown as { name?: string } | undefined)?.name
+    ? cardPool[definitionId]?.name
     : undefined;
   return name ?? instanceId;
 }
