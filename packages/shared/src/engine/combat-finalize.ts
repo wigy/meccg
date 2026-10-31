@@ -275,6 +275,34 @@ function applyAgentAttackOutcome(state: GameState, combat: CombatState): GameSta
 export { creatureKillMpMatchesAlignment } from './trophy-dispersal.js';
 
 /**
+ * Moves a card out of whichever player's `cardsInPlay` holds it and onto a
+ * pile: the kill pile of `pileOwnerIdx` (a defeated permanent-event's kill
+ * MPs go to the defender) or, when `pileOwnerIdx` is omitted, the holder's
+ * own pile (a used card going to its owner's discard). The holder is found by
+ * scanning, not assumed to be the attacking player. Returns `null` when no
+ * player holds the card, leaving the caller's state untouched.
+ */
+function moveInPlayCardToPile(
+  state: GameState,
+  instanceId: CardInstanceId,
+  pile: 'killPile' | 'discardPile',
+  pileOwnerIdx?: number,
+): GameState | null {
+  const holderIdx = state.players.findIndex(p => p.cardsInPlay.some(c => c.instanceId === instanceId));
+  const card = holderIdx >= 0 ? state.players[holderIdx].cardsInPlay.find(c => c.instanceId === instanceId) : undefined;
+  if (!card) return null;
+  const cardRef = toCardInstance(card);
+  const targetIdx = pileOwnerIdx ?? holderIdx;
+  const players = state.players.map((p, idx) => {
+    let next = p;
+    if (idx === holderIdx) next = { ...next, cardsInPlay: next.cardsInPlay.filter(c => c.instanceId !== instanceId) };
+    if (idx === targetIdx) next = { ...next, [pile]: [...next[pile], cardRef] };
+    return next;
+  }) as unknown as GameState['players'];
+  return { ...state, players };
+}
+
+/**
  * Apply CoE rule 8.22 after the trophy decision is resolved (either no eligible
  * characters or player declined). Checks the creature in the defender's kill pile
  * and moves it to out-of-play if the alignment doesn't match the creature's starred status.
@@ -1299,17 +1327,9 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
           if (peaEff.onDefeat !== 'remove-from-play') continue;
           const sourceName = sourceDef?.name ?? '?';
           const defIdx = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
-          const ownerIdx = stateAfterCombat.players.findIndex(p => p.cardsInPlay.some(c => c.instanceId === sourceInstId));
-          const sourceCard = ownerIdx >= 0 ? stateAfterCombat.players[ownerIdx].cardsInPlay.find(c => c.instanceId === sourceInstId) : undefined;
-          if (sourceCard) {
-            const cardRef = toCardInstance(sourceCard);
-            const updatedPlayersOD = stateAfterCombat.players.map((p, idx) => {
-              let next = p;
-              if (idx === ownerIdx) next = { ...next, cardsInPlay: next.cardsInPlay.filter(c => c.instanceId !== sourceInstId) };
-              if (idx === defIdx) next = { ...next, killPile: [...next.killPile, cardRef] };
-              return next;
-            }) as unknown as typeof stateAfterCombat.players;
-            stateAfterCombat = { ...stateAfterCombat, players: updatedPlayersOD };
+          const moved = moveInPlayCardToPile(stateAfterCombat, sourceInstId, 'killPile', defIdx);
+          if (moved) {
+            stateAfterCombat = moved;
             logDetail(`Permanent-event "${sourceName}" defeated — removed from play, kill MPs awarded to defender`);
           }
           break;
@@ -1342,17 +1362,9 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
         if (isDragonAtHome) {
           const atHomeName = atHomeDef?.name ?? '?';
           const defIdxAH = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
-          const ownerIdxAH = stateAfterCombat.players.findIndex(p => p.cardsInPlay.some(c => c.instanceId === sourceInstId));
-          const atHomeCard = ownerIdxAH >= 0 ? stateAfterCombat.players[ownerIdxAH].cardsInPlay.find(c => c.instanceId === sourceInstId) : undefined;
-          if (atHomeCard) {
-            const atHomeCardRef = toCardInstance(atHomeCard);
-            const updatedPlayersAH = stateAfterCombat.players.map((p, idx) => {
-              let next = p;
-              if (idx === ownerIdxAH) next = { ...next, cardsInPlay: next.cardsInPlay.filter(c => c.instanceId !== sourceInstId) };
-              if (idx === defIdxAH) next = { ...next, killPile: [...next.killPile, atHomeCardRef] };
-              return next;
-            }) as unknown as typeof stateAfterCombat.players;
-            stateAfterCombat = { ...stateAfterCombat, players: updatedPlayersAH };
+          const moved = moveInPlayCardToPile(stateAfterCombat, sourceInstId, 'killPile', defIdxAH);
+          if (moved) {
+            stateAfterCombat = moved;
             logDetail(`Dragon-at-home "${atHomeName}" defeated (g.man.3 manifestation defeat) — removed from play, kill MPs awarded to defender`);
           }
         }
@@ -1413,15 +1425,9 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
           if (dauEff.type !== 'permanent-event-auto-attack') continue;
           if (!dauEff.discardAfterUse) continue;
           const dauSourceName = dauSourceDef?.name ?? '?';
-          const dauOwnerIdx = stateAfterCombat.players.findIndex(p => p.cardsInPlay.some(c => c.instanceId === dauSourceInstId));
-          const dauSourceCard = dauOwnerIdx >= 0 ? stateAfterCombat.players[dauOwnerIdx].cardsInPlay.find(c => c.instanceId === dauSourceInstId) : undefined;
-          if (dauSourceCard) {
-            const dauCardRef = toCardInstance(dauSourceCard);
-            const dauUpdatedPlayers = stateAfterCombat.players.map((p, idx) => {
-              if (idx === dauOwnerIdx) return { ...p, cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== dauSourceInstId), discardPile: [...p.discardPile, dauCardRef] };
-              return p;
-            }) as unknown as typeof stateAfterCombat.players;
-            stateAfterCombat = { ...stateAfterCombat, players: dauUpdatedPlayers };
+          const moved = moveInPlayCardToPile(stateAfterCombat, dauSourceInstId, 'discardPile');
+          if (moved) {
+            stateAfterCombat = moved;
             logDetail(`Permanent-event "${dauSourceName}" used as extra auto-attack (discardAfterUse) — moved to discard pile`);
           }
           break;
