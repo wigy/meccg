@@ -2982,6 +2982,17 @@ export function raceForCardTextFilter(charDef: CardDefinition | undefined): Race
 }
 
 /**
+ * Whether a character satisfies a card's `requiredRace` active condition
+ * (e.g. Vanishment tw-356 "Wizard only"). Uses {@link raceForCardTextFilter}
+ * so a Fallen-wizard avatar satisfies a `wizard` requirement (CoE g.wiz.F1).
+ */
+export function characterHasRequiredRace(charDef: CardDefinition | undefined, requiredRace: Race): boolean {
+  const race = raceForCardTextFilter(charDef);
+  if (race === undefined) return false;
+  return Array.isArray(race) ? race.includes(requiredRace) : race === requiredRace;
+}
+
+/**
  * Whether a character resolves corruption checks as a *minion* — i.e. taps (and
  * the check is considered successful) on a roll of CP or CP-1 rather than being
  * discarded/eliminated (CoE 7.1, 7.1.F1).

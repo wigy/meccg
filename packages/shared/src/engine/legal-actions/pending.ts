@@ -46,7 +46,7 @@ import { buildPlayOptionContext, availableDI, conditionalDISpentOnFollowers, nor
 import { playResourcesActions } from './site.js';
 import { logDetail } from './log.js';
 import { canPayCost } from '../cost-evaluator.js';
-import { collectFactionCardEffects, cardName, matchesDefinition, findCharacterCompany, riddlingCompanyBonus, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, countCopiesInPlay, defById, findEventMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, defNamesOf, itemKeywordsOf, itemSubtypesOf, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, siteRegionTypeOf, deckSearchCancellerFor, buildFactionCheckContext, buildFactionControllerContext, regionTypeCounts, regionAdjacentSwapEligibleSites, isCardNameEffectCanceled, fetchZoneItemInstanceIds, characterHasCannotUntapConstraint, onGuardEventDuplicationBlocked, findCardEffect, hasCardEffect } from '../reducer-utils.js';
+import { collectFactionCardEffects, cardName, matchesDefinition, findCharacterCompany, riddlingCompanyBonus, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, countCopiesInPlay, defById, findEventMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, defNamesOf, itemKeywordsOf, itemSubtypesOf, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, siteRegionTypeOf, deckSearchCancellerFor, buildFactionCheckContext, buildFactionControllerContext, regionTypeCounts, regionAdjacentSwapEligibleSites, isCardNameEffectCanceled, fetchZoneItemInstanceIds, characterHasCannotUntapConstraint, onGuardEventDuplicationBlocked, findCardEffect, hasCardEffect, characterHasRequiredRace } from '../reducer-utils.js';
 import { extraGeneralInfluence } from '../../alignment-rules.js';
 import { isBalrogAvatarDef } from '../../state-utils.js';
 import { effectiveItemCorruptionPoints } from '../../item-corruption.js';
@@ -470,7 +470,7 @@ function cancelInfluenceActions(
             if (!charDef || !isCharacterCard(charDef)) continue;
 
             // Check race restriction
-            if (cancelEffect.requiredRace && charDef.race !== cancelEffect.requiredRace) continue;
+            if (cancelEffect.requiredRace && !characterHasRequiredRace(charDef, cancelEffect.requiredRace)) continue;
 
             // Check skill restriction (character's innate skills + item-granted skills)
             if (cancelEffect.requiredSkill) {
