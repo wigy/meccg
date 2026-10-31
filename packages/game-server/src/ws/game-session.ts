@@ -528,9 +528,35 @@ export class GameSession {
 
     if (save) {
       this.restoreGame(save, p1, p2, name1, name2);
-    } else {
-      this.startNewGame(p1, p2, name1, name2);
+      return;
     }
+
+    // A fresh game needs a real deck from both seats. The browser sends a
+    // deckless "rejoin" (alignment 0, empty piles) when it has no current
+    // deck loaded, assuming the server will restore a save — with no save,
+    // starting a game from it crashed the engine on the missing alignment
+    // rules. Refuse that seat instead and keep the other one waiting.
+    const seats: [string, PendingPlayer, string][] = [[keys[0], p1, name1], [keys[1], p2, name2]];
+    const deckless = seats.filter(([, p]) => !this.hasValidAlignment(p.join));
+    if (deckless.length > 0) {
+      for (const [key, p, name] of deckless) {
+        this.pending.delete(key);
+        this.serverLog.log('join-rejected-no-deck', { name, alignment: p.join.alignment });
+        this.send(p.ws, {
+          type: 'error',
+          message: 'No deck selected: choose a deck in the lobby before starting a new game',
+        });
+      }
+      for (const [, p] of this.pending) this.send(p.ws, { type: 'waiting' });
+      return;
+    }
+
+    this.startNewGame(p1, p2, name1, name2);
+  }
+
+  /** Whether a join message declares one of the engine's known alignments. */
+  private hasValidAlignment(join: JoinMessage): boolean {
+    return (Object.values(Alignment) as unknown[]).includes(join.alignment);
   }
 
   /**
