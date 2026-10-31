@@ -8022,9 +8022,9 @@ export interface CombatDiscardOpponentItemEffect extends EffectBase {
  *    ever affects untapped cards and the roll outcome (wound/eliminate) does not
  *    depend on status, the observable end-state is identical to applying the tap
  *    after the rolls.
- * 3. **Roll** for each character whose mind is `< characterMindBelow` and each
- *    ally normally worth `< allyMpBelow` marshalling points (the printed MP of
- *    the ally card): the Balrog's controller rolls 2d6 per target. If
+ * 3. **Roll** for each character with a mind stat matching {@link characterFilter}
+ *    and each ally matching {@link allyFilter} (`target.marshallingPoints` is the
+ *    printed MP of the ally card): the Balrog's controller rolls 2d6 per target. If
  *    `roll - 1 > body`, the target is wounded, or — if already wounded
  *    (inverted) — eliminated. Enqueued as one generic `dice-check` per target
  *    with `comparison: 'gt'`, `threshold = body + 1`, and a `wound-or-eliminate`
@@ -8040,10 +8040,16 @@ export interface CombatDiscardOpponentItemEffect extends EffectBase {
  */
 export interface SiteStormDevastationEffect extends EffectBase {
   readonly type: 'site-storm-devastation';
-  /** Characters with a mind stat strictly below this value are rolled against. */
-  readonly characterMindBelow: number;
-  /** Allies whose printed MP value is strictly below this value are rolled against. */
-  readonly allyMpBelow: number;
+  /**
+   * Characters (with a mind stat) rolled against, matched on
+   * `{ target: { race, mind, name, skills } }`. Every such character when omitted.
+   */
+  readonly characterFilter?: Condition;
+  /**
+   * Allies rolled against, matched on `{ target: { name, marshallingPoints } }`
+   * (printed MP). Every ally when omitted.
+   */
+  readonly allyFilter?: Condition;
 }
 
 /**

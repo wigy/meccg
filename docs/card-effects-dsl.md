@@ -18431,20 +18431,24 @@ fixed order:
 2. **Tap** every untapped ally and every untapped character *with a mind stat*.
    Avatars (Balrog/Wizard/Ringwraith — printed mind `null`) are left untapped;
    all other untapped characters and all remaining untapped allies are tapped.
-3. **Roll** for each character whose mind is `< characterMindBelow` and each ally
-   normally worth `< allyMpBelow` marshalling points (the ally card's printed
-   MP). The Balrog's controller rolls 2d6 per target; on `roll - 1 > body` the
-   target is **wounded**, or **eliminated** if already wounded. Each roll is a
-   separate explicit action.
+3. **Roll** for each character with a mind stat matching `characterFilter` and
+   each ally matching `allyFilter` (`target.marshallingPoints` is the ally
+   card's printed MP). The Balrog's controller rolls 2d6 per target; on
+   `roll - 1 > body` the target is **wounded**, or **eliminated** if already
+   wounded. Each roll is a separate explicit action.
 
 ```json
-{ "type": "site-storm-devastation", "characterMindBelow": 8, "allyMpBelow": 3 }
+{
+  "type": "site-storm-devastation",
+  "characterFilter": { "target.mind": { "$lt": 8 } },
+  "allyFilter": { "target.marshallingPoints": { "$lt": 3 } }
+}
 ```
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `characterMindBelow` | yes | Characters with a mind stat strictly below this are rolled against. |
-| `allyMpBelow` | yes | Allies whose printed MP is strictly below this are rolled against. |
+| `characterFilter` | no | Condition on `{ target: { race, mind, name, skills } }` selecting the characters (with a mind stat) rolled against. All of them when omitted. |
+| `allyFilter` | no | Condition on `{ target: { name, marshallingPoints } }` (printed MP) selecting the allies rolled against. All of them when omitted. |
 
 The tap (step 2) is applied at play time before the rolls are enqueued; because
 tapping only ever affects untapped cards and the roll outcome does not depend on
