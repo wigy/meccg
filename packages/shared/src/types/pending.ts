@@ -1692,6 +1692,13 @@ export interface ActiveConstraint {
   readonly sourceDefinitionId: CardDefinitionId;
   /** Auto-clear boundary. */
   readonly scope: ConstraintScope;
+  /**
+   * Phase the constraint was added in — stamped by `addConstraint`. Lets
+   * Noose of the Sea (td-51, `suspend-short-event-effects`) single out the
+   * on-going effects of short-events played during the organization phase.
+   * Absent on constraints built before the field existed.
+   */
+  readonly addedInPhase?: Phase;
   /** What the constraint applies to. */
   readonly target:
     | { readonly kind: 'company'; readonly companyId: CompanyId }

@@ -8896,6 +8896,37 @@ reason." Because the central helpers back every removal path, this also
 covers the CRF-22 ruling that Elf-song "will effectively stop influence
 attempts against characters" with no extra wiring.
 
+### 23c. `suspend-short-event-effects`
+
+While the carrying card sits in either player's `cardsInPlay` and the game is
+in one of `suspendDuring`, the on-going effects of resource short-events
+played during one of `playedDuring` are cancelled for every company whose
+site path this turn includes `sitePathRegionType`. The carrying card is also
+immune to those short-events: one declared during a `playedDuring` phase may
+not pick it as a discard-in-play target.
+
+```json
+{
+  "type": "suspend-short-event-effects",
+  "playedDuring": ["organization"],
+  "suspendDuring": ["movement-hazard", "site"],
+  "sitePathRegionType": "coastal"
+}
+```
+
+A short-event's on-going effect is an `ActiveConstraint`; `addConstraint`
+stamps each one with `addedInPhase`. After every reducer step,
+`sweepSuspendedShortEventConstraints` (`engine/short-event-suspension.ts`)
+moves each matching constraint (source a resource short-event, bound to a
+company or to a character in one) from `activeConstraints` to
+`suspendedConstraints`, and moves it back once the suspension lapses (phase
+over, carrying card gone). `sweepExpired` and `removeConstraint` also act on
+the suspended list. The sweep records the active company's resolved site path
+into `GameState.sitePathsThisTurn` during its M/H phase so the site phase can
+still answer "has a Coastal Sea in its site path".
+
+Used by Noose of the Sea (td-51).
+
 ### 24. `mass-body-check`
 
 Forces a body check modified by `modifier` (typically negative) on **every

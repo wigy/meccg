@@ -12,6 +12,7 @@
  * cannot be played.
  */
 
+import { isImmuneToShortEventsInPhase } from '../short-event-suspension.js';
 import type {
   GameState,
   PlayerId,
@@ -3323,6 +3324,12 @@ export function collectDiscardInPlayTargets(
   for (const p of state.players) {
     for (const c of p.cardsInPlay) {
       const cDef = defById(state, c.definitionId);
+      // Noose of the Sea (td-51): "Such short-events have no effect on this
+      // card" — immune to a short-event declared in its `playedDuring` phase.
+      if (isImmuneToShortEventsInPhase(cDef, state.phaseState.phase)) {
+        logDetail(`${cDef?.name ?? c.definitionId as string} is immune to short-events played during ${state.phaseState.phase} — not a discard target`);
+        continue;
+      }
       if (cDef && matchesDefinition(effectiveInPlayDef(cDef), filter)) {
         targets.push(c.instanceId);
       }

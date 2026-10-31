@@ -8748,6 +8748,42 @@ export interface RemovalProtectionEffect extends EffectBase {
 }
 
 /**
+ * Noose of the Sea (td-51): "Affects each company with a Coastal Sea [{c}] in
+ * its site path. The on-going effects of all resource short-events that were
+ * played during the organization phase are cancelled for the duration of the
+ * movement/hazard phase and the site phase. Such short-events have no effect
+ * on this card (i. e., it may not be canceled by such a short-event)."
+ *
+ * While the carrying card is in either player's `cardsInPlay` and the game is
+ * in one of {@link suspendDuring}, every {@link ActiveConstraint} that
+ *
+ * - was installed by a resource **short-event** (`isResourceEventCard`,
+ *   `eventType: "short"`),
+ * - was added during one of {@link playedDuring} (`ActiveConstraint.addedInPhase`), and
+ * - targets a company (or a character in a company) whose site path this turn
+ *   includes {@link sitePathRegionType}
+ *
+ * is moved from `GameState.activeConstraints` to
+ * `GameState.suspendedConstraints` — invisible to every consumer — and moved
+ * back the moment any of those conditions stops holding (the site phase
+ * ends, the card leaves play). The sync runs once after every reducer step
+ * (`sweepSuspendedShortEventConstraints` in `engine/short-event-suspension.ts`).
+ *
+ * The carrying card itself is immune to the suspended class of short-events:
+ * a resource short-event declared during one of {@link playedDuring} may not
+ * pick it as a discard-in-play target (`collectDiscardInPlayTargets`).
+ */
+export interface SuspendShortEventEffectsEffect extends EffectBase {
+  readonly type: 'suspend-short-event-effects';
+  /** {@link Phase} strings the short-event must have been played in. */
+  readonly playedDuring: readonly string[];
+  /** {@link Phase} strings during which those effects are suspended. */
+  readonly suspendDuring: readonly string[];
+  /** Region type the affected company's site path must include. */
+  readonly sitePathRegionType: RegionType;
+}
+
+/**
  * Forces a body or corruption check on every character in the active company
  * when this hazard short event resolves.
  *
@@ -11085,6 +11121,7 @@ export type CardEffect =
   | TapDiscardInPlayEffect
   | TapTakeItemEffect
   | RemovalProtectionEffect
+  | SuspendShortEventEffectsEffect
   | ForceAgentAttackEffect
   | DiscardUnrevealedOnGuardEffect
   | AgentAttackOnSkipEffect
