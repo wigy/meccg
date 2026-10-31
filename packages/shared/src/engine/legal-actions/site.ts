@@ -27,7 +27,7 @@ import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
 import { notPlayable } from './action-builders.js';
 import { availableDI, conditionalDISpentOnFollowers, normalUnusedDI, grantedActionActivations, bareCardGrantActions, playResourceShortEventActions, playerStateGateMet, buildActiveCompanyContext } from './organization.js';
-import { playPermanentEventActions, bundledOrCombatOnlyPermanentEventReason } from './organization-events.js';
+import { playPermanentEventActions, bundledOrCombatOnlyPermanentEventReason, factionTargetPermanentEventActions } from './organization-events.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { recruitViaEventActions } from './recruit-via-event.js';
 import { manifestationSwapActions } from './manifestation-swap.js';
@@ -1396,6 +1396,21 @@ export function playResourcesActions(
         const phaseCond = findPlayConditionEffect(eventDef, 'phase');
         if (phaseCond?.phases && !phaseCond.phases.includes(Phase.Site)) {
           logDetail(`Permanent event ${eventDef.name}: playable only during [${phaseCond.phases.join(', ')}] — not in the site phase`);
+          continue;
+        }
+
+        // play-target: faction — Long Grievous Siege (ba-40) targets one of
+        // the player's in-play factions and sets aside an eligible Border-hold
+        // from the location deck. Rule 2.1.1 allows playing it in the site
+        // phase too, but it must carry the same faction + besieged-site
+        // choice as in the organization phase rather than falling through to
+        // the untargeted generic tail below.
+        const factionPlayTarget = eventDef.effects?.find(
+          (e): e is import('../../index.js').PlayTargetEffect => e.type === 'play-target' && e.target === 'faction',
+        );
+        if (factionPlayTarget) {
+          evaluatedInstances.add(cardInstanceId as string);
+          actions.push(...factionTargetPermanentEventActions(state, player, cardInstanceId, eventDef, factionPlayTarget));
           continue;
         }
 
