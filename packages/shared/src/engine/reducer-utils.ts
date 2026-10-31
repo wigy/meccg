@@ -6618,8 +6618,10 @@ export function siteEddyLock(
 /**
  * The prisoners that the player at `playerIndex` may rescue at the company's
  * current site (CoE rule 8.36): a hazard host whose `rescueSiteCard` matches
- * the company's current site location and that holds at least one prisoner who
- * is a member of the active company. Returns the host instance and the
+ * the company's current site location and that holds at least one prisoner
+ * owned by the player. Prisoners are held off to the side at the rescue site
+ * (CoE 3.III.1), not in any company, so any of the player's companies that
+ * enters the site may rescue them. Returns the host instance and the
  * rescuable prisoner ids, or null if no rescue is available. Shared by the
  * legal-action layer (which offers `rescue-prisoner`) and the reducer (which
  * resolves it).
@@ -6633,11 +6635,10 @@ export function rescuablePrisonersAtSite(
   const company = player.companies[companyIndex];
   if (!company?.currentSite) return null;
   const siteDefId = company.currentSite.definitionId;
-  const companyChars = new Set(company.characters.map(c => c as string));
   for (const host of state.hazardHosts) {
     if (host.prisoners.length === 0) continue;
     if (host.rescueSiteCard.definitionId !== siteDefId) continue;
-    const prisonerIds = host.prisoners.filter(p => companyChars.has(p as string));
+    const prisonerIds = host.prisoners.filter(p => player.characters[p] !== undefined);
     if (prisonerIds.length > 0) {
       return { hostInstanceId: host.hostCard.instanceId, prisonerIds };
     }

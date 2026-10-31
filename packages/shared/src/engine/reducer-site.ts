@@ -2045,13 +2045,14 @@ function rescueAttacksForHost(
 /**
  * Free all prisoners held by `hostInstanceId`: remove their
  * `character-is-prisoner` constraints and drop them from the host's prisoner
- * list (removing the host record if it becomes empty). Used when a rescue-attack
- * has been faced (CoE rule 8.36). If the host card lives only in the host record
+ * list (removing the host record if it becomes empty), and add them to the
+ * rescuing company (they were held off to the side in no company). Used when a
+ * rescue-attack has been faced (CoE rule 8.36). If the host card lives only in the host record
  * (i.e. it is not a permanent in `cardsInPlay`, e.g. Flies and Spiders dm-58),
  * it is discarded to its owner's pile when the record is dropped, so no instance
  * is lost. A site-bound trap (Troll-purse) stays in `cardsInPlay`.
  */
-function freePrisonersOfHost(state: GameState, hostInstanceId: CardInstanceId): GameState {
+function freePrisonersOfHost(state: GameState, hostInstanceId: CardInstanceId, rescuingCompanyId: CompanyId): GameState {
   const host = state.hazardHosts.find(h => h.hostCard.instanceId === hostInstanceId);
   if (!host || host.prisoners.length === 0) return state;
   const freed = new Set(host.prisoners.map(p => p as string));
@@ -2078,7 +2079,14 @@ function freePrisonersOfHost(state: GameState, hostInstanceId: CardInstanceId): 
       for (const id of rescued) {
         characters[id] = { ...characters[id], controlledBy: 'general' };
       }
-      return { ...p, characters };
+      // Prisoners are held off to the side in no company; the rescued ones
+      // join the rescuing company.
+      const joining = rescued.filter(id => !p.companies.some(c => c.characters.includes(id)));
+      if (joining.length > 0) logDetail(`Rescue: ${joining.length} freed prisoner(s) join company ${rescuingCompanyId as string}`);
+      const companies = joining.length === 0 ? p.companies : p.companies.map(c => (c.id === rescuingCompanyId
+        ? { ...c, characters: [...c.characters, ...joining] }
+        : c));
+      return { ...p, characters, companies };
     }) as unknown as GameState['players'],
   };
   // If the host card lives only in the record (not a `cardsInPlay` permanent),
@@ -3098,7 +3106,7 @@ function handleSiteRescueTap(
       : c)),
   }));
 
-  const freed = freePrisonersOfHost(tapped, action.hostInstanceId);
+  const freed = freePrisonersOfHost(tapped, action.hostInstanceId, company.id);
   // Record the successful rescue for this company's site phase (read by
   // Pass the Doors of Dol Guldur dm-154's `when`, which adds the site check).
   const marked = markPrisonersRescued(freed, company);

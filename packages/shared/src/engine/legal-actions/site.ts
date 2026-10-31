@@ -295,7 +295,7 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
       // company rescued prisoners at Dol Guldur).
       base.push(...inPlayCompanyTapGrantActions(state, playerId, siteState));
       // Prisoner rescue (CoE rule 8.36): if the active company is at a site
-      // holding its own prisoners (e.g. by Troll-purse), offer to face the
+      // where the player has prisoners held (e.g. by Troll-purse), offer to face the
       // host's rescue-attack to free them.
       // Messenger of Mordor (le-204): the active company may store items and
       // resource events "now" — during this site phase — at a site where the
