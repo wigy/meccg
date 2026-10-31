@@ -8364,6 +8364,10 @@ export interface DeckRestrictionEffect extends EffectBase {
  *   field (comma-separated entries are split). Used for restrictions like
  *   "May not be played against a company containing a character with
  *   Edoras as a home site" (Horse-lords).
+ *   Also checked for hazard short-events played on the moving company,
+ *   where `company.facedRaces` (races of attacks the company already faced
+ *   this turn) backs Worm's Stench (td-88): "Playable on a company that has
+ *   already faced a Dragon or Drake attack this turn."
  * If the condition is not met, the card is not offered as a legal action.
  */
 export interface PlayConditionEffect extends EffectBase {

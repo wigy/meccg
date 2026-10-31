@@ -1518,3 +1518,9 @@ The untap-phase-end bearer context (`reducer-untap.ts`) now also carries `bearer
 ### Troll-keyed R&L ally: `company-overt` + race-gated tap-cancel + company `duplication-limit` (“Two-headed” Troll le-155)
 
 No new engine work. War-warg (le-156) `playableAt` shape with `site.autoAttack.race: "troll"` + `play-flag playable-at-tapped-site`; Regiment of Black Crows (as-76) `company-overt` and `duplication-limit` `scope: "company"`; The Warg-king (le-158) `cancel-attack` `cost: { tap: "self" }` gated on `enemy.race $in ["orc", "troll"]`.
+
+### `target-company` play-condition on hazard short-events + `company.facedRaces` + `creature-attack-boost` via `buildConstraintKind` (Worm's Stench td-88)
+
+- `buildTargetCompanyConditionContext` (`reducer-utils.ts`) exposes `company.facedRaces` — the turn-scoped `Company.facedHazardRaces` stamped at every attack teardown (`combat-finalize.ts`) and cleared in `enterUntapPhase`.
+- The M/H hazard short-event branch (`legal-actions/movement-hazard.ts`) now honours a `play-condition` `requires: "target-company"` against the moving company (previously creatures only): "Playable on a company that has already faced a Dragon or Drake attack this turn" → `{ "$or": [{ "company.facedRaces": { "$includes": "dragon" } }, { "company.facedRaces": { "$includes": "drake" } }] }`.
+- `buildConstraintKind` (`constraint-kind.ts`) builds `creature-attack-boost` (`race` string/list, `prowess`, `strikes`), so a hazard short-event's `self-enters-play` `add-constraint` (resolved by `applyShortEventSelfEntersPlayConstraints`, `when: { "inPlay": "Doors of Night" }` gate supported) installs a turn-scoped company-targeted boost. Worm's Stench: Spider/Animal +2 prowess; with Doors of Night, Wolf +2 prowess and Wolf/Spider/Animal +1 strikes.

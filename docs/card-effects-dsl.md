@@ -9307,8 +9307,8 @@ Implemented in `reducer-utils.ts` (`companyItemDiscardCandidates`),
   keying, evaluated against the defending company via
   `buildTargetCompanyConditionContext` (`reducer-utils.ts`), exposing
   `{ company: { alignment, homeSites, characterNames, maxUntappedWarriorProwess,
-  containsWizard, covert, itemNames, itemKeywords, hasWoundedCharacter },
-  inPlay: [<names>] }`. `company.alignment` is `defenderAlignmentLabel`-mapped
+  containsWizard, covert, itemNames, itemKeywords, hasWoundedCharacter,
+  facedRaces }, inPlay: [<names>] }`. `company.alignment` is `defenderAlignmentLabel`-mapped
   (a Wizard player's companies read `"hero"`); `company.hasWoundedCharacter` is
   `true` when any company member's status is Inverted (wounded); `inPlay` lets
   the same condition combine a company predicate with a named in-play
@@ -9323,6 +9323,12 @@ Implemented in `reducer-utils.ts` (`companyItemDiscardCandidates`),
   `company.covert`; and Morgul-rats (td-49): "playable... only if a character
   in target company is wounded or Doors of Night is in play" —
   `{ "$or": [{ "company.hasWoundedCharacter": true }, { "inPlay": "Doors of Night" }] }`.
+  Also checked for **hazard short-events** played on the moving company (the
+  short-event branch of the same module); the context additionally exposes
+  `company.facedRaces` (the turn-scoped `facedHazardRaces` stamp). Used by
+  Worm's Stench (td-88): "Playable on a company that has already faced a
+  Dragon or Drake attack this turn" — `{ "$or": [{ "company.facedRaces":
+  { "$includes": "dragon" } }, { "company.facedRaces": { "$includes": "drake" } }] }`.
 
 - `player-state` — for resource short-events **and** permanent-events: a
   generic DSL `condition` evaluated against the active player's

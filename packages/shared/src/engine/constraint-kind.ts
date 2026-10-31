@@ -386,6 +386,19 @@ export function buildConstraintKind(
         ...(apply.keyingSiteTypes ? { keyingSiteTypes: apply.keyingSiteTypes } : {}),
       };
     }
+    case 'creature-attack-boost': {
+      // Worm's Stench (td-88): a hazard short-event boosting matching
+      // creature attacks against the target company for the rest of the
+      // turn. An absent `race` matches every attack (see the resolver's
+      // `collectCreatureAttackBoostEffects`).
+      const apply = onEvent.apply as { race?: Race | readonly Race[]; prowess?: number; strikes?: number };
+      return {
+        type: 'creature-attack-boost',
+        ...(apply.race ? { race: apply.race } : {}),
+        prowess: apply.prowess ?? 0,
+        strikes: apply.strikes ?? 0,
+      };
+    }
     case 'granted-action': {
       const payload = (onEvent.apply as { grantedAction?: import('../types/effects.js').GrantedActionConstraintPayload }).grantedAction;
       if (!payload) return null;

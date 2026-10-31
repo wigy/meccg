@@ -1771,7 +1771,64 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/WormsStench.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
+    "certified": "2026-10-30",
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "company"
+      },
+      {
+        "type": "play-condition",
+        "requires": "target-company",
+        "condition": {
+          "$or": [
+            { "company.facedRaces": { "$includes": "dragon" } },
+            { "company.facedRaces": { "$includes": "drake" } }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "creature-attack-boost",
+          "scope": "turn",
+          "race": ["spider", "animal"],
+          "prowess": 2,
+          "strikes": 0
+        },
+        "target": "target-company"
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "when": { "inPlay": "Doors of Night" },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "creature-attack-boost",
+          "scope": "turn",
+          "race": ["wolf"],
+          "prowess": 2,
+          "strikes": 0
+        },
+        "target": "target-company"
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "when": { "inPlay": "Doors of Night" },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "creature-attack-boost",
+          "scope": "turn",
+          "race": ["wolf", "spider", "animal"],
+          "prowess": 0,
+          "strikes": 1
+        },
+        "target": "target-company"
+      }
+    ],
     "text": "Playable on a company that has already faced a Dragon or Drake attack this turn. The prowess of each Spider and Animal attack against the company is increased by two for the rest of the turn.Additionally, if Doors of Night is in play, all Wolf attacks receive +2 prowess and all Wolf, Spider, and Animal attacks receive +1 strikes for the rest of turn against the company."
   },
   {
