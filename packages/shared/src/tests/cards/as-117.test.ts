@@ -42,9 +42,9 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildSitePhaseState, resetMint,
   PLAYER_1, RESOURCE_PLAYER,
-  addCardInPlay, attachItemToChar,
+  addCardInPlay, attachItemToChar, findCharInstanceId,
   firstFactionInfluenceAttempt, buildAhuntOrderEffectsState,
-  viableActions, dispatch,
+  viableActions, dispatch, resolveChain,
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
 import { RegionType } from '../../index.js';
@@ -59,6 +59,9 @@ const MAJOR_ITEM = 'le-301' as CardDefinitionId;        // Black-mail Coat (majo
 const GREATER_ITEM = 'le-314' as CardDefinitionId;      // The Iron Crown (greater, no effects)
 
 const PATH_IRON_HILLS = { pathNames: ['Iron Hills'], pathTypes: [RegionType.Wilderness] } as const;
+const PATH_WITHERED_HEATH = { pathNames: ['Withered Heath'], pathTypes: [RegionType.Wilderness] } as const;
+const PATH_N_RHOVANION = { pathNames: ['Northern Rhovanion'], pathTypes: [RegionType.Wilderness] } as const;
+const PATH_GREY_MOUNTAINS = { pathNames: ['Grey Mountain Narrows'], pathTypes: [RegionType.Wilderness] } as const;
 const PATH_NON_MATCHING = { pathNames: ['Belfalas'], pathTypes: [RegionType.Wilderness] } as const;
 
 describe('Itangast Roused (as-117)', () => {
@@ -148,5 +151,92 @@ describe('Itangast Roused (as-117)', () => {
     });
     const next = dispatch(state, viableActions(state, PLAYER_1, 'pass')[0].action);
     expect(next.combat).toBeNull();
+  });
+
+  test('Manifestation control: influenceable again once no Itangast manifestation is in play', () => {
+    const state = buildSitePhaseState({ characters: [CIRYAHER], site: GOLD_HILL, hand: [ITANGAST_ROUSED] });
+    const factionInstanceId = state.players[RESOURCE_PLAYER].hand[0].instanceId;
+    expect(firstFactionInfluenceAttempt(state, factionInstanceId)).toBeDefined();
+  });
+
+  test('no discard variant is offered when the influencer carries no matching item', () => {
+    const state = buildSitePhaseState({ characters: [CIRYAHER], site: GOLD_HILL, hand: [ITANGAST_ROUSED] });
+    const attempts = computeLegalActions(state, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'influence-attempt')
+      .map(ea => ea.action as InfluenceAttemptAction);
+    expect(attempts.some(a => a.discardForBonus)).toBe(false);
+  });
+
+  test('discarding a greater item (+8) discards the item and succeeds at a roll that would otherwise fail', () => {
+    const base = buildSitePhaseState({ characters: [CIRYAHER], site: GOLD_HILL, hand: [ITANGAST_ROUSED] });
+    const withItem = attachItemToChar(base, RESOURCE_PLAYER, CIRYAHER, GREATER_ITEM);
+    const ciryaherId = findCharInstanceId(withItem, RESOURCE_PLAYER, CIRYAHER);
+    const greaterInstanceId = withItem.players[RESOURCE_PLAYER].characters[ciryaherId].items[0].instanceId;
+
+    const discard8 = computeLegalActions(withItem, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'influence-attempt')
+      .map(ea => ea.action as InfluenceAttemptAction)
+      .find(a => a.discardForBonus?.value === 8)!;
+
+    // Roll total = cheat 7 + DI 2 + bonus 8 = 17 > 15 → success.
+    const withCheat = { ...withItem, cheatRollTotal: 7 };
+    const afterAttempt = resolveChain(dispatch(withCheat, discard8));
+    const rollAction = computeLegalActions(afterAttempt, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'faction-influence-roll')[0].action;
+    const after = dispatch(afterAttempt, rollAction);
+
+    expect(after.players[RESOURCE_PLAYER].discardPile.some(c => c.definitionId === GREATER_ITEM)).toBe(true);
+    expect(after.players[RESOURCE_PLAYER].characters[ciryaherId].items.some(i => i.instanceId === greaterInstanceId)).toBe(false);
+    expect(after.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.definitionId === ITANGAST_ROUSED)).toBe(true);
+  });
+
+  test('control: the same roll without the discard fails and the item is untouched', () => {
+    const base = buildSitePhaseState({ characters: [CIRYAHER], site: GOLD_HILL, hand: [ITANGAST_ROUSED] });
+    const withItem = attachItemToChar(base, RESOURCE_PLAYER, CIRYAHER, GREATER_ITEM);
+    const ciryaherId = findCharInstanceId(withItem, RESOURCE_PLAYER, CIRYAHER);
+
+    const baseAttempt = computeLegalActions(withItem, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'influence-attempt')
+      .map(ea => ea.action as InfluenceAttemptAction)
+      .find(a => !a.discardForBonus)!;
+    expect(baseAttempt.need).toBe(14);
+
+    // Roll total = cheat 7 + DI 2 = 9, not greater than 15 → failure.
+    const withCheat = { ...withItem, cheatRollTotal: 7 };
+    const afterAttempt = resolveChain(dispatch(withCheat, baseAttempt));
+    const rollAction = computeLegalActions(afterAttempt, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'faction-influence-roll')[0].action;
+    const after = dispatch(afterAttempt, rollAction);
+
+    expect(after.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.definitionId === ITANGAST_ROUSED)).toBe(false);
+    expect(after.players[RESOURCE_PLAYER].discardPile.some(c => c.definitionId === GREATER_ITEM)).toBe(false);
+    expect(after.players[RESOURCE_PLAYER].characters[ciryaherId].items.some(i => i.definitionId === GREATER_ITEM)).toBe(true);
+  });
+
+  test.each([
+    ['Withered Heath', PATH_WITHERED_HEATH],
+    ['Northern Rhovanion', PATH_N_RHOVANION],
+    ['Grey Mountain Narrows', PATH_GREY_MOUNTAINS],
+  ])('opponent moving through %s faces the region attack', (_name, path) => {
+    const state = buildAhuntOrderEffectsState({ ahuntDefId: ITANGAST_ROUSED, ...path });
+    const next = dispatch(state, viableActions(state, PLAYER_1, 'pass')[0].action);
+    expect(next.combat).not.toBeNull();
+    expect(next.combat!.strikesTotal).toBe(3);
+    expect(next.combat!.strikeProwess).toBe(18);
+  });
+
+  test('control: with Itangast Roused on the OPPONENT, the mover still faces the attack', () => {
+    const state = buildAhuntOrderEffectsState({
+      ahuntDefId: ITANGAST_ROUSED, ...PATH_IRON_HILLS, ahuntOwnerIndex: 1,
+    });
+    const next = dispatch(state, viableActions(state, PLAYER_1, 'pass')[0].action);
+    expect(next.combat).not.toBeNull();
+  });
+
+  test("control: an opponent's Itangast Ahunt fires when you do NOT control Itangast Roused", () => {
+    const state = buildAhuntOrderEffectsState({ ahuntDefId: ITANGAST_AHUNT, ...PATH_IRON_HILLS });
+    const next = dispatch(state, viableActions(state, PLAYER_1, 'pass')[0].action);
+    expect(next.combat).not.toBeNull();
+    expect(next.combat!.attackSource.type).toBe('ahunt');
   });
 });
