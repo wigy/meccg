@@ -65,6 +65,11 @@ describe('coverage', () => {
 });
 
 describe('travel, once the deck is known', () => {
+  // The deck list reaches `travel` twice: through the reach this module is about,
+  // and through the per-deck play floor, which recognises a deck by its contents
+  // and so prices a known list differently from an unknown one. The floor is off
+  // here, leaving reach as the only thing knowing the deck changes.
+  const reachOnly = { ...DEFAULT_TUNABLES, deckPlanPlayTsd: 0 };
   const actions = computeLegalActions(scenario.state, scenario.actingPlayer)
     .filter(legal => legal.viable)
     .map(legal => legal.action);
@@ -72,7 +77,7 @@ describe('travel, once the deck is known', () => {
     view,
     cardPool,
     legalActions: actions,
-    tunables: DEFAULT_TUNABLES,
+    tunables: reachOnly,
     standing,
   };
   const toLorien = actions.find(a => a.type === 'plan-movement' && view.self.siteDeck.some(
