@@ -23,6 +23,8 @@
     "calibrate": "npx tsx src/cli/calibrate.ts",
     "compare": "npx tsx src/cli/compare.ts",
     "human-compare": "npx tsx src/cli/human-compare.ts",
+    "deck-plans": "npx tsx src/cli/deck-plans.ts",
+    "human-results": "npx tsx src/cli/human-results.ts",
     "route-compare": "npx tsx src/cli/route-compare.ts",
     "sweep": "npx tsx src/cli/sweep.ts",
     "horizon": "npx tsx src/cli/horizon.ts",

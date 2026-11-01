@@ -169,6 +169,34 @@ export interface Tunables {
    */
   readonly cyclingKeepPoints: number;
   /**
+   * What cycling gains while ahead and loses while behind, in TSD: run the deck
+   * out while leading, to control when the game ends, and do not hurry an end
+   * that would lose. Off: winning humans cycle at 31–32% of their chances whether
+   * leading, level or trailing, so the corpus does not ask for it.
+   */
+  readonly deckPaceLeadTsd: number;
+  /**
+   * What playing a card is worth at least, in TSD, per unit of the share of
+   * offers winning humans took in this window (`services/deck-plan`). A floor,
+   * so a card the modules already price is not counted twice. 0 turns it off.
+   */
+  readonly deckPlanPlayTsd: number;
+  /** Below this share of offers taken, winners' habit says nothing about playing a card. */
+  readonly deckPlanMinRate: number;
+  /**
+   * What throwing a card costs, in TSD, per unit of how often winners play it
+   * rather than throw it. Charged by the discard only (`services/deck-plan`).
+   * Off: on its own at 6 it lost 86 Elo on a/b (400 games against the plan off)
+   * where the play floor alone gained 9, despite matching winners' discards better.
+   */
+  readonly deckPlanKeepTsd: number;
+  /**
+   * The share of a destination's value credited for cards it could play but no
+   * character will have a tap for on arrival. These drove 85 of the 115 replayed
+   * trips the AI still makes with nothing to play and nobody wounded.
+   */
+  readonly travelNoTapShare: number;
+  /**
    * The share of a creature's plan contribution a *held* hazard is worth —
    * what `card-price` quotes for keeping it in hand, discarding it, or fetching
    * it from the sideboard.
@@ -707,6 +735,11 @@ export const DEFAULT_TUNABLES: Tunables = {
   cyclingPaceTsd: 5,
   cyclingKeepAnswers: 0,
   cyclingKeepPoints: 1,
+  deckPaceLeadTsd: 0,
+  deckPlanPlayTsd: 6,
+  deckPlanMinRate: 0.5,
+  deckPlanKeepTsd: 0,
+  travelNoTapShare: 1,
   heldHazardShare: 0.5,
   hazardTieBreak: 0,
   favouriteCharacterTsd: 2,

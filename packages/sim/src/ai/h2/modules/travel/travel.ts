@@ -46,7 +46,7 @@
  * the output would say which was wrong.
  */
 
-import { BASE_MAX_REGION_DISTANCE, CardStatus, isSiteCard, matchesCondition } from '@meccg/shared';
+import { BASE_MAX_REGION_DISTANCE, CardStatus, Phase, isSiteCard, matchesCondition } from '@meccg/shared';
 import type { CardDefinition, CardInstanceId, CompanyId, GameAction, PlayerView, RegionType } from '@meccg/shared';
 import type { Evaluation, H2Module, ModuleContext, Outcome, Rationale } from '../../core/types.js';
 import type { Plan, PlanStep } from '../../core/plan.js';
@@ -68,6 +68,7 @@ import { computeDrawValue } from '../../services/draw-value.js';
 import type { SiteExposure } from '../../services/exposure.js';
 import { resourcePlayableAt } from '../../../evaluators/common.js';
 import { storedValue } from '../../services/stored-value.js';
+import { playFloorTsd, windowOf } from '../../services/deck-plan.js';
 import { companyMayPlay } from '../../services/named-target.js';
 import { computeDeckReach } from '../../services/deck-reach.js';
 
@@ -164,6 +165,9 @@ export function untappedAfterAttacks(
   return untapped.length;
 }
 
+/** The window a card is played in once its company stands on the site. */
+const SITE_WINDOW = windowOf({ phaseState: { phase: Phase.Site }, activePlayer: 'self' }, 'self');
+
 /**
  * Cards in hand that could be played at a site, valued through the standing.
  *
@@ -194,16 +198,22 @@ function playableAt(
     const record = def as unknown as { name?: string; marshallingPoints?: number; marshallingCategory?: string };
     const source = (record.marshallingCategory ?? 'misc') as MpSource;
     const points = record.marshallingPoints ?? 0;
+    // The whole point: a point in this source, priced by the tournament
+    // scorer at the current standing, not by a constant.
+    const priced = (points > 0 ? standing.tsdAfter({ [source]: points }) - standing.tsd : 0)
+      // A card worth more stored than printed (Earth of Galadriel's Orchard)
+      // is worth playing for that too, discounted as potential.
+      + context.tunables.potentialDiscount * storedValue(def, standing).potentialTsd;
+    // A card winners reliably play at a site is worth the trip even where this
+    // price is nothing: Rescue Prisoners was on offer 17 times to their 113, and
+    // an item in a capped source drew no company at all. The floor is what they
+    // do once they are standing there.
+    const floor = playFloorTsd(card.definitionId as string, SITE_WINDOW, context.ownDeck, context.tunables);
     cards.push({
       name: record.name ?? (card.definitionId as string),
       source,
       marshallingPoints: points,
-      // The whole point: a point in this source, priced by the tournament
-      // scorer at the current standing, not by a constant.
-      tsd: (points > 0 ? standing.tsdAfter({ [source]: points }) - standing.tsd : 0)
-        // A card worth more stored than printed (Earth of Galadriel's Orchard)
-        // is worth playing for that too, discounted as potential.
-        + context.tunables.potentialDiscount * storedValue(def, standing).potentialTsd,
+      tsd: Math.max(priced, floor?.tsd ?? 0),
     });
   }
   return cards;
@@ -464,7 +474,8 @@ function destinationValue(context: ModuleContext, destination: Destination): Des
   const realized = playableNow.reduce((sum, c) => sum + c.tsd, 0);
   const beyondTaps = playable.length - playableNow.length;
   // Cards that fit the site but not this turn's taps are unlocked, not banked.
-  const potential = playable.slice(playableNow.length).reduce((sum, c) => sum + c.tsd, 0);
+  const potential = tunables.travelNoTapShare
+    * playable.slice(playableNow.length).reduce((sum, c) => sum + c.tsd, 0);
   // Distance is charged by what is likely to be waiting on it rather than by
   // its length alone: each region crossed is an opportunity for the opponent
   // to answer, and `beliefs` estimates how likely they are to have something
