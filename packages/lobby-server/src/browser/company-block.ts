@@ -99,12 +99,31 @@ export function findInfluenceVariants(
 
 /**
  * Human-readable label for an influence-attempt variant, used when the UI must
- * disambiguate the plain attempt from the leader-control variant.
+ * disambiguate several variants for the same (faction, character) pair:
+ * the plain attempt, the leader-control variant (Stone Trolls le-288), the
+ * discard-an-item-for-a-bonus variants of the Dragon "Roused" factions
+ * (Itangast Roused as-117: discard a major item +4 / a greater item +8), and
+ * the tap-in-support variants (Palm to Palm dm-153). Every label names what
+ * the variant costs and the roll it needs so the options are distinguishable.
+ *
+ * @param nameOf Resolves a card instance (item or character) to its name.
  */
-export function influenceVariantLabel(action: InfluenceAttemptAction): string {
-  return action.placeUnderLeaderControl
-    ? "Place under leader's control (site not tapped)"
-    : 'Influence (tap site)';
+export function influenceVariantLabel(
+  action: InfluenceAttemptAction,
+  nameOf: (id: CardInstanceId) => string = id => id as string,
+): string {
+  const need = `need ${action.need}+`;
+  if (action.placeUnderLeaderControl) {
+    return `Place under leader's control (site not tapped, ${need})`;
+  }
+  if (action.discardForBonus) {
+    const bonus = action.discardForBonus.value;
+    return `Discard ${nameOf(action.discardForBonus.itemInstanceId)} for ${bonus >= 0 ? '+' : ''}${bonus} (tap site, ${need})`;
+  }
+  if (action.supportCharacterId) {
+    return `${nameOf(action.supportCharacterId)} taps in support (tap site, ${need})`;
+  }
+  return `Influence (tap site, ${need})`;
 }
 
 /**
@@ -284,7 +303,7 @@ const CHARACTER_TARGETING_MODES: readonly CharacterTargetingMode[] = [
     selected: getSelectedFactionForInfluence,
     clear: clearFactionInfluenceSelection,
     find: findInfluenceVariants,
-    label: a => influenceVariantLabel(a as InfluenceAttemptAction),
+    label: (a, nameOf) => influenceVariantLabel(a as InfluenceAttemptAction, nameOf),
   },
   // Ally play targeting: click an untapped character to control the selected ally
   {
@@ -608,10 +627,13 @@ export function renderCompanyBlock(
     };
   };
 
-  /** Card name of a character instance in this block, for menu labels. */
+  /**
+   * Card name of a character instance in this block (or, via the instance
+   * lookup, any other visible card such as a carried item), for menu labels.
+   */
   const characterName = (id: CardInstanceId): string => {
-    const char = charMap[id as string];
-    return (char && cardPool[char.definitionId as string]?.name) ?? (id as string);
+    const defId = charMap[id as string]?.definitionId ?? cachedInstanceLookup(id);
+    return (defId && cardPool[defId as string]?.name) ?? (id as string);
   };
 
   /**
