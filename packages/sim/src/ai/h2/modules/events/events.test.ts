@@ -504,6 +504,31 @@ describe('discarding something that was making every attack worse', () => {
     expect(JSON.stringify(relief.rationale)).toContain('back to their printed numbers');
   });
 
+  test('counts the automatic-attacks a company is walking into, not only the creatures', () => {
+    // Regression (game mvy8h3au-b3sdfm): Saruman's company was moving to
+    // Isengard, whose Wolves Wake of War raises from 3 strikes at 7 prowess.
+    // The opponent had shown only Orcs, so the typical creature never felt
+    // Wake of War, its discard was priced at nothing, and Marvels Told threw
+    // the AI's own Minions Stir instead.
+    const theirs = removalPosition('Wake of War', 'opponent');
+    const { view, cardPool } = theirs.context;
+    const isengard = Object.keys(cardPool).find(id => {
+      const def = cardPool[id] as unknown as { name?: string; automaticAttacks?: unknown[] };
+      return def.name === 'Isengard' && (def.automaticAttacks?.length ?? 0) > 0;
+    })!;
+    (view as unknown as { phaseState: unknown }).phaseState = { phase: 'movement-hazard' };
+    (view as unknown as { activePlayer: unknown }).activePlayer = view.self.id;
+    const [first, ...rest] = view.self.companies;
+    (view.self as unknown as { companies: unknown[] }).companies = [
+      { ...first, destinationSite: { instanceId: 'dest-isengard', definitionId: isengard, status: 'untapped' } },
+      ...rest,
+    ];
+    const relief = eventsModule.evaluate(playDiscarding(theirs.held.instanceId, theirs.instanceId), theirs.context)!;
+    expect(relief).not.toBeNull();
+    expect(relief.expectedTsd).toBeGreaterThan(0);
+    expect(JSON.stringify(relief.rationale)).toContain('Wake of War');
+  });
+
   test('and says the play achieves nothing when the filter reaches nothing', () => {
     // Doors of Night carries the environment keyword, which this card's filter
     // excludes, so there is nothing reachable at all — and the module says the
