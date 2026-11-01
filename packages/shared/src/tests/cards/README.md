@@ -108,7 +108,7 @@
 | as-111 | Asdriags | — | 9 | ☑ |
 | as-113 | Black Númenóreans | — | 5 | ☑ |
 | as-114 | Corsairs of Rhûn | — | 8 | ☑ |
-| as-117 | Itangast Roused | — | 9 | ☑ |
+| as-117 | Itangast Roused | — | 15 | ☑ |
 | as-119 | Morgul-orcs | — | 12 | ☑ |
 | as-120 | Nûriags | — | 8 | ☑ |
 | as-121 | Orcs of Dol Guldur | — | 12 | ☑ |

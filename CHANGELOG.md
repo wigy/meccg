@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.227.0 — 2026-11-01
+
+Deckless Join Fix and Itangast Roused Certified
+
+### Cards
+
+- Certified Itangast Roused (as-117) (#3480)
+
+### Infrastructure
+
+- Game server refuses a deckless join for a new game with a clear "No deck selected" error instead of crashing with an internal error (#3479)
+
 ## 0.226.0 — 2026-10-31
 
 Fallen-Wizards Wield Wizard-Only Cards, Three More Certifications
