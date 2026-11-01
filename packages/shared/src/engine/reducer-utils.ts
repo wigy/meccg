@@ -1543,23 +1543,63 @@ export function collectFactionInfluenceRestriction(
   state: GameState,
   siteRegionName: string | undefined,
   influencerIsMinion: boolean,
+  factionDef?: CardDefinition,
 ): { modifier: number; blockedCardNames: Set<string> } {
   const blockedCardNames = new Set<string>();
   let modifier = 0;
-  if (!siteRegionName) return { modifier, blockedCardNames };
+  let playableRegions: readonly string[] | undefined;
   for (const pl of state.players) {
     for (const cip of pl.cardsInPlay) {
+      if (cip.setAsideHost !== undefined) continue;
       const cdef = defById(state, cip.definitionId);
       for (const eff of getCardEffects(cdef)) {
         if (eff.type !== 'faction-influence-restriction') continue;
         if (eff.noEffectOnMinion && influencerIsMinion) continue;
-        if (!eff.regionNames.includes(siteRegionName)) continue;
+        if (factionDef && eff.exceptFactions?.includes(factionDef.name)) continue;
+        if (eff.matchFactionPlayableRegions) {
+          // "a faction playable at a site in …" (Sentinels of Númenor dm-158):
+          // match on the faction's playable-site regions, not the current site.
+          if (!factionDef) continue;
+          playableRegions ??= factionPlayableSiteRegions(state, factionDef);
+          if (!playableRegions.some(r => eff.regionNames.includes(r))) continue;
+        } else if (!siteRegionName || !eff.regionNames.includes(siteRegionName)) {
+          continue;
+        }
         modifier += eff.modifier;
         for (const bc of (eff.blockCards ?? [])) blockedCardNames.add(bc);
       }
     }
   }
   return { modifier, blockedCardNames };
+}
+
+/**
+ * The instance ID of the `contain-influenced-factions` carrier (Sentinels of
+ * Númenor dm-158) in `player`'s play area under which a faction of definition
+ * `factionDef` that `player` just influenced into play must be placed, or
+ * `undefined` when no carrier applies (the faction is excepted, or not playable
+ * at a site in any of the carrier's regions). Shared by every faction
+ * influence success path so the stamp is applied however the faction entered
+ * play.
+ */
+export function factionContainerHost(
+  state: GameState,
+  player: PlayerState,
+  factionDef: CardDefinition,
+): CardInstanceId | undefined {
+  if (!isFactionCard(factionDef)) return undefined;
+  let regions: readonly string[] | undefined;
+  for (const cip of player.cardsInPlay) {
+    if (cip.setAsideHost !== undefined) continue;
+    const def = defById(state, cip.definitionId);
+    for (const eff of getCardEffects(def)) {
+      if (eff.type !== 'contain-influenced-factions') continue;
+      if (eff.exceptFactions?.includes(factionDef.name)) continue;
+      regions ??= factionPlayableSiteRegions(state, factionDef);
+      if (regions.some(r => eff.regionNames.includes(r))) return cip.instanceId;
+    }
+  }
+  return undefined;
 }
 
 /**

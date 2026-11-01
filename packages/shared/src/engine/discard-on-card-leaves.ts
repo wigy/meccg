@@ -64,20 +64,24 @@ export function applyDiscardOnCardLeaves(prev: GameState, next: GameState): Game
     const beforeIds = inPlayCardIds(prev.players[pi]);
     const afterIds = inPlayCardIds(player);
 
-    // Resolve the definitions of cards that were in play before and are gone now.
-    const leftDefs = [...beforeIds]
+    // Resolve the cards (with definitions) that were in play before and are gone now.
+    const left = [...beforeIds]
       .filter(id => !afterIds.has(id))
       .map(id => prev.players[pi].cardsInPlay.find(c => (c.instanceId as string) === id))
       .filter((c): c is NonNullable<typeof c> => c !== undefined)
-      .map(c => defById(prev, c.definitionId))
-      .filter((d): d is NonNullable<typeof d> => d !== undefined);
-    if (leftDefs.length === 0) continue;
+      .map(c => ({ cip: c, def: defById(prev, c.definitionId) }))
+      .filter((e): e is { cip: typeof e.cip; def: NonNullable<typeof e.def> } => e.def !== undefined);
+    if (left.length === 0) continue;
 
     for (const cip of player.cardsInPlay) {
       const def = defById(next, cip.definitionId);
       for (const effect of getCardEffects(def)) {
         if (effect.type !== 'discard-on-card-leaves-play') continue;
-        const triggered = leftDefs.some(leftDef => matchesContext(effect.filter, { card: leftDef }));
+        // `containedOnly` (Sentinels of Númenor dm-158): only a card that was
+        // placed under this very carrier counts.
+        const triggered = left.some(l =>
+          (!effect.containedOnly || l.cip.containedBy === cip.instanceId)
+          && matchesContext(effect.filter, { card: l.def }));
         if (triggered) {
           logDetail(`discard-on-card-leaves-play: "${def?.name ?? (cip.definitionId as string)}" — a matching card left ${player.name}'s play area`);
           carriersToDiscard.add(cip.instanceId as string);
@@ -88,4 +92,30 @@ export function applyDiscardOnCardLeaves(prev: GameState, next: GameState): Game
 
   if (carriersToDiscard.size === 0) return next;
   return discardCardsInPlayWhere(next, card => carriersToDiscard.has(card.instanceId as string)).state;
+}
+
+/**
+ * Clears stale {@link CardInPlay.containedBy} stamps: once a
+ * `contain-influenced-factions` carrier (Sentinels of Númenor dm-158) has left
+ * its controller's play area, the factions that were under it stay in play
+ * ("all other contained factions remain") but are no longer contained, so they
+ * lose the carrier's MP bonus and are not re-linked should the same instance
+ * ever return to play. Single-state sweep run from `postReduce`.
+ */
+export function clearOrphanedContainedBy(state: GameState): GameState {
+  let changed = false;
+  const players = state.players.map(p => {
+    if (!p.cardsInPlay.some(c => c.containedBy !== undefined)) return p;
+    const present = new Set(p.cardsInPlay.filter(c => c.setAsideHost === undefined).map(c => c.instanceId as string));
+    const cardsInPlay = p.cardsInPlay.map(c => {
+      if (c.containedBy === undefined || present.has(c.containedBy as string)) return c;
+      changed = true;
+      logDetail(`contain-influenced-factions: carrier ${c.containedBy as string} left play — ${c.instanceId as string} is no longer contained`);
+      const { containedBy: _drop, ...rest } = c;
+      return rest;
+    });
+    return { ...p, cardsInPlay };
+  });
+  if (!changed) return state;
+  return { ...state, players: players as unknown as GameState['players'] };
 }

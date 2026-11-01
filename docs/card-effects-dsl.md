@@ -1641,6 +1641,12 @@ hero Elf faction, or hero Man faction is discarded from play."
                         { "card.race": { "$in": ["dwarf", "elf", "man"] } } ] } }
 ```
 
+`containedOnly: true` restricts the trigger to leaving cards that were placed
+under this very carrier (`CardInPlay.containedBy` in the pre-action state) —
+Sentinels of Númenor (dm-158): "Discard when any faction under this card is
+discarded (all other contained factions remain)." See
+`contain-influenced-factions`.
+
 ### 3d. `fw-kill-mp-full`
 
 Fallen-wizard kill marshalling-point exemption (MEWH §4 exception). MEWH §4 clamps
@@ -9804,6 +9810,49 @@ the shared `collectFactionInfluenceRestriction` helper (`reducer-utils.ts`).
 ```
 
 Used by Mordor in Arms (dm-72).
+
+Optional fields (Sentinels of Númenor dm-158, a resource permanent-event — the
+environment is scanned from **both** players' play areas regardless of card
+type, so it hits "any attempt (by any player)"):
+
+- `exceptFactions` — faction names exempt from the restriction
+  ("except Army of the Dead").
+- `matchFactionPlayableRegions: true` — match the faction by the regions of the
+  sites it is *playable at* (`factionPlayableSiteRegions`) instead of the
+  influencing company's current-site region. Literal reading of "a faction
+  playable at a site in …"; also applied by the untethered influence paths
+  (Roäc the Raven tw-320's `faction-influence-untethered`, and the
+  `faction-influence-region-penalty` diplomacy action).
+
+```json
+{ "type": "faction-influence-restriction",
+  "regionNames": ["Anórien", "Lebennin", "Lamedon", "Belfalas", "Anfalas"],
+  "modifier": -2, "blockCards": ["Muster"],
+  "exceptFactions": ["Army of the Dead"], "matchFactionPlayableRegions": true }
+```
+
+### 25a1b. `contain-influenced-factions`
+
+Carried by a bare in-play permanent resource event. Every faction its
+controller successfully influences into play while the carrier is in play
+(site influence attempt, Roäc-style untethered attempt, or region-penalty
+diplomacy), and which is playable at a site in one of `regionNames` and not
+named in `exceptFactions`, is "placed under" the carrier: stamped
+`CardInPlay.containedBy = <carrier instance>` (`factionContainerHost`,
+`reducer-utils.ts`). Each contained faction gives `mpBonus` additional faction
+MP while the carrier is in play (`recompute-derived.ts`). When the carrier
+leaves play, `clearOrphanedContainedBy` (`discard-on-card-leaves.ts`, run from
+`postReduce`) clears the stamps; the factions stay in play. Pair with
+`discard-on-card-leaves-play` `containedOnly: true` for "discard when any
+faction under this card is discarded".
+
+```json
+{ "type": "contain-influenced-factions",
+  "regionNames": ["Anórien", "Lebennin", "Lamedon", "Belfalas", "Anfalas"],
+  "exceptFactions": ["Army of the Dead"], "mpBonus": 1 }
+```
+
+Used by Sentinels of Númenor (dm-158).
 
 ### 25a2. `block-influence-boost`
 

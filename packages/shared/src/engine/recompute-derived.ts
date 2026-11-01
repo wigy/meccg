@@ -2013,6 +2013,17 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     }
   }
 
+  // Sentinels of Númenor (dm-158): each faction placed under a
+  // `contain-influenced-factions` carrier (`CardInPlay.containedBy`) gives the
+  // carrier's `mpBonus` additional faction MP while the carrier is in play.
+  for (const card of player.cardsInPlay) {
+    if (card.containedBy === undefined || card.setAsideHost !== undefined) continue;
+    const host = player.cardsInPlay.find(c => c.instanceId === card.containedBy);
+    if (!host) continue;
+    const contain = findCardEffect(resolveDef(state, host.instanceId), 'contain-influenced-factions');
+    if (contain) mp = { ...mp, faction: mp.faction + contain.mpBonus };
+  }
+
   // Tribute Garnered (as-104): a permanent event bound to a single faction
   // instance (`CardInPlay.attachedTo`, the generic faction play-target binding
   // Long Grievous Siege ba-40 also uses) grants that specific faction's owner
