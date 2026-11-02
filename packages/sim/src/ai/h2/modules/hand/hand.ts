@@ -56,7 +56,7 @@ import { leaf, node } from '../../core/rationale.js';
 import { scoredEvaluation } from '../../core/evaluation.js';
 import { namedCharacter } from '../../core/action-fields.js';
 import { computeCardPrices } from '../../services/card-price.js';
-import { cyclingKeeps } from '../../services/cycling.js';
+import { cyclingKeeps, isPointsResource } from '../../services/cycling.js';
 import { computeCharacterValue } from '../../services/character-value.js';
 import { computeHazardPlan } from '../../services/hazard-plan.js';
 import { computeDrawValue } from '../../services/draw-value.js';
@@ -219,6 +219,15 @@ export const handModule: H2Module = {
       const kept = prices && discardedId !== undefined
         && cyclingKeeps(view, context.cardPool, prices, tunables).has(discardedId);
       const keepBonus = kept ? tunables.cyclingKeepBonus : 0;
+      // Points the hand alone cannot un-cap still tie with cards that have none
+      // at the floor, and that tie is where most thrown point cards came from:
+      // the rest of the deck can lift the cap, so they go last among the tied.
+      const heldDefinition = discarding
+        ? context.view.self.hand.find(card => card.instanceId === discardedId)?.definitionId
+        : undefined;
+      const tieBreak = discarded && prices && discarded.tsd <= prices.floor
+        && heldDefinition !== undefined && isPointsResource(context.cardPool[heldDefinition])
+        ? tunables.cappedPointsTieBreak : 0;
       // What a discard costs is what *that card* was worth, not what a card is
       // worth on average. This is the whole point of the shadow price: the
       // module can now prefer throwing the faction it can never score over the
@@ -238,7 +247,7 @@ export const handModule: H2Module = {
       // a fifth of its turns — which cost about 100 Elo against heuristic.
       const drawnBack = cycling ? expectedDrawWorth(context) + tunables.cyclingPaceTsd : 0;
       const dtsd = discarding
-        ? -(discarded?.tsd ?? tunables.provisionalCardPrice) - keepBonus + drawnBack
+        ? -(discarded?.tsd ?? tunables.provisionalCardPrice) - keepBonus - tieBreak + drawnBack
         : tunables.resourceDrawValue;
       const outcomes: Outcome[] = [{
         p: 1,

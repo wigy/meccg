@@ -169,6 +169,13 @@ export interface Tunables {
    */
   readonly cyclingKeepPoints: number;
   /**
+   * What throwing a marshalling-point card priced at the held floor costs
+   * beyond the floor, in TSD. Only orders the tie: the floor is where a source
+   * the hand alone cannot un-cap lands, yet the deck still can, so such a card
+   * goes after the cards that have no points at all.
+   */
+  readonly cappedPointsTieBreak: number;
+  /**
    * The share of a creature's plan contribution a *held* hazard is worth —
    * what `card-price` quotes for keeping it in hand, discarding it, or fetching
    * it from the sideboard.
@@ -707,6 +714,7 @@ export const DEFAULT_TUNABLES: Tunables = {
   cyclingPaceTsd: 5,
   cyclingKeepAnswers: 0,
   cyclingKeepPoints: 1,
+  cappedPointsTieBreak: 0.01,
   heldHazardShare: 0.5,
   hazardTieBreak: 0,
   favouriteCharacterTsd: 2,

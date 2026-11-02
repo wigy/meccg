@@ -67,6 +67,12 @@ function opponentShowed(
   return false;
 }
 
+/** Whether a card is a resource that scores marshalling points when played. */
+export function isPointsResource(card: CardDefinition | undefined): boolean {
+  const fields = card as unknown as Fields | undefined;
+  return /resource/.test(fields?.cardType ?? '') && (fields?.marshallingPoints ?? 0) > 0;
+}
+
 /**
  * The instance IDs in hand the cycle keeps.
  *

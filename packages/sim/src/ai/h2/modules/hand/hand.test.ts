@@ -205,11 +205,10 @@ describe('the end-of-turn hand', () => {
     expect(capped.expectedTsd).toBeLessThan(blank.expectedTsd);
   });
 
-  test('a source that stays capped however the hand plays is still worth nothing', () => {
-    // The half of §10.3 that was always right, and the half the projection
-    // must not throw away: with nothing else to play, the item source cannot
-    // get out from under the cap, and the points are worth no more to hold
-    // than a card with none.
+  test('a source that stays capped however the hand plays is thrown after a card with no points', () => {
+    // With nothing else in hand the item source cannot get out from under the
+    // cap, so both cards sit at the floor. The deck can still lift the cap, and
+    // nothing can make a blank card score, so only the tie is ordered.
     const alone = contextWith(40, 12);
     const view = alone.view as unknown as { self: { hand: unknown[] } };
     view.self.hand = [
@@ -218,7 +217,19 @@ describe('the end-of-turn hand', () => {
     ];
     const capped = handModule.evaluate(discardCapped, alone)!;
     const blank = handModule.evaluate(discardBlank, alone)!;
-    expect(capped.expectedTsd).toBe(blank.expectedTsd);
+    expect(capped.expectedTsd).toBeCloseTo(blank.expectedTsd - DEFAULT_TUNABLES.cappedPointsTieBreak, 9);
+  });
+
+  test('the capped-points tie-break can be turned off', () => {
+    const alone = contextWith(40, 12);
+    const view = alone.view as unknown as { self: { hand: unknown[] } };
+    view.self.hand = [
+      { instanceId: 'c-capped', definitionId: 'capped' },
+      { instanceId: 'c-blank', definitionId: 'blank' },
+    ];
+    const off = { ...alone, tunables: { ...alone.tunables, cappedPointsTieBreak: 0 } };
+    expect(handModule.evaluate(discardCapped, off)!.expectedTsd)
+      .toBe(handModule.evaluate(discardBlank, off)!.expectedTsd);
   });
 
   test('points that would actually score are worth more than either', () => {
