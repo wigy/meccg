@@ -33,7 +33,7 @@ import { isCharacterCard, isResourceEventCard, isSiteCard, isAvatarCharacter, is
 import { requirePhaseState, companyContainsBalrogAvatar, canCallEndgameNow, isMinionOrBalrog } from '../../state-utils.js';
 import { CardStatus, cardStatusToName, Race, Skill, type RegionType } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
-import type { PlayTargetEffect, PlayOptionEffect, Condition, WithdrawAgentEffect, GrantActionEffect, RegionTransformEffect, SiteUntapEffect, ItemUntapEffect, CardEffect } from '../../types/effects.js';
+import type { PlayTargetEffect, PlayOptionEffect, Condition, WithdrawAgentEffect, GrantActionEffect, RegionTransformEffect, SiteUntapEffect, ItemUntapEffect } from '../../types/effects.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail, logHeading } from './log.js';
 import { hasSiteTransformModes, siteTransformShortEventActions } from './site-transform.js';
@@ -3537,7 +3537,7 @@ export interface ShortEventTargetPools {
 export function collectShortEventTargetPools(
   state: GameState,
   playerId: PlayerId,
-  def: { name: string; effects?: readonly CardEffect[] },
+  def: ResourceEventCard,
   playTarget: PlayTargetEffect | undefined,
   inPlayNames: readonly string[],
   opts: { discardOptional: boolean; emptyRegionPoolBlocksCombinable: boolean },
@@ -3562,9 +3562,7 @@ export function collectShortEventTargetPools(
   // carries a cost-less, filter-only character `play-target` (The Evenstar
   // tw-343) offers the region choice as an optional layer on top of that
   // target rather than as its sole mode, so an unmet gate must not block it.
-  const regionTransformEffect = def.effects?.find(
-    (e): e is RegionTransformEffect => e.type === 'region-transform',
-  );
+  const regionTransformEffect = findCardEffect(def, 'region-transform');
   const regionTransformCombinable = !!playTarget
     && playTarget.target === 'character'
     && !playTarget.cost?.tap
@@ -3588,9 +3586,7 @@ export function collectShortEventTargetPools(
   }
 
   // Site-untap (Look More Closely Later td-128).
-  const siteUntapEffect = def.effects?.find(
-    (e): e is SiteUntapEffect => e.type === 'site-untap',
-  );
+  const siteUntapEffect = findCardEffect(def, 'site-untap');
   let siteUntapTargets: { siteInstanceId: CardInstanceId; siteName: string }[] | null = null;
   if (siteUntapEffect) {
     siteUntapTargets = collectSiteUntapTargets(state, siteUntapEffect);
@@ -3600,9 +3596,7 @@ export function collectShortEventTargetPools(
     }
   }
 
-  const itemUntapEffect = def.effects?.find(
-    (e): e is ItemUntapEffect => e.type === 'item-untap',
-  );
+  const itemUntapEffect = findCardEffect(def, 'item-untap');
   return { discardTargetIds, regionTransformTargets, siteUntapTargets, itemUntapEffect };
 }
 
