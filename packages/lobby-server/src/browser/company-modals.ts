@@ -43,6 +43,7 @@ import {
 } from './company-view-state.js';
 import { showConfirm } from './dialog.js';
 import type { BlockedMoveToInfluence } from './company-actions.js';
+import { sideboardIntentLabel } from './company-actions.js';
 import { setSelectedInfluencerForOpponent, clearOpponentInfluenceSelection, setTargetingInstruction, buildCardPreviewInfo } from './render.js';
 import { switchToAllCompanies } from './company-view.js';
 import { showTooltipMenu, tooltipButton, type TooltipMenuItem } from './tooltip-menu.js';
@@ -534,7 +535,7 @@ export function showCharacterActionTooltip(
   const sideboardIntents = options.sideboardIntentActions?.get(charInstId as string) ?? [];
   for (const intent of sideboardIntents) {
     items.push({
-      label: intent.type === 'start-sideboard-to-deck' ? 'Fetch to Deck' : 'Fetch to Discard',
+      label: sideboardIntentLabel(intent),
       onClick: () => onAction(intent),
     });
   }

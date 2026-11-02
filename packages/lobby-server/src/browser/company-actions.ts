@@ -206,6 +206,20 @@ export function getSideboardIntentActions(view: PlayerView): Map<string, (StartS
 }
 
 /**
+ * Menu label for an avatar sideboard-access intent (CoE rule 2.II.6).
+ *
+ * The labels name the sideboard and the avatar tap explicitly so the option
+ * is recognisable in the character's click menu: bare "Fetch to Deck" /
+ * "Fetch to Discard" left players unaware that clicking their avatar is how
+ * the sideboard is reached.
+ */
+export function sideboardIntentLabel(action: StartSideboardToDeckAction | StartSideboardToDiscardAction): string {
+  return action.type === 'start-sideboard-to-deck'
+    ? 'Tap: Sideboard \u2192 Play Deck (1 card)'
+    : 'Tap: Sideboard \u2192 Discard (up to 5)';
+}
+
+/**
  * Collect all viable corruption-check actions, keyed by the character instance ID.
  * Each character can have at most one corruption check action.
  */
