@@ -13,10 +13,10 @@
  *   - play-window (phase site, siteTypes ["border-hold"]): restricts play to the
  *       site phase while the active company is at a Border-hold.
  *   - on-event self-enters-play → add-constraint auto-attack-prowess-boost
- *       (scope company-site-phase, value -1, siteType border-hold,
- *       doublesWithDoorsOfNight): installs a *persistent* auto-attack.prowess
+ *       (scope company-site-phase, value -1 / -2 by `when` on Doors of Night,
+ *       siteType border-hold): installs a *persistent* auto-attack.prowess
  *       modifier on the active company's site so every automatic-attack faced
- *       there loses 1 prowess (2 while Doors of Night is in play — the doubled
+ *       there loses 1 prowess (2 while Doors of Night is in play — the chosen
  *       amount is baked in at play time). Unlike a one-shot boost (Choking
  *       Shadows, Arouse Defenders), the modifier is NOT consumed after the first
  *       attack — it applies for the whole site phase.

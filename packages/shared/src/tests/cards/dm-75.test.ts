@@ -12,7 +12,7 @@
  *    Cannot be duplicated."
  *
  * Effects:
- *   1. region-movement-limit reduce:1 reduceWithDoorsOfNight:2 min:2
+ *   1. region-movement-limit reduce:1 min:2 / reduce:2 min:2 (when inPlay DoN)
  *      — game-wide region-movement reduction, floored at two regions
  *   2. on-event: play-deck-exhausted → discard-self
  *      — discard when any play deck is exhausted

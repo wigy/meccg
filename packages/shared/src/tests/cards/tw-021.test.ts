@@ -661,4 +661,26 @@ describe('Choking Shadows (tw-21)', () => {
       expect(boost!.kind.filter).toEqual({ 'site.type': SiteType.RuinsAndLairs });
     }
   });
+
+  test('revealing on-guard with Doors of Night in play still applies the +2 prowess boost, not the type override', () => {
+    const base = buildSitePhaseTwoPlayer({ site: GLITTERING_CAVES, heroChars: [ARAGORN] });
+    const { state: withOG, ogCard } = placeOnGuard(base, RESOURCE_PLAYER, 0, CHOKING_SHADOWS);
+    const donInPlay = { instanceId: 'don-1' as CardInstanceId, definitionId: DOORS_OF_NIGHT, status: CardStatus.Untapped };
+    const testState: GameState = {
+      ...withOG,
+      players: [withOG.players[0], { ...withOG.players[1], cardsInPlay: [donInPlay] }],
+      phaseState: makeSitePhase({ step: 'reveal-on-guard-attacks', siteEntered: false }),
+    };
+
+    const afterReveal = dispatch(testState, { type: 'reveal-on-guard', player: PLAYER_2, cardInstanceId: ogCard.instanceId });
+
+    expect(afterReveal.activeConstraints.some(c =>
+      c.kind.type === 'attribute-modifier' && c.kind.attribute === 'site.type',
+    )).toBe(false);
+    const boost = afterReveal.activeConstraints.find(c =>
+      c.kind.type === 'attribute-modifier' && c.kind.attribute === 'auto-attack.prowess',
+    );
+    expect(boost).toBeDefined();
+    if (boost!.kind.type === 'attribute-modifier') expect(boost!.kind.value).toBe(2);
+  });
 });

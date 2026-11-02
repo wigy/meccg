@@ -2949,15 +2949,6 @@ export interface AddConstraintAction extends TriggeredActionBase {
   /** Site type for site-type-override / site-resource-unlocked / auto-attack-prowess-boost. */
   readonly siteType?: string;
   /**
-   * For an `auto-attack-prowess-boost` add-constraint (Come By Night Upon Them
-   * le-176: "-1 to the prowess of all automatic-attacks at the site, -2 if Doors
-   * of Night is in play"): when true, the effect's {@link value} is doubled at
-   * play time if Doors of Night is in play. The doubled amount is baked into the
-   * constraint when it is created, since the card is played immediately before
-   * the site's automatic-attacks resolve.
-   */
-  readonly doublesWithDoorsOfNight?: boolean;
-  /**
    * Compound site selector for a `site-resource-unlocked` add-constraint whose
    * "such a site" is not a single site type — evaluated against the site
    * context (A Panoply of Wings wh-37: "any non-Haven, non-Shadow-hold,
@@ -12092,9 +12083,10 @@ export interface RollThenSwapNewSiteEffect extends EffectBase {
  * environment permanent-event; it applies game-wide (to every player's
  * companies), not just to the controller's.
  *
- * The effective max region distance is reduced by {@link reduce}, or by
- * {@link reduceWithDoorsOfNight} while *Doors of Night* is in play, and is
- * never lowered below {@link min}.
+ * The effective max region distance is reduced by {@link reduce} while the
+ * effect's `when` holds against the `inPlay` card names, and is never lowered
+ * below {@link min}. A card whose reduction depends on another card carries one
+ * effect per mutually exclusive `when`.
  *
  * Consumed at movement-plan time (`organization-companies.ts`) and at
  * company selection in the Movement/Hazard phase
@@ -12108,8 +12100,6 @@ export interface RegionMovementLimitEffect extends EffectBase {
   readonly type: 'region-movement-limit';
   /** Regions subtracted from the max region distance for every moving company. */
   readonly reduce: number;
-  /** Reduction applied instead of {@link reduce} while Doors of Night is in play. */
-  readonly reduceWithDoorsOfNight?: number;
   /** Floor below which the reduced max region distance may never drop. */
   readonly min: number;
 }

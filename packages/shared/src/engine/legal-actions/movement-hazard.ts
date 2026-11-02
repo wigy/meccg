@@ -4660,8 +4660,8 @@ function playHazardsActionsForCompany(
             // `regionType`, `effectiveSiteType`, `isWizardhaven`, `isProtected`
             // (Nature's Revenge wh-27: "a site in a Wilderness that normally is
             // a Border-hold or a Shadow-hold, or a non-protected Wizardhaven
-            // in a Wilderness"). The `environment` block is layered on top for
-            // hazards that gate on it instead — Doubled Vigilance (dm-51):
+            // in a Wilderness"). The `inPlay` names are layered on top for
+            // hazards that gate on them instead — Doubled Vigilance (dm-51):
             // "Shadow-hold, or Ruins & Lairs / Border-hold while Doors of
             // Night is in play". Both builders spread the same site definition,
             // so the overlap is identical and only the derived keys differ.
