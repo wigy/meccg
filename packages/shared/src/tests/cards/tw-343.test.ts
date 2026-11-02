@@ -166,6 +166,27 @@ describe('The Evenstar (tw-343)', () => {
     expect(viableActions(state, PLAYER_1, 'play-short-event').length).toBeGreaterThan(0);
   });
 
+  test('long-event phase: without Gates of Morning, having no region to transform does not block the card', () => {
+    const state = buildTestState({
+      phase: Phase.LongEvent,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, alignment: Alignment.Wizard, companies: [{ site: RIVENDELL, characters: [LEGOLAS] }], hand: [EVENSTAR], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const noRegions: GameState = {
+      ...state,
+      cardPool: Object.fromEntries(Object.entries(state.cardPool).filter(([, def]) => def.cardType !== 'region')),
+    };
+    const legolasId = findCharInstanceId(noRegions, RESOURCE_PLAYER, LEGOLAS);
+
+    const actions = viableActions(noRegions, PLAYER_1, 'play-short-event')
+      .map(ea => actionAs<PlayShortEventAction>(ea.action));
+
+    expect(actions.map(a => a.targetCharacterId)).toEqual([legolasId]);
+  });
+
   // ─── Rules 4-7: Gates-of-Morning broadcast ─────────────────────────────────
 
   test('with Gates of Morning: the chosen Elf reaches +2, every other Elf gets +1, non-Elves untouched', () => {

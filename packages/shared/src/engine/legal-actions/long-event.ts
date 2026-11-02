@@ -472,15 +472,27 @@ export function heroResourceShortEventActions(
     }
 
     // Collect eligible region-transform targets (Master of Wood, Water, or
-    // Hill td-136). See the identical block in organization.ts's
-    // `playResourceShortEventActions`.
+    // Hill td-136). See the equivalent block in organization.ts's
+    // `playResourceShortEventActions`, including why an unmet `when` gate does
+    // not block a combinable card (The Evenstar tw-343).
     const regionTransformEffect = def.effects?.find(
       (e): e is RegionTransformEffect => e.type === 'region-transform',
     );
+    const playTarget = getPlayTargetEffect(def);
+    const regionTransformCombinable = !!playTarget
+      && playTarget.target === 'character'
+      && !playTarget.cost?.tap
+      && !!playTarget.filter;
     let regionTransformTargets: { regionName: string; newRegionType: RegionType }[] | null = null;
     if (regionTransformEffect) {
-      regionTransformTargets = collectRegionTransformTargets(state, regionTransformEffect);
-      if (regionTransformTargets.length === 0) {
+      const regionTransformGateMet = !regionTransformEffect.when
+        || matchesCondition(regionTransformEffect.when, { inPlay: inPlayNames });
+      if (regionTransformGateMet) {
+        regionTransformTargets = collectRegionTransformTargets(state, regionTransformEffect);
+      } else {
+        logDetail(`${def.name}: region-transform "when" gate not met`);
+      }
+      if (regionTransformGateMet ? regionTransformTargets?.length === 0 : !regionTransformCombinable) {
         logDetail(`${def.name}: no region currently matches a region-transform option — not playable`);
         actions.push(notPlayable(playerId, cardInstanceId, `${def.name} has no eligible region to transform`));
         continue;
@@ -558,7 +570,6 @@ export function heroResourceShortEventActions(
     // declares an `itemFilter` (Use Palantír tw-355), emit the cross-product
     // of sage × qualifying-item instead — the player picks which of the
     // sage's matching items (e.g. which Palantír) the card resolves against.
-    const playTarget = getPlayTargetEffect(def);
     const emitPlay = (sageId: CardInstanceId | undefined) => {
       const itemFilter = playTarget?.itemFilter;
       const sageChar = sageId ? player.characters[sageId] : undefined;
