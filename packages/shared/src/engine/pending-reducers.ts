@@ -3514,6 +3514,26 @@ function finalizeGoldRingTest(
 }
 
 /**
+ * Finish an offer that plays an item onto a character. The caller has already
+ * taken the card out of its source pile and checked the character is in play.
+ * Because this counts as playing the item, it fires "Tap this card if the
+ * company plays a ring special item" (Into the Smoking Cone, dm-146).
+ */
+function attachItemAndDequeue(
+  state: GameState,
+  playerIndex: number,
+  characterId: CardInstanceId,
+  card: { readonly instanceId: CardInstanceId; readonly definitionId: CardDefinitionId },
+  def: import('../index.js').CardDefinition | undefined,
+  top: PendingResolution,
+): GameState {
+  const newItem = { instanceId: card.instanceId, definitionId: card.definitionId, status: CardStatus.Untapped };
+  const attached = updatePlayer(state, playerIndex, p =>
+    updateCharacter(p, characterId, c => ({ ...c, items: [...c.items, newItem] })));
+  return dequeueResolution(tapCompanyCardsOnItemPlay(attached, playerIndex, characterId, def), top.id);
+}
+
+/**
  * Resolve a queued `ring-play-offer` resolution (Rule 9.21).
  *
  * The player either passes (generic `pass` action) or plays a special ring
@@ -3590,26 +3610,7 @@ export function applyRingPlayOfferResolution(
   const charDef = resolveDef(state, characterInstanceId);
   logDetail(`ring-play-offer: playing ${ringName} (${ringInstanceId as string}) onto ${charDef?.name ?? (characterInstanceId as string)}${storedPlacement ? ' (stored)' : ''}`);
 
-  const newItem: CharacterInPlay['items'][0] = {
-    instanceId: ringCard.instanceId,
-    definitionId: ringCard.definitionId,
-    status: CardStatus.Untapped,
-  };
-
-  const updatedChar: CharacterInPlay = {
-    ...char,
-    items: [...char.items, newItem],
-  };
-
-  const stateAfterAttach = updatePlayer(stateAfterRemove, playerIndex, p => ({
-    ...p,
-    characters: { ...p.characters, [characterInstanceId as string]: updatedChar },
-  }));
-  // Into the Smoking Cone (dm-146): "Tap this card if the company plays a
-  // ring special item" — replacing a tested gold ring is playing one.
-  const stateAfterPlay = tapCompanyCardsOnItemPlay(stateAfterAttach, playerIndex, characterInstanceId, ringDef);
-
-  return { state: dequeueResolution(stateAfterPlay, top.id) };
+  return { state: attachItemAndDequeue(stateAfterRemove, playerIndex, characterInstanceId, ringCard, ringDef, top) };
 }
 
 /**
@@ -3649,22 +3650,7 @@ export function applyNamedCardPlayOfferResolution(
   }
   logDetail(`named-card-play-offer: playing ${cardDefName} (${cardInstanceId as string}) onto ${defById(state, char.definitionId)?.name ?? (targetCharacterId as string)}`);
 
-  const newItem: CharacterInPlay['items'][0] = {
-    instanceId: card.instanceId,
-    definitionId: card.definitionId,
-    status: CardStatus.Untapped,
-  };
-  const updatedChar: CharacterInPlay = { ...char, items: [...char.items, newItem] };
-
-  const stateAfterAttach = updatePlayer(stateAfterRemove, playerIndex, p => ({
-    ...p,
-    characters: { ...p.characters, [targetCharacterId as string]: updatedChar },
-  }));
-  // Into the Smoking Cone (dm-146): "Tap this card if the company plays a
-  // ring special item".
-  const stateAfterPlay = tapCompanyCardsOnItemPlay(stateAfterAttach, playerIndex, targetCharacterId, def);
-
-  return { state: dequeueResolution(stateAfterPlay, top.id) };
+  return { state: attachItemAndDequeue(stateAfterRemove, playerIndex, targetCharacterId, card, def, top) };
 }
 
 /**
@@ -3722,22 +3708,7 @@ export function applyItemPlacementOfferResolution(
   }
   logDetail(`item-placement-offer: playing ${cardDefName} (${cardInstanceId as string}) onto ${defById(state, char.definitionId)?.name ?? (characterInstanceId as string)}`);
 
-  const newItem: CharacterInPlay['items'][0] = {
-    instanceId: card.instanceId,
-    definitionId: card.definitionId,
-    status: CardStatus.Untapped,
-  };
-  const updatedChar: CharacterInPlay = { ...char, items: [...char.items, newItem] };
-
-  const stateAfterAttach = updatePlayer(stateAfterRemove, playerIndex, p => ({
-    ...p,
-    characters: { ...p.characters, [characterInstanceId as string]: updatedChar },
-  }));
-  // Into the Smoking Cone (dm-146): "Tap this card if the company plays a
-  // ring special item".
-  const stateAfterPlay = tapCompanyCardsOnItemPlay(stateAfterAttach, playerIndex, characterInstanceId, def);
-
-  return { state: dequeueResolution(stateAfterPlay, top.id) };
+  return { state: attachItemAndDequeue(stateAfterRemove, playerIndex, characterInstanceId, card, def, top) };
 }
 
 /**
