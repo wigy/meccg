@@ -17,17 +17,17 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, PlayTargetEffect, CardInstanceId, PlayerState, SitePhaseState, Company } from '../../index.js';
-import type { PlayOptionEffect, RegionTransformEffect, SiteUntapEffect, ItemUntapEffect } from '../../types/effects.js';
+import type { PlayOptionEffect } from '../../types/effects.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { isResourceEventCard, isSiteCard } from '../../types/cards.js';
-import { CardStatus, type RegionType } from '../../types/common.js';
+import { CardStatus } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { canCallEndgameNow } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
 import { hasSiteTransformModes, siteTransformShortEventActions } from './site-transform.js';
-import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext, playerStateGateMet, grantedActionActivations, collectDiscardInPlayTargets, collectRegionTransformTargets, collectSiteUntapTargets, collectItemUntapTargets, withdrawAgentTargetActions, eligibleSkillAllyTargetsForCharacter, companyHazardDiscardActions } from './organization.js';
+import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext, playerStateGateMet, grantedActionActivations, collectDiscardInPlayTargets, collectShortEventTargetPools, collectItemUntapTargets, withdrawAgentTargetActions, eligibleSkillAllyTargetsForCharacter, companyHazardDiscardActions } from './organization.js';
 import { playPermanentEventActions } from './organization-events.js';
 import type { WithdrawAgentEffect } from '../../types/effects.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
@@ -450,77 +450,18 @@ export function heroResourceShortEventActions(
       continue;
     }
 
-    // Collect eligible discard-in-play targets up front. Cards with a
-    // discard-in-play effect (e.g. Marvels Told) force the discard of an
-    // in-play card matching the filter — the player picks which target
-    // at play time as part of the play-short-event action. If no valid
-    // target exists, the card is not playable. A `when` gate on the effect
-    // is also evaluated (e.g. The Cock Crows requires Gates of Morning).
-    const discardInPlay = findMoveEffectByShape(def, 'target', 'in-play', 'discard');
-    const discardWhenMet = !discardInPlay?.when
-      || matchesCondition(discardInPlay.when, { inPlay: inPlayNames });
-    let discardTargetIds: CardInstanceId[] | null = null;
-    // A company-scoped discard (`targetScope: "play-target-company"`) is
-    // enumerated per caster by `companyHazardDiscardActions` instead.
-    if (discardWhenMet && discardInPlay && discardInPlay.filter && !discardInPlay.targetScope) {
-      discardTargetIds = collectDiscardInPlayTargets(state, discardInPlay.filter, playerId);
-      if (discardTargetIds.length === 0) {
-        logDetail(`${def.name}: no eligible discard-in-play target — not playable`);
-        actions.push(notPlayable(playerId, cardInstanceId, `${def.name} has no valid target to discard`));
-        continue;
-      }
-    }
-
-    // Collect eligible region-transform targets (Master of Wood, Water, or
-    // Hill td-136). See the equivalent block in organization.ts's
-    // `playResourceShortEventActions`, including why an unmet `when` gate does
-    // not block a combinable card (The Evenstar tw-343).
-    const regionTransformEffect = def.effects?.find(
-      (e): e is RegionTransformEffect => e.type === 'region-transform',
-    );
+    // The sideboard-fetch mode that makes a discard optional is organization-
+    // only, so an empty discard pool always blocks the card here.
     const playTarget = getPlayTargetEffect(def);
-    const regionTransformCombinable = !!playTarget
-      && playTarget.target === 'character'
-      && !playTarget.cost?.tap
-      && !!playTarget.filter;
-    let regionTransformTargets: { regionName: string; newRegionType: RegionType }[] | null = null;
-    if (regionTransformEffect) {
-      const regionTransformGateMet = !regionTransformEffect.when
-        || matchesCondition(regionTransformEffect.when, { inPlay: inPlayNames });
-      if (regionTransformGateMet) {
-        regionTransformTargets = collectRegionTransformTargets(state, regionTransformEffect);
-      } else {
-        logDetail(`${def.name}: region-transform "when" gate not met`);
-      }
-      if (regionTransformGateMet ? regionTransformTargets?.length === 0 : !regionTransformCombinable) {
-        logDetail(`${def.name}: no region currently matches a region-transform option — not playable`);
-        actions.push(notPlayable(playerId, cardInstanceId, `${def.name} has no eligible region to transform`));
-        continue;
-      }
+    const pools = collectShortEventTargetPools(state, playerId, def, playTarget, inPlayNames, {
+      discardOptional: false,
+      emptyRegionPoolBlocksCombinable: true,
+    });
+    if ('blockedReason' in pools) {
+      actions.push(notPlayable(playerId, cardInstanceId, pools.blockedReason));
+      continue;
     }
-
-    // Collect eligible site-untap targets (Look More Closely Later td-128).
-    // See the identical block in organization.ts's `playResourceShortEventActions`.
-    const siteUntapEffect = def.effects?.find(
-      (e): e is SiteUntapEffect => e.type === 'site-untap',
-    );
-    let siteUntapTargets: { siteInstanceId: CardInstanceId; siteName: string }[] | null = null;
-    if (siteUntapEffect) {
-      siteUntapTargets = collectSiteUntapTargets(state, siteUntapEffect);
-      if (siteUntapTargets.length === 0) {
-        logDetail(`${def.name}: no tapped site currently matches the site-untap filter — not playable`);
-        actions.push(notPlayable(playerId, cardInstanceId, `${def.name} has no eligible site to untap`));
-        continue;
-      }
-    }
-
-    // Wielded Twice (td-167). See the identical block in organization.ts's
-    // `playResourceShortEventActions` — the (sage × tapped item) cross is
-    // company-relative, so it is resolved per-sage inside `emitPlay` below,
-    // not precomputed here.
-    const itemUntapEffect = def.effects?.find(
-      (e): e is ItemUntapEffect => e.type === 'item-untap',
-    );
+    const { discardTargetIds, regionTransformTargets, siteUntapTargets, itemUntapEffect } = pools;
 
     // "Discard every matching card in play" (Wizard's River-horses tw-364:
     // "All Nazgûl events are discarded"). Unlike the single-target shape above
