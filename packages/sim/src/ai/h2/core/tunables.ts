@@ -192,8 +192,10 @@ export interface Tunables {
   readonly deckPlanKeepTsd: number;
   /**
    * The share of a destination's value credited for cards it could play but no
-   * character will have a tap for on arrival. These drove 85 of the 115 replayed
-   * trips the AI still makes with nothing to play and nobody wounded.
+   * character will have a tap for on arrival. At 1 these drove 85 of the 115
+   * replayed trips the AI still made with nothing to play and nobody wounded.
+   * At 0, 400 games a pair against 1: c/d +36, m/p +21, a/b +11, b/p +3, and
+   * those replayed moves went 154 → 66 empty trips, with plays unchanged.
    */
   readonly travelNoTapShare: number;
   /**
@@ -739,7 +741,7 @@ export const DEFAULT_TUNABLES: Tunables = {
   deckPlanPlayTsd: 6,
   deckPlanMinRate: 0.5,
   deckPlanKeepTsd: 0,
-  travelNoTapShare: 1,
+  travelNoTapShare: 0,
   heldHazardShare: 0.5,
   hazardTieBreak: 0,
   favouriteCharacterTsd: 2,
