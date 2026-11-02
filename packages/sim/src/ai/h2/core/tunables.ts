@@ -514,7 +514,8 @@ export interface Tunables {
    */
   readonly planAggregationMode: number;
   /**
-   * Chance a company ends up at a plan's site with nothing routing it there.
+   * Chance per movement still needed that a company ends up at a plan's site
+   * with nothing routing it there.
    *
    * The prior on the `route` step, and the number the whole first proposer
    * turns on. Not zero, because a plan priced at zero is abandoned the turn it

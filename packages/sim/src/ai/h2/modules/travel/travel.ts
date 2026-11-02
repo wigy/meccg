@@ -1187,12 +1187,15 @@ export const travelModule: H2Module = {
     // commitment to anywhere further can *only* be served by a staging move,
     // and a step that recognised nothing but the final hop credited none of
     // them. Recomputed with the same service and the same rate the proposer
-    // used, so the two cannot disagree about the map.
-    const reach = computeReach(context.cardPool);
-    const distance = reach.between(destination.definitionId, required.siteDefinitionId);
-    if (distance === null) return null;
-    return reachProbability(distance, context.tunables.planUnroutedReachProbability);
-
+    // used, so the two cannot disagree about the map. A stop the held sites
+    // join to no route leaves the step alone: a detour delays a plan.
+    const moves = computeReach(context.cardPool).movesBetween(
+      destination.definitionId,
+      required.siteDefinitionId,
+      context.view.self.siteDeck.map(site => site.definitionId as string),
+    );
+    if (moves === null) return null;
+    return reachProbability(moves, context.tunables.planUnroutedReachProbability);
   },
 
   evaluate(action: GameAction, context: ModuleContext): Evaluation | null {

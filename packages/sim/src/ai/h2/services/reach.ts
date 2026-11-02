@@ -20,7 +20,7 @@
  * to get there — so this takes the shorter of the two.
  */
 
-import { buildMovementMap, regionDistanceInclusive } from '@meccg/shared';
+import { BASE_MAX_REGION_DISTANCE, buildMovementMap, regionDistanceInclusive } from '@meccg/shared';
 import type { CardDefinition } from '@meccg/shared';
 import { memoizeOnFirst } from '../core/memo.js';
 
@@ -39,6 +39,19 @@ export interface Reach {
    * island.
    */
   between(fromDefinitionId: string, toDefinitionId: string): number | null;
+  /**
+   * How many movements it takes to get from one site to another, stopping only
+   * at the given sites — a company can only travel to a site it holds.
+   *
+   * Zero when already there, and null when the waypoints join no route, which
+   * is a real answer here rather than a gap in the map: the sites that would
+   * have made the trip are not in hand.
+   */
+  movesBetween(
+    fromDefinitionId: string,
+    toDefinitionId: string,
+    waypointDefinitionIds: readonly string[],
+  ): number | null;
 }
 
 /** Build the reach service for a card pool. Memoized: the map is pool-wide. */
@@ -51,17 +64,40 @@ export const computeReach = memoizeOnFirst(
       map.havenSites.get(fromName)?.has(toName) === true
       || map.havenSites.get(toName)?.has(fromName) === true
       || map.havenToHaven.get(fromName)?.has(toName) === true;
+    const between = (fromDefinitionId: string, toDefinitionId: string): number | null => {
+      const fromName = nameOf(fromDefinitionId);
+      const toName = nameOf(toDefinitionId);
+      if (fromName === undefined || toName === undefined) return null;
+      const from = map.siteRegion.get(fromName);
+      const to = map.siteRegion.get(toName);
+      const regionDistance = from === undefined || to === undefined
+        ? null : regionDistanceInclusive(map, from, to);
+      if (!starterAdjacent(fromName, toName)) return regionDistance;
+      return regionDistance === null ? ONE_HOP_DISTANCE : Math.min(regionDistance, ONE_HOP_DISTANCE);
+    };
+    const oneMove = (fromDefinitionId: string, toDefinitionId: string): boolean => {
+      const distance = between(fromDefinitionId, toDefinitionId);
+      return distance !== null && distance <= BASE_MAX_REGION_DISTANCE;
+    };
     return {
-      between(fromDefinitionId: string, toDefinitionId: string): number | null {
-        const fromName = nameOf(fromDefinitionId);
-        const toName = nameOf(toDefinitionId);
-        if (fromName === undefined || toName === undefined) return null;
-        const from = map.siteRegion.get(fromName);
-        const to = map.siteRegion.get(toName);
-        const regionDistance = from === undefined || to === undefined
-          ? null : regionDistanceInclusive(map, from, to);
-        if (!starterAdjacent(fromName, toName)) return regionDistance;
-        return regionDistance === null ? ONE_HOP_DISTANCE : Math.min(regionDistance, ONE_HOP_DISTANCE);
+      between,
+      movesBetween(fromDefinitionId, toDefinitionId, waypointDefinitionIds) {
+        if (fromDefinitionId === toDefinitionId) return 0;
+        const seen = new Set([fromDefinitionId]);
+        let frontier = [fromDefinitionId];
+        for (let moves = 1; frontier.length > 0; moves++) {
+          if (frontier.some(site => oneMove(site, toDefinitionId))) return moves;
+          const next: string[] = [];
+          for (const site of frontier) {
+            for (const waypoint of waypointDefinitionIds) {
+              if (seen.has(waypoint) || !oneMove(site, waypoint)) continue;
+              seen.add(waypoint);
+              next.push(waypoint);
+            }
+          }
+          frontier = next;
+        }
+        return null;
       },
     };
   },

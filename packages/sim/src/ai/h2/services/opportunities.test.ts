@@ -11,7 +11,9 @@
  *
  * The golden pins the scenarios it holds; a scenario added later is simply
  * not covered by it, which keeps the corpus growable without regenerating
- * history.
+ * history. The route step's probability and its wording are left out of the
+ * comparison: they are graded by movements now, which the refactor never
+ * touched, and `routeProbabilityFor` has its own tests below.
  *
  * It is edited only when a proposal it recorded was wrong, and then only by
  * deleting that proposal — never by re-recording the file wholesale, which
@@ -26,6 +28,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { loadCardPool } from '@meccg/shared';
 import type { ModuleContext } from '../core/types.js';
+import type { Plan } from '../core/plan.js';
+import { ROUTE_STEP } from '../core/plan.js';
 import { DEFAULT_TUNABLES } from '../core/tunables.js';
 import { computeStanding } from './standing.js';
 import { testWinProbModel } from '../test-support.js';
@@ -44,6 +48,14 @@ const GOLDEN = JSON.parse(fs.readFileSync(
 // characters, so the refactor contract is held at those numbers.
 const SCENARIO_TUNABLES = { ...DEFAULT_TUNABLES, eliminationTempoCost: 3, woundTempoCost: 1.5 };
 
+/** Plans with the route step's graded probability and its wording removed. */
+function withoutRouteGrade(plans: readonly Plan[]): unknown {
+  return plans.map(plan => ({
+    ...plan,
+    steps: plan.steps.map(step => (step.tag === ROUTE_STEP ? { ...step, p: 0, source: '' } : step)),
+  }));
+}
+
 describe('proposal identity across the refactor', () => {
   const cardPool = loadCardPool();
   // The shipped model, because the golden was generated with it: proposals
@@ -58,7 +70,8 @@ describe('proposal identity across the refactor', () => {
     const standing = computeStanding(view, model, SCENARIO_TUNABLES);
     const context: ModuleContext = { view, cardPool, legalActions, tunables: SCENARIO_TUNABLES, standing };
     const plans = proposePlans(ALL_MODULES, context);
-    expect(JSON.parse(JSON.stringify(plans))).toEqual(GOLDEN[id]);
+    const proposed = JSON.parse(JSON.stringify(plans)) as Plan[];
+    expect(withoutRouteGrade(proposed)).toEqual(withoutRouteGrade(GOLDEN[id] as unknown as Plan[]));
   });
 });
 
@@ -92,26 +105,51 @@ describe('the enumeration itself', () => {
 });
 
 describe('routeProbabilityFor', () => {
+  const WELLINGHALL = 'tw-437';
+  const EDORAS = 'tw-394';
+  const DOL_AMROTH = 'tw-386';
   const cardPool = loadCardPool();
   const reach = computeReach(cardPool);
 
   test('standing on the site or heading there is certainty', () => {
     const site = { definitionId: 'any-site' };
     expect(routeProbabilityFor(
-      { currentSite: site }, 'any-site', reach, DEFAULT_TUNABLES,
+      { currentSite: site }, 'any-site', reach, DEFAULT_TUNABLES, [],
     )).toMatchObject({ here: true, routeProbability: 1 });
     expect(routeProbabilityFor(
       { currentSite: { definitionId: 'elsewhere' }, destinationSite: site },
-      'any-site', reach, DEFAULT_TUNABLES,
+      'any-site', reach, DEFAULT_TUNABLES, [],
     )).toMatchObject({ heading: true, routeProbability: 1 });
   });
 
   test('an unmapped pair falls back to the flat prior, not to zero', () => {
     const estimate = routeProbabilityFor(
       { currentSite: { definitionId: 'not-a-real-site' } },
-      'also-not-real', reach, DEFAULT_TUNABLES,
+      'also-not-real', reach, DEFAULT_TUNABLES, [],
     );
     expect(estimate.distance).toBeNull();
     expect(estimate.routeProbability).toBe(DEFAULT_TUNABLES.planUnroutedReachProbability);
+  });
+
+  test('a site is priced by the movements to it, whatever the regions in each', () => {
+    const rate = DEFAULT_TUNABLES.planUnroutedReachProbability;
+    const edoras = routeProbabilityFor(
+      { currentSite: { definitionId: WELLINGHALL } }, EDORAS, reach, DEFAULT_TUNABLES, [],
+    );
+    expect(edoras.moves).toBe(1);
+    expect(edoras.routeProbability).toBe(rate);
+    const dolAmroth = routeProbabilityFor(
+      { currentSite: { definitionId: WELLINGHALL } }, DOL_AMROTH, reach, DEFAULT_TUNABLES, [EDORAS],
+    );
+    expect(dolAmroth.moves).toBe(2);
+    expect(dolAmroth.routeProbability).toBeCloseTo(rate * rate, 10);
+  });
+
+  test('a site the held sites join to no route is out of reach', () => {
+    const estimate = routeProbabilityFor(
+      { currentSite: { definitionId: WELLINGHALL } }, DOL_AMROTH, reach, DEFAULT_TUNABLES, [],
+    );
+    expect(estimate.moves).toBeNull();
+    expect(estimate.routeProbability).toBe(0);
   });
 });

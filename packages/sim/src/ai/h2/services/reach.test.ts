@@ -29,6 +29,9 @@ const LORIEN = 'tw-408';
 // share a haven without being starter-movement-adjacent to each other, so
 // this confirms the fix does not collapse every distance to one hop.
 const BANDIT_LAIR = 'tw-373';
+const WELLINGHALL = 'tw-437';
+const EDORAS = 'tw-394';
+const DOL_AMROTH = 'tw-386';
 
 describe('computeReach', () => {
   test('a site and its nearest haven are one hop apart, not the region graph\'s distance', () => {
@@ -51,5 +54,20 @@ describe('computeReach', () => {
     // shortcuts this pair — the fix must leave it exactly as before.
     expect(direct).not.toBeNull();
     expect(direct).toBeGreaterThan(2);
+  });
+
+  describe('movesBetween', () => {
+    const cardPool = loadCardPool();
+    const reach = computeReach(cardPool);
+
+    test('already there is no movement, and a starter link is one', () => {
+      expect(reach.movesBetween(LORIEN, LORIEN, [])).toBe(0);
+      expect(reach.movesBetween(MINAS_TIRITH, LORIEN, [])).toBe(1);
+    });
+
+    test('a trip beyond one movement needs a held site to stop at', () => {
+      expect(reach.movesBetween(WELLINGHALL, DOL_AMROTH, [])).toBeNull();
+      expect(reach.movesBetween(WELLINGHALL, DOL_AMROTH, [EDORAS])).toBe(2);
+    });
   });
 });
