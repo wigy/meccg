@@ -911,7 +911,7 @@ function handleRevealOnGuardAttacks(
     } else if (
       siteDef && isSiteCard(siteDef)
       && !(siteDef as { lairOf?: unknown }).lairOf
-      && isReduceAttacksToOneInPlay(state, activePlayerIndex)
+      && isReduceAttacksToOneInPlay(state, { def: siteDef, defendingPlayerIndex: activePlayerIndex })
       && printedAutoAttackCount > 1
     ) {
       nextStep = 'forewarned-select-attack';
