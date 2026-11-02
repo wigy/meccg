@@ -105,8 +105,7 @@ function handleOrganizationPass(state: GameState, action: GameAction): ReducerRe
   const orgState = requirePhaseState(state, Phase.Organization);
   if (orgState.sideboardFetchDestination !== null) {
     // Exits the to-discard sub-flow (done fetching), or a to-deck sub-flow
-    // that has nothing left to fetch (the fetch counter is shared between
-    // the two sub-flows, so to-deck can be entered with no fetch available).
+    // the player abandons without fetching.
     logDetail(`Sideboard access: player ${action.player as string} done fetching to ${orgState.sideboardFetchDestination} (${orgState.sideboardFetchedThisTurn} cards)`);
     return {
       state: {
@@ -1999,7 +1998,10 @@ function handleStartSideboard(state: GameState, action: GameAction): ReducerResu
   return {
     state: {
       ...newState,
-      phaseState: { ...orgState, sideboardFetchDestination: destination },
+      // The 1-to-deck / 5-to-discard limits apply per avatar tap, not per
+      // turn: an avatar untapped mid-phase (e.g. by And Forth He Hastened)
+      // may tap again for a fresh sideboard access, so reset the counter.
+      phaseState: { ...orgState, sideboardFetchDestination: destination, sideboardFetchedThisTurn: 0 },
     },
   };
 }

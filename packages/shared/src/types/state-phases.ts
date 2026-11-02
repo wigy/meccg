@@ -250,9 +250,10 @@ export interface OrganizationPhaseState {
    */
   readonly lastPlayedCharacterDefinitionId?: string;
   /**
-   * How many cards have been fetched from the sideboard this turn via
-   * the avatar tap action (CoE 2.II.6). Used to enforce the limit of
-   * 5 cards to discard or 1 card to deck.
+   * How many cards have been fetched from the sideboard during the current
+   * avatar tap (CoE 2.II.6). Used to enforce the limit of 5 cards to discard
+   * or 1 card to deck. Reset to 0 each time the avatar taps to start a new
+   * sideboard access, since an avatar untapped mid-phase may access again.
    */
   readonly sideboardFetchedThisTurn: number;
   /**
