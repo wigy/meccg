@@ -1249,8 +1249,8 @@ export function handlePlayHazardCard(
         targetAgentId: action.type === 'play-hazard' ? action.targetAgentId : undefined,
         // Helms of Iron (dm-64): the Nazgûl permanent-event chosen to discard.
         targetNazgulInstanceId: action.type === 'play-hazard' ? action.targetNazgulInstanceId : undefined,
-        // Trouble on All Borders (as-40): the resource player's own unique
-        // faction this hazard permanent-event attaches to via `attachedTo`.
+        // Trouble on All Borders (as-40): the unique faction in play (either
+        // player's) this hazard permanent-event attaches to via `attachedTo`.
         targetFactionInstanceId: action.type === 'play-hazard' ? action.targetFactionInstanceId : undefined,
       }
     : { type: 'long-event' };
