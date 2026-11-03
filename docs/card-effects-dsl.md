@@ -377,10 +377,13 @@ Optional `target` scopes:
   conditions like Orc-lieutenant's +4 prowess. It also includes
   `defender.alignment` — the defending player's alignment in card-text
   terminology (`"hero"` for wizard-avatar players, `"ringwraith"`,
-  `"fallen-wizard"`, or `"balrog"`) — so creatures like *Elf-lord
-  Revealed in Wrath* can boost prowess against specific alignments
-  (e.g. `{ "defender.alignment": "ringwraith" }` for "+4 vs
-  Ringwraiths"). It also includes `company.facedNames` — the printed names
+  `"fallen-wizard"`, or `"balrog"`) — so creatures can boost prowess
+  against a whole company of a specific alignment. A bonus against a
+  specific *character* race uses `defender.race` instead and is applied
+  per strike (e.g. *Elf-lord Revealed in Wrath*'s "+4 prowess versus
+  Ringwraiths" is `{ "defender.race": "ringwraith" }` — it targets
+  Ringwraith characters, not every character of a Ringwraith player,
+  per CRF "Ringwraith"). It also includes `company.facedNames` — the printed names
   of the hazard-creature attacks the company has already faced this turn,
   the name sibling of `company.facedRaces` — for conditions that name a
   *specific* companion creature rather than a race. Both lists are backed
