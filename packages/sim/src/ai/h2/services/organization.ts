@@ -53,6 +53,7 @@ import { automaticAttacksOf, computeDefence, hazardSlots } from './defence.js';
 import { computeReach } from './reach.js';
 import { enumerateGoalCandidates, routeProbabilityFor } from './opportunities.js';
 import { rosterOf } from './strike/prowess.js';
+import { allyLossOnArrival } from './ally-restriction.js';
 
 /**
  * Target assumed for a faction whose definition does not print one — the same
@@ -587,7 +588,16 @@ function buildComputeOrganization(
       const liveHarm = goal.committed || goal.siteDefinitionId === undefined
         ? 0
         : siteHarmOf(company.characterIds, goal.siteDefinitionId);
-      const netPayoffTsd = goal.payoffTsd - liveHarm;
+      // Serving this goal from a site that discards the company's Treebeard
+      // costs Treebeard, whichever kind of goal it is: a committed plan's
+      // payoff was netted without knowing which roster would serve it. This
+      // is what makes leaving him behind worth a split, because the half that
+      // walks away no longer carries the loss.
+      const allyHarm = goal.siteDefinitionId === undefined
+        || goal.siteDefinitionId === company.currentSiteDefinitionId
+        ? 0
+        : allyLossOnArrival(view, cardPool, company.characterIds, goal.siteDefinitionId, standing, tunables).harmTsd;
+      const netPayoffTsd = goal.payoffTsd - liveHarm - allyHarm;
       if (netPayoffTsd <= 0) return { p: 0, valueTsd: 0, weightTsd: 0 };
       const route = goal.siteDefinitionId === undefined
         ? { routeProbability: 1 }
