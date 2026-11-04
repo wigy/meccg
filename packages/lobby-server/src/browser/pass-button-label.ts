@@ -83,6 +83,14 @@ export function passButtonLabel(passAction: GameAction, view: PlayerView): strin
     return 'Confirm Return';
   }
 
+  // Old Cache (le-213) / Swag (le-236) tap-take-item sub-flow: `pass` ends the
+  // event's item taking and discards it, without ending the Site phase step
+  // that "Pass Resources" would suggest.
+  const topEffect = view.pendingEffects?.[0];
+  if (passAction.type === 'pass' && topEffect?.type === 'card-effect' && topEffect.effect.type === 'tap-take-item') {
+    return 'Done Taking Items';
+  }
+
   if (view.phaseState.phase === Phase.Untap) return 'End Untap';
   // Deliberately not "Long-event" (naming the next phase, per the usual
   // convention below): Organization is where long-event cards actually get

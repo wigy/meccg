@@ -70,8 +70,8 @@ function revealedCardPile(
 }
 
 /**
- * Unmasks the play-deck instances a player's own `fetch-from-pile` legal
- * actions currently target with `source: 'deck'`.
+ * Unmasks the play-deck instances a player's own `fetch-from-pile` or
+ * `tap-take-item` legal actions currently target with `source: 'deck'`.
  *
  * {@link buildSelfView}'s play-deck redaction only unmasks identities already
  * recorded in {@link GameState.revealedInstances} (e.g. Revealed to all
@@ -85,7 +85,9 @@ function revealedCardPile(
  * the time `buildSelfView` runs, unmask exactly the instances the player's
  * own viable `fetch-from-pile` actions reference in their own play deck —
  * no persisted state change, so it never leaks to the opponent or outlives
- * the fetch itself.
+ * the fetch itself. `tap-take-item` (Old Cache le-213, Swag le-236) searches
+ * the play deck the same way, so its candidates need the same unmasking or the
+ * player cannot tell which item they would be taking.
  */
 function unmaskOwnDeckFetchCandidates(
   playDeckView: readonly ViewCard[],
@@ -94,8 +96,9 @@ function unmaskOwnDeckFetchCandidates(
 ): readonly ViewCard[] {
   const candidateIds = new Set(
     legalActions
-      .filter((ea): ea is EvaluatedAction & { action: { type: 'fetch-from-pile'; source: string; cardInstanceId: CardInstanceId } } =>
-        ea.viable && ea.action.type === 'fetch-from-pile' && (ea.action as { source: string }).source === 'deck')
+      .filter((ea): ea is EvaluatedAction & { action: { type: 'fetch-from-pile' | 'tap-take-item'; source: string; cardInstanceId: CardInstanceId } } =>
+        ea.viable && (ea.action.type === 'fetch-from-pile' || ea.action.type === 'tap-take-item')
+        && (ea.action as { source: string }).source === 'deck')
       .map(ea => ea.action.cardInstanceId as string),
   );
   if (candidateIds.size === 0) return playDeckView;
