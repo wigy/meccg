@@ -40,6 +40,7 @@ const DAELOMIN_AT_HOME = 'td-11' as CardDefinitionId;
 const DAELOMIN_AHUNT = 'td-10' as CardDefinitionId;
 const DANCING_SPIRE = 'tw-383' as CardDefinitionId; // Daelomin's lair (lairOf tw-26)
 const LONELY_MOUNTAIN = 'tw-428' as CardDefinitionId; // a different Dragon's lair
+const DOORS_OF_NIGHT = 'tw-28' as CardDefinitionId; // a company-independent hazard (no play-target)
 
 /**
  * Build an M/H-phase state with P1 (resource) as the active player processing
@@ -217,6 +218,30 @@ describe('Daelomin at Home (td-11)', () => {
 
     // Card is no longer in play → Dancing Spire reverts to its printed attack.
     expect(getActiveAutoAttacks(next, spire)).toHaveLength(1);
+  });
+
+  test('the discard stays available once the active company has no characters, opening room for a company-independent hazard', () => {
+    // Bug report 4039a2aa9b7ff2d3 (game mw1a3o4y-vvrg0t, seq 1076): Slayer
+    // eliminated the moving company's only character, then Daelomin at Home
+    // used the last hazard-limit slot. The company's M/H phase goes on with its
+    // limit in effect (CoE 2.IV), so the card can still be discarded for +2.
+    const base = buildMHState([DAELOMIN_AT_HOME], { hazardLimitAtReveal: 2, hazardsPlayedThisCompany: 2 });
+    const emptied: GameState = {
+      ...base,
+      players: [
+        { ...base.players[RESOURCE_PLAYER], companies: [{ ...base.players[RESOURCE_PLAYER].companies[0], characters: [] }] },
+        { ...base.players[HAZARD_PLAYER], hand: [{ instanceId: 'long-event-1' as CardInstanceId, definitionId: DOORS_OF_NIGHT }] },
+      ] as typeof base.players,
+    };
+    expect(viableActions(emptied, PLAYER_2, 'play-hazard')).toHaveLength(0);
+
+    const actions = viableActions(emptied, PLAYER_2, 'discard-card-for-hazard-limit');
+    expect(actions).toHaveLength(1);
+
+    const next = dispatch(emptied, actions[0].action);
+    const mhAfter = next.phaseState as MovementHazardPhaseState;
+    expect(currentHazardLimit(next, mhAfter, targetCompanyId(emptied))).toBe(4);
+    expect(viableActions(next, PLAYER_2, 'play-hazard')).toHaveLength(1);
   });
 
   // ─── kill marshalling points ──────────────────────────────────────────────
