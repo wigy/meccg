@@ -429,6 +429,33 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
       return;
     }
 
+    // Chance of Being Lost (dm-49): after a passed roll the hazard player must
+    // pick the moving company's replacement site (`swap-new-site-choice`). The
+    // choice is mandatory with no default, so it is absent from the pass-like
+    // whitelist; without this branch the panel hid entirely while these actions
+    // were viable. Havens can hold several copies of one site, and those copies
+    // are interchangeable, so each distinct card definition gets one button.
+    // Bug report 15140d0e02b8ae3d (game mw3njyc8-tovajp, seq 157): "Im stuck".
+    const swapSiteEvals = view.legalActions.filter(ea => ea.viable && ea.action.type === 'swap-new-site-choice');
+    if (swapSiteEvals.length > 0) {
+      btn.classList.add('hidden');
+      waitingEl?.classList.add('hidden');
+      const offeredSites = new Set<string>();
+      for (const ea of swapSiteEvals) {
+        const swapAction = ea.action;
+        if (swapAction.type !== 'swap-new-site-choice') continue;
+        const siteKey = (appState.lastInstanceLookup(swapAction.replacementSiteInstanceId) ?? swapAction.replacementSiteInstanceId) as string;
+        if (offeredSites.has(siteKey)) continue;
+        offeredSites.add(siteKey);
+        const swapBtn = document.createElement('button');
+        swapBtn.className = 'enter-site-btn swap-new-site-choice-btn';
+        swapBtn.textContent = swapAction.explanation;
+        swapBtn.onclick = () => onAction(swapAction);
+        inPhaseTier?.appendChild(swapBtn);
+      }
+      return;
+    }
+
     // Tutorial enter-or-skip:the script demands entering the site, so the
     // gate demoted the normal Skip (pass) to non-viable — which would hide
     // the whole button pair. Show the familiar Enter/Skip controls anyway:

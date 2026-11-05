@@ -1255,3 +1255,61 @@ describe('renderPassButton — select-return-to-hand-character (Unhappy Blows, a
     expect(tierInPhasePass.children.map(c => c.textContent)).toEqual(['Return Hill-troll (mind 3)']);
   });
 });
+
+/**
+ * Regression test for bug report 15140d0e02b8ae3d (game mw3njyc8-tovajp, seq
+ * 157): "Im stuck". A passed Chance of Being Lost (dm-49) roll enqueues a
+ * mandatory `swap-new-site-choice` resolution. That action type had no button,
+ * so the hazard player had viable actions but no visible control. The offered
+ * sites are the ones from the report: four Grey Havens copies and one Isles of
+ * the Dead that Live.
+ */
+const swapNewSiteChoice = (replacementSiteInstanceId: string, siteName: string): EvaluatedAction => ({
+  action: {
+    type: 'swap-new-site-choice',
+    player: 'p1',
+    replacementSiteInstanceId,
+    explanation: `Replace "Himring" with "${siteName}"`,
+  },
+  viable: true,
+} as EvaluatedAction);
+
+describe('renderPassButton — swap-new-site-choice (Chance of Being Lost)', () => {
+  const offered = [
+    swapNewSiteChoice('p1-104', 'Grey Havens'),
+    swapNewSiteChoice('p1-105', 'Grey Havens'),
+    swapNewSiteChoice('p1-106', 'Grey Havens'),
+    swapNewSiteChoice('p1-107', 'Grey Havens'),
+    swapNewSiteChoice('p1-116', 'Isles of the Dead that Live'),
+  ];
+  const siteLookup = {
+    'p1-104': 'tw-399',
+    'p1-105': 'tw-399',
+    'p1-106': 'tw-399',
+    'p1-107': 'tw-399',
+    'p1-116': 'tw-405',
+  };
+
+  test('renders one button per distinct replacement site', () => {
+    appState.lastInstanceLookup = lookupOf(siteLookup);
+
+    renderPassButton(viewWith(offered), () => { /* no-op */ });
+
+    expect(passBtn.classList.contains('hidden')).toBe(true);
+    expect(waitingEl.classList.contains('hidden')).toBe(true);
+    expect(tierInPhasePass.children.map(c => c.textContent)).toEqual([
+      'Replace "Himring" with "Grey Havens"',
+      'Replace "Himring" with "Isles of the Dead that Live"',
+    ]);
+  });
+
+  test('clicking a button sends that site\'s swap action', () => {
+    let sent: unknown = null;
+    appState.lastInstanceLookup = lookupOf(siteLookup);
+
+    renderPassButton(viewWith(offered), action => { sent = action; });
+    tierInPhasePass.children[1].onclick?.();
+
+    expect(sent).toEqual(offered[4].action);
+  });
+});
