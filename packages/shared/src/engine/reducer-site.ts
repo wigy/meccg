@@ -981,11 +981,15 @@ function handleRevealOnGuardAttacks(
     // Choking Shadows tw-21): the company is already at this site, so the
     // matching `on-event: company-arrives-at-site` mode applies immediately —
     // a short event never remains on-guard or moves to cardsInPlay, it
-    // resolves straight to the hazard player's discard pile.
+    // resolves straight to the hazard player's discard pile. The "treat as"
+    // type-override modes are left out: they do not affect the automatic-attacks
+    // the reveal is for, and would otherwise win over the prowess mode here.
     if (isEvent) {
       const siteDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
       const onEvents = getOnEventEffects(def, 'company-arrives-at-site')
-        .filter(e => e.apply.type === 'add-constraint');
+        .filter(e => e.apply.type === 'add-constraint'
+          && e.apply.constraint !== 'site-type-override'
+          && e.apply.constraint !== 'region-type-override');
       if (siteDef && onEvents.length > 0) {
         const ctx: Record<string, unknown> = {
           company: { destinationSiteType: isSiteCard(siteDef) ? siteDef.siteType : undefined },

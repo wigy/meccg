@@ -3446,13 +3446,25 @@
       {
         "type": "on-event",
         "event": "self-enters-play",
+        "when": { "$not": { "inPlay": "Doors of Night" } },
         "apply": {
           "type": "add-constraint",
           "constraint": "auto-attack-prowess-boost",
           "scope": "company-site-phase",
           "value": -1,
-          "siteType": "border-hold",
-          "doublesWithDoorsOfNight": true
+          "siteType": "border-hold"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "when": { "inPlay": "Doors of Night" },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "auto-attack-prowess-boost",
+          "scope": "company-site-phase",
+          "value": -2,
+          "siteType": "border-hold"
         }
       },
       {

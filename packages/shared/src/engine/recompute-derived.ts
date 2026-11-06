@@ -498,8 +498,8 @@ export function buildInPlayNames(state: GameState): readonly string[] {
  *
  * The site's own definition fields are exposed at the top level (so existing
  * filters like `{ "siteType": { "$in": [...] } }` keep working verbatim), plus
- * an `environment.doorsOfNightInPlay` flag for the very common "…or on X if
- * Doors of Night is in play" alternative (Doubled Vigilance dm-51). Shared by
+ * the `inPlay` card-name list for the very common "…or on X if Doors of Night
+ * is in play" alternative (Doubled Vigilance dm-51). Shared by
  * the M/H hazard-play emitter and the site-phase on-guard reveal check so both
  * judge playability on a site identically.
  */
@@ -509,7 +509,7 @@ export function sitePlayTargetContext(
 ): Record<string, unknown> {
   return {
     ...(siteDef as unknown as Record<string, unknown>),
-    environment: { doorsOfNightInPlay: buildInPlayNames(state).includes('Doors of Night') },
+    inPlay: buildInPlayNames(state),
   };
 }
 
@@ -536,15 +536,16 @@ function applyEnvironmentOverrides(state: GameState, names: string[]): string[] 
  * `region-movement-limit` effect (e.g. No Way Forward, dm-75).
  *
  * Environments affect every player's companies, so both players' `cardsInPlay`
- * are scanned. For each such effect the contribution is `reduceWithDoorsOfNight`
- * while Doors of Night is in play, otherwise `reduce`; contributions sum across
- * cards. The returned `floor` is the largest `min` among contributing effects —
- * the effective max region distance must never be reduced below it.
+ * are scanned. An effect contributes its `reduce` while its `when` holds against
+ * the in-play card names (a card with a stronger mode under another card carries
+ * one effect per mode); contributions sum across cards. The returned `floor` is
+ * the largest `min` among contributing effects — the effective max region
+ * distance must never be reduced below it.
  *
  * Returns `{ reduction: 0, floor: 0 }` when no such environment is in play.
  */
 export function collectRegionMovementReduction(state: GameState): { reduction: number; floor: number } {
-  const doorsOfNight = buildInPlayNames(state).includes('Doors of Night');
+  const inPlay = buildInPlayNames(state);
   let reduction = 0;
   let floor = 0;
   for (const player of state.players) {
@@ -553,10 +554,8 @@ export function collectRegionMovementReduction(state: GameState): { reduction: n
       if (!def) continue;
       for (const eff of getCardEffects(def)) {
         if (eff.type !== 'region-movement-limit') continue;
-        const amount = doorsOfNight && eff.reduceWithDoorsOfNight !== undefined
-          ? eff.reduceWithDoorsOfNight
-          : eff.reduce;
-        reduction += amount;
+        if (eff.when && !matchesContext(eff.when, { inPlay })) continue;
+        reduction += eff.reduce;
         floor = Math.max(floor, eff.min);
       }
     }

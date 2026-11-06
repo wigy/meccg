@@ -3097,10 +3097,14 @@ function applyShortEventOnEntersPlay(
       // every automatic-attack the active site-phase company faces (Come By
       // Night Upon Them le-176). Resolved against the active company's current
       // site (no target character); the modifier persists for the whole site
-      // phase (not consumed after the first attack). The `value` is doubled at
-      // play time when Doors of Night is in play (the card is played immediately
-      // before the auto-attacks resolve, so baking the doubled amount is exact).
+      // phase (not consumed after the first attack). A `when` picks the mode at
+      // play time (the card is played immediately before the auto-attacks
+      // resolve, so baking the chosen amount is exact).
       if (constraintKind === 'auto-attack-prowess-boost') {
+        if (onEvent.when && !matchesCondition(onEvent.when, { inPlay: buildInPlayNames(state) })) {
+          logDetail(`"${def.name}": auto-attack-prowess-boost ${String(onEvent.apply.value)} — when condition not met, skip`);
+          continue;
+        }
         if (state.phaseState.phase !== Phase.Site) {
           logDetail(`"${def.name}": auto-attack-prowess-boost played outside site phase — no effect`);
           continue;
@@ -3111,9 +3115,9 @@ function applyShortEventOnEntersPlay(
           logDetail(`"${def.name}": auto-attack-prowess-boost — active company has no current site — fizzle`);
           continue;
         }
-        const baseValue = onEvent.apply.value;
+        const value = onEvent.apply.value;
         const siteType = onEvent.apply.siteType;
-        if (typeof baseValue !== 'number' || !siteType) {
+        if (typeof value !== 'number' || !siteType) {
           logDetail(`"${def.name}": auto-attack-prowess-boost missing value or siteType — fizzle`);
           continue;
         }
@@ -3122,10 +3126,7 @@ function applyShortEventOnEntersPlay(
           logDetail(`"${def.name}": auto-attack-prowess-boost unknown scope "${scopeName}" — fizzle`);
           continue;
         }
-        const doorsOfNight = onEvent.apply.doublesWithDoorsOfNight === true
-          && buildInPlayNames(state).includes('Doors of Night');
-        const value = doorsOfNight ? baseValue * 2 : baseValue;
-        logDetail(`"${def.name}" played — adding persistent auto-attack.prowess ${value} to all automatic-attacks at ${activeCompany.currentSite.definitionId as string} (site type ${siteType}${doorsOfNight ? ', doubled: Doors of Night in play' : ''}), scope ${scopeName}`);
+        logDetail(`"${def.name}" played — adding persistent auto-attack.prowess ${value} to all automatic-attacks at ${activeCompany.currentSite.definitionId as string} (site type ${siteType}), scope ${scopeName}`);
         state = addConstraint(state, {
           source: handCard.instanceId,
           sourceDefinitionId: handCard.definitionId,
