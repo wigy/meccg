@@ -941,6 +941,10 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
   // movement plan (and undoing one via cancel-movement) must stay available
   // too — a player fetching cards to their discard pile must still be able
   // to plan movement for a company that hasn't declared yet.
+  // Storing Cards (2.II.4) and Transferring Items (2.II.5) use the same
+  // "either before or after organizing" wording, so a character at Minas
+  // Tirith can still store a Sapling of the White Tree (or hand an item to a
+  // companion) while the sideboard fetch is open.
   if (orgState.sideboardFetchDestination !== null) {
     logHeading(`Sideboard sub-flow active (destination: ${orgState.sideboardFetchDestination})`);
     return [
@@ -948,6 +952,8 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
       ...grantedActionActivations(state, playerId),
       ...cancelMovementActions(state, playerId, player),
       ...planMovementActions(state, playerId),
+      ...transferItemActions(state, playerId),
+      ...storeItemActions(state, playerId),
     ];
   }
 
