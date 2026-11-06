@@ -1935,14 +1935,12 @@ function summonsFromLongSleepActions(
           continue;
         }
 
-        const matches = findCreatureKeyingMatches(creatureDef, mhState, state, targetCompany);
-        const keyingGrant = grantsCreatureKeying(state, mhState, resourcePlayer, targetCompany, creatureDef, playerId);
-        const keyingBypassed = hasCreatureKeyingBypass(state, targetCompany.id, (creatureDef).race)
-          || siteAllowsCreatureByRace(state, targetCompany, creatureDef)
-          || siteAllowsCreatureByKeying(state, targetCompany, creatureDef)
-          || keyingGrant.granted;
+        const keyings = resolveCreatureKeyings(
+          state, mhState, targetCompany, creatureDef,
+          grantsCreatureKeying(state, mhState, resourcePlayer, targetCompany, creatureDef, playerId),
+        );
 
-        if (matches.length === 0 && !keyingBypassed) {
+        if (keyings.length === 0) {
           const keyError = describeKeyingRequirement(creatureDef);
           logDetail(`${defName}: play-reserved-creature "${creatureName}" not keyable: ${keyError}`);
           actions.push({
@@ -1958,30 +1956,15 @@ function summonsFromLongSleepActions(
           continue;
         }
 
-        if (matches.length === 0 && keyingBypassed) {
-          logDetail(`${defName}: play-reserved-creature "${creatureName}" keyable via keying-bypass`);
+        for (const keyedBy of keyings) {
+          logDetail(`${defName}: play-reserved-creature "${creatureName}" keyable by ${keyedBy.method}: ${keyedBy.value}`);
           actions.push({
             action: {
               type: 'play-reserved-creature' as const,
               player: playerId,
               sourceCardInstanceId: card.instanceId,
               targetCompanyId,
-              keyedBy: { method: 'keying-bypass', value: (creatureDef).race, grantedRegionName: keyingGrant.regionName },
-            },
-            viable: true,
-          });
-          continue;
-        }
-
-        for (const match of matches) {
-          logDetail(`${defName}: play-reserved-creature "${creatureName}" keyable by ${match.method}: ${match.value}`);
-          actions.push({
-            action: {
-              type: 'play-reserved-creature' as const,
-              player: playerId,
-              sourceCardInstanceId: card.instanceId,
-              targetCompanyId,
-              keyedBy: match,
+              keyedBy,
             },
             viable: true,
           });
@@ -2071,20 +2054,18 @@ function playCreatureFromDiscardActions(
 
       const creatureName = creatureDef?.name ?? (discardCard.definitionId as string);
 
-      const matches = findCreatureKeyingMatches(creatureDef, mhState, state, targetCompany);
-      const keyingGrant = grantsCreatureKeying(state, mhState, resourcePlayer, targetCompany, creatureDef, playerId);
-      const keyingBypassed = hasCreatureKeyingBypass(state, targetCompany.id, creatureDef.race)
-        || siteAllowsCreatureByRace(state, targetCompany, creatureDef)
-        || siteAllowsCreatureByKeying(state, targetCompany, creatureDef)
-        || keyingGrant.granted;
+      const keyings = resolveCreatureKeyings(
+        state, mhState, targetCompany, creatureDef,
+        grantsCreatureKeying(state, mhState, resourcePlayer, targetCompany, creatureDef, playerId),
+      );
 
-      if (matches.length === 0 && !keyingBypassed) {
+      if (keyings.length === 0) {
         logDetail(`${defName}: discard creature "${creatureName}" not keyable: ${describeKeyingRequirement(creatureDef)}`);
         continue;
       }
 
-      if (matches.length === 0 && keyingBypassed) {
-        logDetail(`${defName}: discard creature "${creatureName}" keyable via keying-bypass`);
+      for (const keyedBy of keyings) {
+        logDetail(`${defName}: discard creature "${creatureName}" keyable by ${keyedBy.method}: ${keyedBy.value}`);
         actions.push({
           action: {
             type: 'play-creature-from-discard' as const,
@@ -2092,23 +2073,7 @@ function playCreatureFromDiscardActions(
             cardInstanceId: handCard.instanceId,
             creatureInstanceId: discardCard.instanceId,
             targetCompanyId,
-            keyedBy: { method: 'keying-bypass', value: creatureDef.race, grantedRegionName: keyingGrant.regionName },
-          },
-          viable: true,
-        });
-        continue;
-      }
-
-      for (const match of matches) {
-        logDetail(`${defName}: discard creature "${creatureName}" keyable by ${match.method}: ${match.value}`);
-        actions.push({
-          action: {
-            type: 'play-creature-from-discard' as const,
-            player: playerId,
-            cardInstanceId: handCard.instanceId,
-            creatureInstanceId: discardCard.instanceId,
-            targetCompanyId,
-            keyedBy: match,
+            keyedBy,
           },
           viable: true,
         });
@@ -2186,20 +2151,18 @@ function nazgulPermanentEventAttackActions(
         const creatureDef = nazgulDef as unknown as CreatureCard;
         const nazgulName = creatureDef?.name ?? (cip.definitionId as string);
 
-        const matches = findCreatureKeyingMatches(creatureDef, mhState, state, targetCompany);
-        const keyingGrant = grantsCreatureKeying(state, mhState, resourcePlayer, targetCompany, creatureDef, playerId);
-        const keyingBypassed = hasCreatureKeyingBypass(state, targetCompany.id, creatureDef.race)
-          || siteAllowsCreatureByRace(state, targetCompany, creatureDef)
-          || siteAllowsCreatureByKeying(state, targetCompany, creatureDef)
-          || keyingGrant.granted;
+        const keyings = resolveCreatureKeyings(
+          state, mhState, targetCompany, creatureDef,
+          grantsCreatureKeying(state, mhState, resourcePlayer, targetCompany, creatureDef, playerId),
+        );
 
-        if (matches.length === 0 && !keyingBypassed) {
+        if (keyings.length === 0) {
           logDetail(`${defName}: "${nazgulName}" (owner ${owner.id as string}) not keyable: ${describeKeyingRequirement(creatureDef)}`);
           continue;
         }
 
-        if (matches.length === 0 && keyingBypassed) {
-          logDetail(`${defName}: "${nazgulName}" (owner ${owner.id as string}) keyable via keying-bypass`);
+        for (const keyedBy of keyings) {
+          logDetail(`${defName}: "${nazgulName}" (owner ${owner.id as string}) keyable by ${keyedBy.method}: ${keyedBy.value}`);
           actions.push({
             action: {
               type: 'attack-nazgul-permanent-event' as const,
@@ -2208,24 +2171,7 @@ function nazgulPermanentEventAttackActions(
               targetNazgulInstanceId: cip.instanceId,
               targetNazgulOwnerId: owner.id,
               targetCompanyId,
-              keyedBy: { method: 'keying-bypass', value: creatureDef.race, grantedRegionName: keyingGrant.regionName },
-            },
-            viable: true,
-          });
-          continue;
-        }
-
-        for (const match of matches) {
-          logDetail(`${defName}: "${nazgulName}" (owner ${owner.id as string}) keyable by ${match.method}: ${match.value}`);
-          actions.push({
-            action: {
-              type: 'attack-nazgul-permanent-event' as const,
-              player: playerId,
-              cardInstanceId: handCard.instanceId,
-              targetNazgulInstanceId: cip.instanceId,
-              targetNazgulOwnerId: owner.id,
-              targetCompanyId,
-              keyedBy: match,
+              keyedBy,
             },
             viable: true,
           });
@@ -2316,17 +2262,16 @@ function spawnReplayCreatureFromDiscardActions(
         continue;
       }
 
-      const matches = findCreatureKeyingMatches(creatureDef, mhState, state, targetCompany);
-      const keyingBypassed = hasCreatureKeyingBypass(state, targetCompany.id, creatureDef.race)
-        || siteAllowsCreatureByRace(state, targetCompany, creatureDef)
-        || siteAllowsCreatureByKeying(state, targetCompany, creatureDef);
+      // Unlike its siblings this path does not consult `grantsCreatureKeying`.
+      const keyings = resolveCreatureKeyings(state, mhState, targetCompany, creatureDef, { granted: false });
 
-      if (matches.length === 0 && !keyingBypassed) {
+      if (keyings.length === 0) {
         logDetail(`${sourceName}: replay creature "${creatureName}" not keyable: ${describeKeyingRequirement(creatureDef)}`);
         continue;
       }
 
-      if (matches.length === 0 && keyingBypassed) {
+      for (const keyedBy of keyings) {
+        logDetail(`${sourceName}: replay creature "${creatureName}" keyable by ${keyedBy.method}: ${keyedBy.value}`);
         actions.push({
           action: {
             type: 'spawn-replay-creature' as const,
@@ -2334,23 +2279,7 @@ function spawnReplayCreatureFromDiscardActions(
             sourceInstanceId: sourceCard.instanceId,
             creatureInstanceId: discardCard.instanceId,
             targetCompanyId,
-            keyedBy: { method: 'keying-bypass', value: creatureDef.race },
-          },
-          viable: true,
-        });
-        continue;
-      }
-
-      for (const match of matches) {
-        logDetail(`${sourceName}: replay creature "${creatureName}" keyable by ${match.method}: ${match.value}`);
-        actions.push({
-          action: {
-            type: 'spawn-replay-creature' as const,
-            player: playerId,
-            sourceInstanceId: sourceCard.instanceId,
-            creatureInstanceId: discardCard.instanceId,
-            targetCompanyId,
-            keyedBy: match,
+            keyedBy,
           },
           viable: true,
         });
@@ -2505,6 +2434,17 @@ const COMPANYLESS_SHORT_EVENT_EFFECTS: ReadonlySet<string> = new Set([
 ]);
 
 /**
+ * Action types that adjust the hazard limit with a card the hazard player has
+ * in play: a Dragon "At Home" discard (METD §4) and Power Built by Waiting's
+ * tap/untap (as-34). They need no characters in the company, only its running
+ * limit, which outlives them (CoE 2.IV), so they stay available once the
+ * company is emptied and can open room for company-independent hazards.
+ */
+const COMPANYLESS_HAZARD_LIMIT_ACTIONS: ReadonlySet<string> = new Set([
+  'discard-card-for-hazard-limit', 'tap-hazard-card-for-limit', 'pay-hazard-limit-to-untap-card',
+]);
+
+/**
  * Whether a `play-hazard` action can still be played once the active
  * company has no characters left. The company's M/H phase does not end when
  * its characters are eliminated — its base hazard limit "stays fixed"
@@ -2588,11 +2528,12 @@ function playHazardsActions(
   if (targetCompanyRef && targetCompanyRef.characters.length === 0 && !isResourcePlayer) {
     // The active company's characters have all left play, but its M/H phase
     // goes on (see isCompanylessHazardPlay): offer the hazard player only the
-    // hazards that do not need the company, plus pass.
+    // hazards that do not need the company, the actions that adjust its
+    // hazard limit, plus pass.
     const result: EvaluatedAction[] = [];
     const blocked = new Set<string>();
     for (const ea of playHazardsActionsForCompany(state, playerId, mhState, isResourcePlayer)) {
-      if (ea.action.type === 'pass') {
+      if (ea.action.type === 'pass' || COMPANYLESS_HAZARD_LIMIT_ACTIONS.has(ea.action.type)) {
         result.push(ea);
       } else if (ea.action.type === 'play-hazard') {
         if (isCompanylessHazardPlay(state, ea.action)) {
@@ -2896,12 +2837,8 @@ function playHazardsActionsForCompany(
           actions.push({ action, viable: false, reason: `Attacks against this company are canceled at ${cancelSiteName}` });
           continue;
         }
-        const matches = findCreatureKeyingMatches(def, mhState, state, targetCompany);
-        const keyingBypassed = hasCreatureKeyingBypass(state, targetCompany.id, def.race)
-          || siteAllowsCreatureByRace(state, targetCompany, def)
-          || siteAllowsCreatureByKeying(state, targetCompany, def)
-          || keyingGrant.granted;
-        if (matches.length === 0 && !keyingBypassed) {
+        const keyings = resolveCreatureKeyings(state, mhState, targetCompany, def, keyingGrant);
+        if (keyings.length === 0) {
           const keyError = describeKeyingRequirement(def);
           logDetail(`Creature "${def.name}" not keyable: ${keyError}`);
           actions.push({ action, viable: false, reason: keyError });
@@ -2918,29 +2855,15 @@ function playHazardsActionsForCompany(
             continue;
           }
         }
-        if (matches.length === 0 && keyingBypassed) {
-          logDetail(`Creature "${def.name}" keyable via keying-bypass (race "${def.race}")`);
-          actions.push({
-            action: {
-              ...action,
-              keyedBy: {
-                method: 'keying-bypass', value: def.race, grantedRegionName: keyingGrant.regionName,
-                ...(keyingGrant.hazardLimitExempt ? { hazardLimitExempt: true } : {}),
-              },
-            },
-            viable: true,
-          });
-          continue;
-        }
-        for (const match of matches) {
-          logDetail(`Creature "${def.name}" keyable by ${match.method}: ${match.value}`);
+        for (const keying of keyings) {
+          logDetail(`Creature "${def.name}" keyable by ${keying.method}: ${keying.value}`);
           actions.push({
             action: {
               ...action,
               // A `hazardLimitExempt` grant (Umagaur the Pale dm-112) applies
               // regardless of which keying method actually matched — the
               // printed text places no site/keying condition on the exemption.
-              keyedBy: keyingGrant.hazardLimitExempt ? { ...match, hazardLimitExempt: true } : match,
+              keyedBy: keyingGrant.hazardLimitExempt ? { ...keying, hazardLimitExempt: true } : keying,
             },
             viable: true,
           });
@@ -4660,8 +4583,8 @@ function playHazardsActionsForCompany(
             // `regionType`, `effectiveSiteType`, `isWizardhaven`, `isProtected`
             // (Nature's Revenge wh-27: "a site in a Wilderness that normally is
             // a Border-hold or a Shadow-hold, or a non-protected Wizardhaven
-            // in a Wilderness"). The `environment` block is layered on top for
-            // hazards that gate on it instead — Doubled Vigilance (dm-51):
+            // in a Wilderness"). The `inPlay` names are layered on top for
+            // hazards that gate on them instead — Doubled Vigilance (dm-51):
             // "Shadow-hold, or Ruins & Lairs / Border-hold while Doors of
             // Night is in play". Both builders spread the same site definition,
             // so the overlap is identical and only the derived keys differ.
@@ -4725,13 +4648,17 @@ function playHazardsActionsForCompany(
         }
       } else if (playTarget?.target === 'faction') {
         // Faction-targeting permanent hazard events (Trouble on All Borders
-        // as-40): one action per the resource player's own qualifying
-        // in-play faction — hazard events target the opponent's entities
-        // (CoE 2.IV.vii.3), never the hazard player's own factions in play
-        // (mirrors the short-event faction-targeting branch above).
+        // as-40): one action per qualifying faction in play, owned by
+        // *either* player. The card reads "Playable on a unique faction in
+        // play" with no owner restriction, and its "detainment if the company
+        // and faction are both minion or both hero" clause only makes sense
+        // if the faction may belong to the hazard player. CoE 2.IV.vii.3
+        // lets the hazard player play a permanent-event that only
+        // *potentially* targets the current company — the faction-driven
+        // attack does — so the hazard player's own factions are legal hosts.
         const factionDupLimit = findDuplicationLimitEffect(def, 'faction');
         let anyFactionTarget = false;
-        for (const cip of resourcePlayer.cardsInPlay) {
+        for (const cip of state.players.flatMap(p => p.cardsInPlay)) {
           const factionDef = defById(state, cip.definitionId);
           if (!factionDef || !isFactionCard(factionDef)) continue;
           if (playTarget.filter) {
@@ -6109,6 +6036,32 @@ function isCreatureRaceExemptFromLimit(
       && c.kind.exemptRace === def.race,
   );
   return constraintExempt || isHazardLimitRaceGrantAvailable(state, def);
+}
+
+/**
+ * The `keyedBy` values a creature may be played with against the company, one
+ * legal action each: every native keying match, else a single `keying-bypass`
+ * when a constraint, site rule or `keyingGrant` allows the play, else none.
+ * Native keying wins so a grant's named region is only recorded when the grant
+ * actually justified the play. The caller supplies `keyingGrant` because the
+ * hand path needs it earlier, for its hazard-limit gate.
+ */
+function resolveCreatureKeyings(
+  state: GameState,
+  mhState: MovementHazardPhaseState,
+  targetCompany: Company,
+  creatureDef: CreatureCard,
+  keyingGrant: { readonly granted: boolean; readonly regionName?: string },
+): readonly CreatureKeyingMatch[] {
+  const matches = findCreatureKeyingMatches(creatureDef, mhState, state, targetCompany);
+  if (matches.length > 0) return matches;
+  const bypassed = hasCreatureKeyingBypass(state, targetCompany.id, creatureDef.race)
+    || siteAllowsCreatureByRace(state, targetCompany, creatureDef)
+    || siteAllowsCreatureByKeying(state, targetCompany, creatureDef)
+    || keyingGrant.granted;
+  return bypassed
+    ? [{ method: 'keying-bypass', value: creatureDef.race, grantedRegionName: keyingGrant.regionName }]
+    : [];
 }
 
 /**

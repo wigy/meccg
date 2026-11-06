@@ -571,26 +571,48 @@ function isAhuntInPlay(state: GameState, m: ManifestId): boolean {
 }
 
 /**
- * Returns true when the *defending* player has a `reduce-attacks-to-one`
- * permanent event in cardsInPlay (i.e. *Forewarned Is Forearmed* is in play).
+ * Returns true when a `reduce-attacks-to-one` permanent event (i.e. *Forewarned
+ * Is Forearmed*) in either player's cardsInPlay applies to the attack.
  *
- * Forewarned Is Forearmed is a defensive resource event: it protects the
- * company of the player who played it from multi-attack hazards/sites. It
- * must not be scoped to "any player" — a hazard player who happens to have
- * their own copy in play (protecting their own companies elsewhere in the
- * game) must not have it weaken hazards *they* are playing against the
- * opponent.
+ * The card says "*Any* creature or other hazard" and "*Any* non-Dragon Lair
+ * site", and is not played on a company, so it reduces attacks whichever player
+ * controls it (CoE 5.3.1). That includes attacks made by its own controller.
+ *
+ * Pass `site` when reducing a site's automatic-attacks: CoE 9.3.5 stops a hero
+ * resource event affecting a minion site, and vice versa, so an opponent's copy
+ * of the opposing alignment is ignored there. The defender's own copy still
+ * applies, which keeps CoE 9.3.F2 (a Fallen-wizard's hero resources may affect
+ * automatic-attacks on their minion sites). Creature attacks have no such limit.
  */
-export function isReduceAttacksToOneInPlay(state: GameState, defendingPlayerIndex: number): boolean {
-  const player = state.players[defendingPlayerIndex];
-  if (!player) return false;
-  for (const card of player.cardsInPlay) {
-    const def = defById(state, card.definitionId);
-    if (!def) continue;
-    if (!('effects' in def)) continue;
-    if (hasPlayFlag(def, 'reduce-attacks-to-one')) return true;
+export function isReduceAttacksToOneInPlay(
+  state: GameState,
+  site?: { readonly def: SiteCard; readonly defendingPlayerIndex: number },
+): boolean {
+  for (let playerIndex = 0; playerIndex < state.players.length; playerIndex++) {
+    for (const card of state.players[playerIndex].cardsInPlay) {
+      const def = defById(state, card.definitionId);
+      if (!def || !hasPlayFlag(def, 'reduce-attacks-to-one')) continue;
+      if (
+        site && playerIndex !== site.defendingPlayerIndex
+        && 'alignment' in def && alignmentsOppose(def.alignment, site.def.alignment)
+      ) {
+        logDetail(`Forewarned Is Forearmed: ${def.alignment} copy held by opponent cannot affect ${site.def.alignment} site "${site.def.name}" (CoE 9.3.5)`);
+        continue;
+      }
+      return true;
+    }
   }
   return false;
+}
+
+/**
+ * True when one alignment is hero and the other minion, the pairing CoE 9.3.5
+ * keeps apart. Balrog sites count as minion, as a Balrog player's location deck
+ * is built from minion sites (CoE 1.4.B1). Fallen-wizard cards oppose neither.
+ */
+function alignmentsOppose(a: string, b: string): boolean {
+  const isMinion = (alignment: string) => alignment === 'ringwraith' || alignment === 'balrog';
+  return (a === 'wizard' && isMinion(b)) || (isMinion(a) && b === 'wizard');
 }
 
 /**

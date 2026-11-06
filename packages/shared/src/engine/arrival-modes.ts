@@ -37,8 +37,8 @@ export function arrivalModeEffects(def: CardDefinition): readonly OnEventEffect[
 /**
  * Build the evaluation context for a `company-arrives-at-site` `when`
  * clause. Exposes the active company's destination site type, destination
- * region type, site-path region types, and whether Doors of Night is in
- * play — enough for a card like Choking Shadows to gate its modes.
+ * region type, site-path region types, and the names of the cards in play —
+ * enough for a card like Choking Shadows to gate its modes.
  */
 export function buildArrivalContext(state: GameState): Record<string, unknown> {
   const ctx: Record<string, unknown> = {};
@@ -57,9 +57,7 @@ export function buildArrivalContext(state: GameState): Record<string, unknown> {
   // path — not only the destination region.
   company.pathRegionTypes = [...mh.resolvedSitePath];
   ctx.company = company;
-  const inPlayNames = buildInPlayNames(state);
-  ctx.inPlay = inPlayNames;
-  ctx.environment = { doorsOfNightInPlay: inPlayNames.includes('Doors of Night') };
+  ctx.inPlay = buildInPlayNames(state);
   return ctx;
 }
 

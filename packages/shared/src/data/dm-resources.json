@@ -1702,8 +1702,30 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Place this card in your marshalling points pile. Any attempt (by any player) to influence a faction playable at a site in Anórien, Lebennin, Lamedon, Belfalas, or Anfalas (except Army of the Dead) is modified by -2 and cannot be attempted with Muster. Place any such faction you successfully influence (while this card is in play) under this card. All factions under this card give an additional marshalling point. Discard when any faction under this card is discarded (all other contained factions remain). Cannot be duplicated."
+    "effects": [
+      {
+        "type": "faction-influence-restriction",
+        "regionNames": ["Anórien", "Lebennin", "Lamedon", "Belfalas", "Anfalas"],
+        "modifier": -2,
+        "blockCards": ["Muster"],
+        "exceptFactions": ["Army of the Dead"],
+        "matchFactionPlayableRegions": true
+      },
+      {
+        "type": "contain-influenced-factions",
+        "regionNames": ["Anórien", "Lebennin", "Lamedon", "Belfalas", "Anfalas"],
+        "exceptFactions": ["Army of the Dead"],
+        "mpBonus": 1
+      },
+      {
+        "type": "discard-on-card-leaves-play",
+        "containedOnly": true,
+        "filter": { "card.cardType": { "$in": ["hero-resource-faction", "minion-resource-faction"] } }
+      },
+      { "type": "duplication-limit", "scope": "game", "max": 1 }
+    ],
+    "text": "Place this card in your marshalling points pile. Any attempt (by any player) to influence a faction playable at a site in Anórien, Lebennin, Lamedon, Belfalas, or Anfalas (except Army of the Dead) is modified by -2 and cannot be attempted with Muster. Place any such faction you successfully influence (while this card is in play) under this card. All factions under this card give an additional marshalling point. Discard when any faction under this card is discarded (all other contained factions remain). Cannot be duplicated.",
+    "certified": "2026-11-02"
   },
   {
     "cardType": "hero-resource-event",

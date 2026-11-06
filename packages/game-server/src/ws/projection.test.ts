@@ -10,7 +10,7 @@ import {
   createGame, reduce, loadCardPool, Alignment, UNKNOWN_SITE, UNKNOWN_CARD, CardStatus, PALLANDO, THE_GREAT_HUNT,
 } from '@meccg/shared';
 import type {
-  GameState, GameConfig, GameAction, PlayerId, CardDefinitionId, CardInstanceId, ViewCard,
+  GameState, GameConfig, GameAction, PlayerId, CardDefinitionId, CardInstanceId, CompanyId, ViewCard,
 } from '@meccg/shared';
 import { projectPlayerView, projectSpectatorView } from './projection.js';
 
@@ -693,6 +693,58 @@ describe('Mistress Lobelia-style grant-action deck fetch (bug 21880899decf2c40)'
     const { state } = gameWithPendingDeckSearchFetch();
     const bobView = projectPlayerView(state, BOB);
     expect(bobView.opponent.playDeck.every(c => c.definitionId === UNKNOWN_CARD)).toBe(true);
+  });
+});
+
+describe('Old Cache tap-take-item deck search (bug d43809ad260bf4fa)', () => {
+  const companyId = 'company-p1-0' as CompanyId;
+  const taker = 'p1-taker' as CardInstanceId;
+
+  /** Alice resolves a `tap-take-item` effect allowing a play-deck pick, with one matching and one other deck card. */
+  function gameWithPendingTapTakeItem(): { state: GameState; matching: CardInstanceId; nonMatching: CardInstanceId } {
+    const { state, matching, nonMatching } = gameWithPendingDeckSearchFetch();
+    const site = { instanceId: 'p1-site' as CardInstanceId, definitionId: RIVENDELL, status: CardStatus.Tapped };
+    return {
+      matching,
+      nonMatching,
+      state: {
+        ...state,
+        players: [
+          {
+            ...state.players[0],
+            characters: {
+              [taker as string]: { instanceId: taker, definitionId: ARAGORN, status: CardStatus.Untapped, items: [], allies: [], hazards: [] },
+            } as unknown as GameState['players'][0]['characters'],
+            companies: [{ id: companyId, characters: [taker], currentSite: site, onGuardCards: [] } as unknown as GameState['players'][0]['companies'][0]],
+          },
+          state.players[1],
+        ],
+        pendingEffects: [{
+          type: 'card-effect',
+          cardInstanceId: 'p1-old-cache' as CardInstanceId,
+          companyId,
+          effect: {
+            type: 'tap-take-item',
+            source: ['deck'],
+            count: 2,
+            filter: { cardType: 'hero-resource-item' },
+          },
+        }],
+      },
+    };
+  }
+
+  test('the play-deck item a tap-take-item action targets is unmasked to its owner only', () => {
+    const { state, matching, nonMatching } = gameWithPendingTapTakeItem();
+    const aliceView = projectPlayerView(state, ALICE);
+    expect(aliceView.legalActions.some(
+      ea => ea.viable && ea.action.type === 'tap-take-item' && ea.action.cardInstanceId === matching,
+    )).toBe(true);
+    const deckById = (id: CardInstanceId): ViewCard | undefined =>
+      aliceView.self.playDeck.find(c => c.instanceId === id);
+    expect(deckById(matching)?.definitionId).toBe(GLAMDRING);
+    expect(deckById(nonMatching)?.definitionId).toBe(UNKNOWN_CARD);
+    expect(projectPlayerView(state, BOB).opponent.playDeck.every(c => c.definitionId === UNKNOWN_CARD)).toBe(true);
   });
 });
 

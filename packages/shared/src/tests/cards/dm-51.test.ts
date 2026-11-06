@@ -16,14 +16,14 @@
  *
  * Effects:
  *   1. play-target { target: "site", filter: shadow-hold, or ruins-and-lairs /
- *      border-hold while `environment.doorsOfNightInPlay` }
+ *      border-hold while `inPlay: Doors of Night` }
  *   2. site-entry-roll-attack { subtractCompanySize, threshold 6, comparison
  *      "gt", attack: Orcs 4 strikes / 9 prowess }
  *
  * | # | Rule                                                     | Status | Notes                                                     |
  * |---|----------------------------------------------------------|--------|-----------------------------------------------------------|
  * | 1 | Playable on a Shadow-hold                                | OK     | play-target site filter (legal-actions/movement-hazard.ts) |
- * | 2 | …or a Ruins & Lairs / Border-hold with Doors of Night    | OK     | `environment.doorsOfNightInPlay` in the filter context     |
+ * | 2 | …or a Ruins & Lairs / Border-hold with Doors of Night    | OK     | `inPlay` names in the filter context     |
  * | 3 | Entering → roll 2d6 − company size                       | OK     | `dice-check` enqueued at `enter-site`                      |
  * | 4 | Result > 6 → enter as normal                             | OK     | pass branch initiates no combat                            |
  * | 5 | Otherwise face Orcs 4 strikes at 9 prowess               | OK     | `site-entry-attack` dice-check onFail verb                 |

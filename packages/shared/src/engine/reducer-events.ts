@@ -22,7 +22,7 @@ import { ownerOf, resolveInstanceId } from '../types/state.js';
 import { resolveDef, getEffectiveSkills, buildBearerContext, collectCharacterEffects } from './effects/index.js';
 import { revealInstances } from './visibility.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { makeCombatState, clearPlannedMovement, companyById, deckSearchCancellerFor, companySiteName, companySiteRegion, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, factionPlayableSiteRegions, findAttachment, findById, findCharacterCompany, findDuplicationLimitEffect, gateDeckSearchFetch, getCardEffects, getOnEventEffects, influenceRegionPenalty, isCovertCompany, matchesDefinition, playedAfterFactionMpPin, removeAttachment, removeById, roll2d6, rollDiceForPlayer, toCardInstance, updateCharacter, updatePlayer, wrongActionType, applyTapSiteOnPlayFlag, attackSourceCreatureInstanceId, findCardEffect, hasCardEffect } from './reducer-utils.js';
+import { makeCombatState, clearPlannedMovement, companyById, deckSearchCancellerFor, companySiteName, companySiteRegion, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, factionPlayableSiteRegions, findAttachment, findById, findCharacterCompany, findDuplicationLimitEffect, gateDeckSearchFetch, getCardEffects, getOnEventEffects, influenceRegionPenalty, isCovertCompany, matchesDefinition, playedAfterFactionMpPin, factionContainerHost, collectFactionInfluenceRestriction, influenceModificationsNullified, removeAttachment, removeById, roll2d6, rollDiceForPlayer, toCardInstance, updateCharacter, updatePlayer, wrongActionType, applyTapSiteOnPlayFlag, attackSourceCreatureInstanceId, findCardEffect, hasCardEffect } from './reducer-utils.js';
 import { flagCouncilCall } from './reducer-end-of-turn.js';
 import { addRemovalProtection } from './removal-protection.js';
 import { addConstraint, dequeueResolution, enqueueCorruptionCheck, enqueueResolution, sweepExpired } from './pending.js';
@@ -440,7 +440,13 @@ function resolveFactionInfluenceRegionPenalty(
   const targetRegions = factionPlayableSiteRegions(state, factionDef);
   const regionDistance = influenceRegionPenalty(state, influencerRegion, targetRegions);
   const freeDI = availableDI(state, diplomatId, player);
-  const modifier = freeDI - (apply.penaltyBase + regionDistance);
+  // Faction-influence-restriction matched by the faction's playable-site
+  // regions (Sentinels of Númenor dm-158) applies even away from the site.
+  const { modifier: restrictionMod } = influenceModificationsNullified(state)
+    ? { modifier: 0 }
+    : collectFactionInfluenceRestriction(state, undefined, player.alignment === 'ringwraith', factionDef);
+  const modifier = freeDI - (apply.penaltyBase + regionDistance) + restrictionMod;
+  if (restrictionMod !== 0) logDetail(`${def.name}: faction-influence-restriction ${restrictionMod}`);
 
   // Tap the diplomat — the cost of declaring the attempt — before rolling,
   // matching the card's own text ("tap the diplomat, then roll") and
@@ -463,6 +469,7 @@ function resolveFactionInfluenceRegionPenalty(
 
   if (succeeded) {
     const mpPin = playedAfterFactionMpPin(state, player);
+    const containerHost = factionContainerHost(state, player, factionDef);
     logDetail(`${def.name}: influence attempt succeeded — ${factionDef.name} enters play untapped`);
     nextState = updatePlayer(nextState, playerIndex, p => ({
       ...p,
@@ -470,7 +477,7 @@ function resolveFactionInfluenceRegionPenalty(
       discardPile: [...p.discardPile, handCard],
       cardsInPlay: [
         ...p.cardsInPlay,
-        { instanceId: factionHandCard.instanceId, definitionId: factionHandCard.definitionId, status: CardStatus.Untapped, ...(mpPin !== undefined ? { mpPinned: mpPin } : {}) },
+        { instanceId: factionHandCard.instanceId, definitionId: factionHandCard.definitionId, status: CardStatus.Untapped, ...(mpPin !== undefined ? { mpPinned: mpPin } : {}), ...(containerHost !== undefined ? { containedBy: containerHost } : {}) },
       ],
     }));
     const siteInPlay = company.currentSite;
@@ -3090,10 +3097,14 @@ function applyShortEventOnEntersPlay(
       // every automatic-attack the active site-phase company faces (Come By
       // Night Upon Them le-176). Resolved against the active company's current
       // site (no target character); the modifier persists for the whole site
-      // phase (not consumed after the first attack). The `value` is doubled at
-      // play time when Doors of Night is in play (the card is played immediately
-      // before the auto-attacks resolve, so baking the doubled amount is exact).
+      // phase (not consumed after the first attack). A `when` picks the mode at
+      // play time (the card is played immediately before the auto-attacks
+      // resolve, so baking the chosen amount is exact).
       if (constraintKind === 'auto-attack-prowess-boost') {
+        if (onEvent.when && !matchesCondition(onEvent.when, { inPlay: buildInPlayNames(state) })) {
+          logDetail(`"${def.name}": auto-attack-prowess-boost ${String(onEvent.apply.value)} — when condition not met, skip`);
+          continue;
+        }
         if (state.phaseState.phase !== Phase.Site) {
           logDetail(`"${def.name}": auto-attack-prowess-boost played outside site phase — no effect`);
           continue;
@@ -3104,9 +3115,9 @@ function applyShortEventOnEntersPlay(
           logDetail(`"${def.name}": auto-attack-prowess-boost — active company has no current site — fizzle`);
           continue;
         }
-        const baseValue = onEvent.apply.value;
+        const value = onEvent.apply.value;
         const siteType = onEvent.apply.siteType;
-        if (typeof baseValue !== 'number' || !siteType) {
+        if (typeof value !== 'number' || !siteType) {
           logDetail(`"${def.name}": auto-attack-prowess-boost missing value or siteType — fizzle`);
           continue;
         }
@@ -3115,10 +3126,7 @@ function applyShortEventOnEntersPlay(
           logDetail(`"${def.name}": auto-attack-prowess-boost unknown scope "${scopeName}" — fizzle`);
           continue;
         }
-        const doorsOfNight = onEvent.apply.doublesWithDoorsOfNight === true
-          && buildInPlayNames(state).includes('Doors of Night');
-        const value = doorsOfNight ? baseValue * 2 : baseValue;
-        logDetail(`"${def.name}" played — adding persistent auto-attack.prowess ${value} to all automatic-attacks at ${activeCompany.currentSite.definitionId as string} (site type ${siteType}${doorsOfNight ? ', doubled: Doors of Night in play' : ''}), scope ${scopeName}`);
+        logDetail(`"${def.name}" played — adding persistent auto-attack.prowess ${value} to all automatic-attacks at ${activeCompany.currentSite.definitionId as string} (site type ${siteType}), scope ${scopeName}`);
         state = addConstraint(state, {
           source: handCard.instanceId,
           sourceDefinitionId: handCard.definitionId,

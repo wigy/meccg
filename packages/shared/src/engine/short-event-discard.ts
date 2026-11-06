@@ -60,6 +60,48 @@ function isCorruptionCheckExempt(
 }
 
 /**
+ * Enqueue the corruption check owed by whoever tapped to pay a short event's
+ * cost. An event played with no tap cost owes nothing. A rule 7.4 exempt payer
+ * (a sage ally, or a Ringwraith sage like Akhôrahil tapping for Voices of
+ * Malice) still fulfilled the active condition, so the event's effect stands
+ * and only the check is skipped.
+ *
+ * @param state - Game state with the event's effect already applied.
+ * @param def - Definition of the short event being resolved.
+ * @param sourceInstanceId - Instance of the short event (the check's source).
+ * @param actor - Player who declared the short event.
+ * @param costTapCharacterId - The character or ally tapped as the play cost, if any.
+ * @param modifier - The effect's corruption check modifier; absent means 0.
+ * @returns `state`, with the check enqueued when one is owed.
+ */
+function enqueueCostTapperCorruptionCheck(
+  state: GameState,
+  def: CardDefinition,
+  sourceInstanceId: CardInstanceId,
+  actor: PlayerId,
+  costTapCharacterId: CardInstanceId | undefined,
+  modifier: number | undefined,
+): GameState {
+  if (!costTapCharacterId) return state;
+  if (isCorruptionCheckExempt(state, getPlayerIndex(state, actor), costTapCharacterId)) {
+    logDetail(`${def.name}: sage ${costTapCharacterId as string} is exempt from corruption checks (rule 7.4)`);
+    return state;
+  }
+  return enqueueCorruptionCheck(state, {
+    source: sourceInstanceId,
+    actor,
+    scope: { kind: 'phase' as const, phase: state.phaseState.phase },
+    characterId: costTapCharacterId,
+    modifier,
+    reason: def.name,
+    // CoE 7.1.1: any corruption check declared but not yet resolved may
+    // be supported by tapping untapped company mates for +1 each, not
+    // just item-transfer/store checks — see rule-3.35's transfer fix.
+    allowSupport: true,
+  });
+}
+
+/**
  * Re-resolves a live attack's `all-attacks` strikes/prowess bonuses after a
  * card has just left play, and applies the delta to `combat`.
  *
@@ -147,7 +189,6 @@ export function applyShortEventDiscardInPlay(
   const discardInPlay = findMoveEffectByShape({ effects: getCardEffects(def) }, 'target', 'in-play', 'discard');
   if (!discardInPlay) return { state, error: `${def.name}: no discard-in-play effect` };
 
-  const playerIndex = getPlayerIndex(state, actor);
   let foundOwnerIndex = -1;
   let foundCardsInPlayIdx = -1;
   let foundCharId: string | null = null;
@@ -209,28 +250,9 @@ export function applyShortEventDiscardInPlay(
   // (e.g. Wake of War) — re-resolve and adjust it (CoE 3.i).
   newState = recomputeLiveAttackAfterDiscard(state, newState, { sourceInstanceId, sourceDefinitionId: def.id, playedBy: actor, note: 'bonus card discarded' });
 
-  if (discardInPlay.corruptionCheck && costTapCharacterId) {
-    // Rule 7.4: allies, Ringwraiths, and Balrog avatars never make
-    // corruption checks, but may still fulfill the skill-only active
-    // condition that let them tap (e.g. a sage ally, or a Ringwraith sage
-    // like Akhôrahil, tapping for Voices of Malice). The discard is still
-    // implemented but the corruption check is skipped entirely.
-    if (isCorruptionCheckExempt(newState, playerIndex, costTapCharacterId)) {
-      logDetail(`${def.name}: sage ${costTapCharacterId as string} is exempt from corruption checks (rule 7.4)`);
-    } else {
-      newState = enqueueCorruptionCheck(newState, {
-        source: sourceInstanceId,
-        actor,
-        scope: { kind: 'phase' as const, phase: newState.phaseState.phase },
-        characterId: costTapCharacterId,
-        modifier: discardInPlay.corruptionCheck.modifier,
-        reason: def.name,
-        // CoE 7.1.1: any corruption check declared but not yet resolved may
-        // be supported by tapping untapped company mates for +1 each, not
-        // just item-transfer/store checks — see rule-3.35's transfer fix.
-        allowSupport: true,
-      });
-    }
+  // Unlike the other cost-tap modes, the check here is optional on the card.
+  if (discardInPlay.corruptionCheck) {
+    newState = enqueueCostTapperCorruptionCheck(newState, def, sourceInstanceId, actor, costTapCharacterId, discardInPlay.corruptionCheck.modifier);
   }
 
   return { state: newState };
@@ -343,10 +365,9 @@ export function applyShortEventRegionTransform(
   const regionTransform = findCardEffect(def, 'region-transform');
   if (!regionTransform) return { state, error: `${def.name}: no region-transform effect` };
 
-  const playerIndex = getPlayerIndex(state, actor);
   const turnScoped = regionTransform.duration === 'turn';
   logDetail(`${def.name}: region ${regionName} becomes ${newRegionType} (${turnScoped ? 'until end of turn' : 'permanent'})`);
-  let newState = addConstraint(state, {
+  const newState = addConstraint(state, {
     source: sourceInstanceId,
     sourceDefinitionId: def.id,
     scope: turnScoped ? { kind: 'turn' } : { kind: 'until-cleared' },
@@ -360,30 +381,7 @@ export function applyShortEventRegionTransform(
     },
   });
 
-  if (costTapCharacterId) {
-    // Rule 7.4: allies, Ringwraiths, and Balrog avatars never make
-    // corruption checks, but may still fulfill the skill-only active
-    // condition that let them tap (e.g. a sage ally tapping for Marvels
-    // Told). The transform is still implemented but the corruption check
-    // is skipped entirely.
-    if (isCorruptionCheckExempt(newState, playerIndex, costTapCharacterId)) {
-      logDetail(`${def.name}: sage ${costTapCharacterId as string} is exempt from corruption checks (rule 7.4)`);
-    } else {
-      newState = enqueueCorruptionCheck(newState, {
-        source: sourceInstanceId,
-        actor,
-        scope: { kind: 'phase' as const, phase: newState.phaseState.phase },
-        characterId: costTapCharacterId,
-        modifier: regionTransform.corruptionCheck?.modifier ?? 0,
-        reason: def.name,
-        // CoE 7.1.1: any corruption check declared but not yet resolved may
-        // be supported by tapping untapped company mates for +1 each.
-        allowSupport: true,
-      });
-    }
-  }
-
-  return { state: newState };
+  return { state: enqueueCostTapperCorruptionCheck(newState, def, sourceInstanceId, actor, costTapCharacterId, regionTransform.corruptionCheck?.modifier) };
 }
 
 /**
@@ -416,7 +414,6 @@ export function applyShortEventSiteUntap(
   const siteUntap = findCardEffect(def, 'site-untap');
   if (!siteUntap) return { state, error: `${def.name}: no site-untap effect` };
 
-  const playerIndex = getPlayerIndex(state, actor);
   let found = false;
   const players = state.players.map(p => ({
     ...p,
@@ -432,31 +429,9 @@ export function applyShortEventSiteUntap(
     .flatMap(p => p.companies)
     .find(c => c.currentSite?.instanceId === siteInstanceId)!.currentSite!.definitionId);
   logDetail(`${def.name}: untapping site ${siteDef?.name ?? '?'}`);
-  let newState: GameState = { ...state, players };
+  const newState: GameState = { ...state, players };
 
-  if (costTapCharacterId) {
-    // Rule 7.4: allies, Ringwraiths, and Balrog avatars never make
-    // corruption checks, but may still fulfill the skill-only active
-    // condition that let them tap (e.g. a sage ally tapping for Marvels
-    // Told).
-    if (isCorruptionCheckExempt(newState, playerIndex, costTapCharacterId)) {
-      logDetail(`${def.name}: sage ${costTapCharacterId as string} is exempt from corruption checks (rule 7.4)`);
-    } else {
-      newState = enqueueCorruptionCheck(newState, {
-        source: sourceInstanceId,
-        actor,
-        scope: { kind: 'phase' as const, phase: newState.phaseState.phase },
-        characterId: costTapCharacterId,
-        modifier: siteUntap.corruptionCheck?.modifier ?? 0,
-        reason: def.name,
-        // CoE 7.1.1: any corruption check declared but not yet resolved may
-        // be supported by tapping untapped company mates for +1 each.
-        allowSupport: true,
-      });
-    }
-  }
-
-  return { state: newState };
+  return { state: enqueueCostTapperCorruptionCheck(newState, def, sourceInstanceId, actor, costTapCharacterId, siteUntap.corruptionCheck?.modifier) };
 }
 
 /**
@@ -496,30 +471,9 @@ export function applyShortEventItemUntap(
 
   const itemDef = defById(state, updated.attachment.definitionId);
   logDetail(`${def.name}: untapping item ${itemDef?.name ?? '?'}`);
-  let newState: GameState = updatePlayer(state, playerIndex, () => updated.player);
+  const newState: GameState = updatePlayer(state, playerIndex, () => updated.player);
 
-  if (costTapCharacterId) {
-    // Rule 7.4: allies, Ringwraiths, and Balrog avatars never make
-    // corruption checks, but may still fulfill the skill-only active
-    // condition that let them tap.
-    if (isCorruptionCheckExempt(newState, playerIndex, costTapCharacterId)) {
-      logDetail(`${def.name}: sage ${costTapCharacterId as string} is exempt from corruption checks (rule 7.4)`);
-    } else {
-      newState = enqueueCorruptionCheck(newState, {
-        source: sourceInstanceId,
-        actor,
-        scope: { kind: 'phase' as const, phase: newState.phaseState.phase },
-        characterId: costTapCharacterId,
-        modifier: itemUntap.corruptionCheck?.modifier ?? 0,
-        reason: def.name,
-        // CoE 7.1.1: any corruption check declared but not yet resolved may
-        // be supported by tapping untapped company mates for +1 each.
-        allowSupport: true,
-      });
-    }
-  }
-
-  return { state: newState };
+  return { state: enqueueCostTapperCorruptionCheck(newState, def, sourceInstanceId, actor, costTapCharacterId, itemUntap.corruptionCheck?.modifier) };
 }
 
 /**

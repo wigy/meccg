@@ -26,7 +26,7 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   CardStatus,
   attachHazardToChar, findCharInstanceId, grantedActionsFor,
-  RESOURCE_PLAYER,
+  RESOURCE_PLAYER, setCharStatus, GLAMDRING,
 } from '../../test-helpers.js';
 
 const DESPAIR_OF_THE_HEART = 'tw-27' as CardDefinitionId;
@@ -130,5 +130,49 @@ describe('Rule 3.36 — Avatar Sideboard Access', () => {
     const grants = grantedActionsFor(midFlow, gandalfId, 'remove-self-on-roll', PLAYER_1);
     expect(grants).toHaveLength(1);
     expect(grants[0].noTap).toBe(true);
+  });
+
+  // Bug report: Saruman tapped to bring one sideboard card to the play deck,
+  // was untapped by And Forth He Hastened, then tapped again for a second
+  // sideboard access — but no sideboard card was offered, because the fetch
+  // count was tracked per turn rather than per avatar tap. Rule 2.II.6 limits
+  // each tap (1 to deck / up to 5 to discard), not the turn.
+  test('an avatar untapped after a sideboard fetch can tap again for a fresh fetch', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [GANDALF, ARAGORN] }],
+          hand: [],
+          siteDeck: [MORIA],
+          sideboard: [SCROLL_OF_ISILDUR, GLAMDRING],
+          playDeck: [ARAGORN, ARAGORN, ARAGORN, ARAGORN, ARAGORN],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+    });
+
+    // First tap: fetch one card to the play deck.
+    const afterStart = dispatch(state, viableActions(state, PLAYER_1, 'start-sideboard-to-deck')[0].action);
+    const firstFetch = viableActions(afterStart, PLAYER_1, 'fetch-from-sideboard')[0].action;
+    const afterFirst = dispatch(afterStart, firstFetch);
+    expect(afterFirst.players[RESOURCE_PLAYER].sideboard).toHaveLength(1);
+
+    // Avatar untapped (as by And Forth He Hastened), then tapped again.
+    const untapped = setCharStatus(afterFirst, RESOURCE_PLAYER, GANDALF, CardStatus.Untapped);
+    const afterSecondStart = dispatch(untapped, viableActions(untapped, PLAYER_1, 'start-sideboard-to-deck')[0].action);
+
+    // The remaining sideboard card must be offered for the second fetch.
+    const secondFetches = viableActions(afterSecondStart, PLAYER_1, 'fetch-from-sideboard');
+    expect(secondFetches).toHaveLength(1);
+    const afterSecond = dispatch(afterSecondStart, secondFetches[0].action);
+    expect(afterSecond.players[RESOURCE_PLAYER].sideboard).toHaveLength(0);
   });
 });

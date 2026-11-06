@@ -7,7 +7,7 @@
  * tooltips for short-events and hazard keying, and resource/item target menus.
  */
 
-import type { PlayerView, CardDefinition, CardDefinitionId, CardInstanceId, GameAction, PlayHazardAction, CancelAttackAction, DeclareBurglaryAction, ConvertCreatureToAllyAction } from '@meccg/shared';
+import type { PlayerView, CardDefinition, CardDefinitionId, CardInstanceId, CompanyId, GameAction, PlayHazardAction, CancelAttackAction, DeclareBurglaryAction, ConvertCreatureToAllyAction } from '@meccg/shared';
 import { cardImageProxyPath, viableActions, Phase, buildInstanceLookup, describeArrivalMode } from '@meccg/shared';
 import { appState } from './app-state.js';
 import { getCachedInstanceLookup, setCachedInstanceLookup, findNonViableReason } from './render-text-format.js';
@@ -55,12 +55,17 @@ import { getFocusedCompanyId } from './company-view-state.js';
  * defaults its target to `focusedSiteDefId` (the player's focused company's
  * site) so clicking the card plays it where the player has selected, not on an
  * arbitrary first company.
+ *
+ * Company-targeting permanent events (Orders from Lugbúrz as-94, Fellowship
+ * tw-240, …) likewise offer one action per eligible company; the returned
+ * action defaults its target to `focusedCompanyId` for the same reason.
  */
 export function findCardAction(
   defId: CardDefinitionId,
   legalActions: readonly GameAction[],
   instanceLookup?: (id: CardInstanceId) => CardDefinitionId | undefined,
   focusedSiteDefId?: CardDefinitionId,
+  focusedCompanyId?: CompanyId,
 ): GameAction | null {
   // Site-targeting permanent events (e.g. Double-dealing, The White Tree)
   // produce one play-permanent-event action per company whose current site
@@ -82,6 +87,19 @@ export function findCardAction(
         if (focused) return focused;
       }
       return siteEvents[0];
+    }
+    // Company-targeting permanent events: one action per eligible company.
+    // Default to the focused company (during M/H that is the moving company)
+    // instead of the first company in the list — Orders from Lugbúrz was
+    // dropped on an already-moved company instead of the active one (bug
+    // f8996b0586d7cbdc).
+    if (focusedCompanyId) {
+      const focused = legalActions.find(
+        a => a.type === 'play-permanent-event'
+          && instanceLookup(a.cardInstanceId) === defId
+          && a.targetCompanyId === focusedCompanyId,
+      );
+      if (focused) return focused;
     }
   }
   for (const action of legalActions) {
@@ -1380,7 +1398,7 @@ export function renderHand(
     const imgPath = cardImageProxyPath(def);
     if (!imgPath) continue;
 
-    const action = findCardAction(cardDefId, viable, cachedInstanceLookup, focusedSiteDefId);
+    const action = findCardAction(cardDefId, viable, cachedInstanceLookup, focusedSiteDefId, focusedCompanyId ?? undefined);
     const isItemDraft = isItemDraftCard(cardDefId, viable);
     const isPlayChar = isPlayCharacterCard(cardDefId, viable, cachedInstanceLookup);
     const shortEventActions = findShortEventActions(cardInstanceId, viable);
@@ -1976,7 +1994,7 @@ export function renderHand(
           const liveFocusedSiteDefId = liveFocusedCompanyId
             ? view.self.companies.find(c => c.id === liveFocusedCompanyId)?.currentSite?.definitionId
             : undefined;
-          onAction(findCardAction(cardDefId, viable, cachedInstanceLookup, liveFocusedSiteDefId) ?? action);
+          onAction(findCardAction(cardDefId, viable, cachedInstanceLookup, liveFocusedSiteDefId, liveFocusedCompanyId ?? undefined) ?? action);
         });
       }
     } else if (discardAction || reshuffleAction) {

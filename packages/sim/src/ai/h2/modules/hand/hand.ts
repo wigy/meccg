@@ -57,6 +57,7 @@ import { scoredEvaluation } from '../../core/evaluation.js';
 import { namedCharacter } from '../../core/action-fields.js';
 import { computeCardPrices } from '../../services/card-price.js';
 import { cyclingKeeps, isPointsResource } from '../../services/cycling.js';
+import { keepCostTsd } from '../../services/deck-plan.js';
 import { computeCharacterValue } from '../../services/character-value.js';
 import { computeHazardPlan } from '../../services/hazard-plan.js';
 import { computeDrawValue } from '../../services/draw-value.js';
@@ -228,6 +229,15 @@ export const handModule: H2Module = {
       const tieBreak = discarded && prices && discarded.tsd <= prices.floor
         && heldDefinition !== undefined && isPointsResource(context.cardPool[heldDefinition])
         ? tunables.cappedPointsTieBreak : 0;
+      // How often winners on this deck play the card rather than throw it. A
+      // card the models price at the floor is otherwise a coin flip here: 420
+      // of 611 differing discards in the winners-only data were such ties.
+      const thrownDefinition = discardedId !== undefined
+        ? view.self.hand.find(card => card.instanceId === discardedId)?.definitionId
+        : undefined;
+      const planKeep = discarding && thrownDefinition !== undefined
+        ? keepCostTsd(thrownDefinition as string, context.ownDeck, tunables)
+        : 0;
       // What a discard costs is what *that card* was worth, not what a card is
       // worth on average. This is the whole point of the shadow price: the
       // module can now prefer throwing the faction it can never score over the
@@ -245,9 +255,11 @@ export const handModule: H2Module = {
       // left to throw is often priced above a fresh draw (a creature the plan
       // likes, a point character), and without this the AI stopped cycling in
       // a fifth of its turns — which cost about 100 Elo against heuristic.
-      const drawnBack = cycling ? expectedDrawWorth(context) + tunables.cyclingPaceTsd : 0;
+      const drawnBack = cycling
+        ? expectedDrawWorth(context) + tunables.cyclingPaceTsd + tunables.deckPaceLeadTsd * Math.sign(standing.tsd)
+        : 0;
       const dtsd = discarding
-        ? -(discarded?.tsd ?? tunables.provisionalCardPrice) - keepBonus - tieBreak + drawnBack
+        ? -(discarded?.tsd ?? tunables.provisionalCardPrice) - keepBonus - tieBreak - planKeep + drawnBack
         : tunables.resourceDrawValue;
       const outcomes: Outcome[] = [{
         p: 1,
@@ -278,6 +290,9 @@ export const handModule: H2Module = {
                 note: 'the end-of-turn reset refills the hand; a fresh draw is worth what the average card '
                   + 'in this hand is worth to keep, since the hand is a sample of the same deck',
               })]
+              : []),
+            ...(planKeep > 0
+              ? [leaf('how often winners keep it', planKeep, { unit: 'tsd', tunable: 'deckPlanKeepTsd' })]
               : []),
             leaf('hand size', view.self.hand.length),
             leaf('deck remaining', view.self.playDeck.length),

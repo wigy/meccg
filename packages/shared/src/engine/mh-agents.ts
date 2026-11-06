@@ -4,8 +4,10 @@
  * Agent actions during the movement/hazard phase: the per-action handlers
  * (move, move-back, return-home, heal, untap, turn-face-down, key-creatures,
  * influence-attempt, tap-attack, tap-agent-at-site) plus their private helpers
- * (resolveAgent, chargeAgentAction(Tail), updateAgent, countExtraAgentActions,
- * computeAgentAttackProwess, revealAgentForAttack). Extracted from
+ * (resolveAgent, chargeAgentActionTail, updateAgent, countExtraAgentActions,
+ * computeAgentAttackProwess, revealAgentForAttack), and the hazard-slot helpers
+ * chargeHazardSlot and commitHazardEventPlay, which `mh-hazard-play` also uses.
+ * Extracted from
  * `reducer-movement-hazard.ts` as the provably-closed transitive closure of the
  * agent handlers — it calls no other reducer-movement-hazard function.
  * `reducer-movement-hazard` imports the handlers it dispatches one-way from
@@ -14,7 +16,7 @@
  * Pure relocation: the logic is unchanged from its previous home.
  */
 
-import type { GameState, MovementHazardPhaseState, Company, GameAction, CombatState, CharacterCard, AgentInPlay, SiteInPlay, CardDefinition, PlayHazardAction, GameEffect } from '../index.js';
+import type { GameState, MovementHazardPhaseState, Company, GameAction, CombatState, CharacterCard, AgentInPlay, SiteInPlay, CardDefinition, CardInstance, PlayHazardAction, GameEffect } from '../index.js';
 import type { TapAgentEffect, AgentTapInfluenceEffect, AgentTapAttackEffect, AgentTapReturnCharacterEffect, AgentTapFactionInfluenceEffect, AgentTapMultiInfluenceEffect, AgentInfluenceBoostEffect, AgentTapOpponentInfluenceEffect } from '../types/effects.js';
 import type { CardInstanceId, CompanyId, Race } from '../types/common.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
@@ -76,17 +78,40 @@ export function countExtraAgentActions(state: GameState, agentId?: CompanyId): n
 }
 
 /**
- * Shared helper: charge a hazard slot for an agent action (unless it is an
- * extra action granted by an effect like Great Need or Purpose, which is free).
+ * Shared helper: charge one hazard slot unless the play is `free`, and reset the
+ * resource player's pass, since any hazard play lets them respond again.
  *
- * Rule: only the agent's BASE action costs a hazard slot. Extra actions
- * (remainingActions <= extraAgentActions before decrement) are free.
+ * Free plays are a hazard with the `no-hazard-limit` flag or a limit exemption,
+ * and an agent's extra action granted by an effect like Great Need or Purpose:
+ * only the agent's BASE action costs a slot (extra actions have
+ * remainingActions <= extraAgentActions before decrement).
  */
-function chargeAgentAction(mhState: MovementHazardPhaseState, isExtraAction: boolean): MovementHazardPhaseState {
+export function chargeHazardSlot(mhState: MovementHazardPhaseState, free: boolean): MovementHazardPhaseState {
   return {
     ...mhState,
-    hazardsPlayedThisCompany: isExtraAction ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1,
+    hazardsPlayedThisCompany: free ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1,
     resourcePlayerPassed: false,
+  };
+}
+
+/**
+ * Commit a hazard short-event that bypasses the chain: move the card from hand
+ * to discard and charge its hazard slot (free with the `no-hazard-limit` flag).
+ */
+export function commitHazardEventPlay(
+  state: GameState,
+  mhState: MovementHazardPhaseState,
+  hazardIndex: number,
+  handCard: CardInstance,
+  def: CardDefinition,
+): GameState {
+  return {
+    ...updatePlayer(state, hazardIndex, p => ({
+      ...p,
+      hand: removeById(p.hand, handCard.instanceId),
+      discardPile: [...p.discardPile, handCard],
+    })),
+    phaseState: chargeHazardSlot(mhState, hasPlayFlag(def, 'no-hazard-limit')),
   };
 }
 
@@ -103,6 +128,11 @@ function updateAgent(
     ...p,
     agents: p.agents.map((a, i) => i === agentIdx ? updater(a) : a),
   }));
+}
+
+/** Declaring an influence attempt taps the agent and reveals it (rule 10.14). */
+function tapAndReveal(a: AgentInPlay): AgentInPlay {
+  return { ...a, revealed: true, character: { ...a.character, status: CardStatus.Tapped } };
 }
 
 /**
@@ -142,7 +172,7 @@ function chargeAgentActionTail(
   const isExtra = agentRef.agent.remainingActions <= countExtraAgentActions(state, agentRef.agent.id);
   const newState = updateAgent(state, agentRef.hazardIndex, agentRef.agentIdx,
     a => ({ ...mutate(a), remainingActions: a.remainingActions - 1 }));
-  return { state: { ...newState, phaseState: chargeAgentAction(mhState, isExtra) } };
+  return { state: { ...newState, phaseState: chargeHazardSlot(mhState, isExtra) } };
 }
 
 export function handleAgentMove(state: GameState, action: GameAction, mhState: MovementHazardPhaseState): ReducerResult {
@@ -177,7 +207,7 @@ export function handleAgentMove(state: GameState, action: GameAction, mhState: M
     siteDeck: removeById(p.siteDeck, destCard.instanceId),
   }));
 
-  return { state: { ...newState, phaseState: chargeAgentAction(mhState, isExtraMove) } };
+  return { state: { ...newState, phaseState: chargeHazardSlot(mhState, isExtraMove) } };
 }
 
 /**
@@ -209,7 +239,7 @@ export function handleAgentMoveBack(state: GameState, action: GameAction, mhStat
     siteDeck: [...p.siteDeck, topSite],
   }));
 
-  return { state: { ...newState, phaseState: chargeAgentAction(mhState, isExtraMoveBack) } };
+  return { state: { ...newState, phaseState: chargeHazardSlot(mhState, isExtraMoveBack) } };
 }
 
 /**
@@ -257,7 +287,7 @@ export function handleAgentReturnHome(state: GameState, action: GameAction, mhSt
       }),
       siteDeck: [...removeById(p.siteDeck, homeCard.instanceId), ...agent.siteStack],
     }));
-    return { state: { ...newState, phaseState: chargeAgentAction(mhState, isExtraReturnFaceUp) } };
+    return { state: { ...newState, phaseState: chargeHazardSlot(mhState, isExtraReturnFaceUp) } };
   }
 
   // Face-down: siteStack becomes empty, no site card needed
@@ -274,7 +304,7 @@ export function handleAgentReturnHome(state: GameState, action: GameAction, mhSt
     }),
     siteDeck: [...p.siteDeck, ...agent.siteStack],
   }));
-  return { state: { ...newState, phaseState: chargeAgentAction(mhState, isExtraReturnFaceDown) } };
+  return { state: { ...newState, phaseState: chargeHazardSlot(mhState, isExtraReturnFaceDown) } };
 }
 
 /**
@@ -419,14 +449,7 @@ export function handleAgentInfluenceAttempt(
 
   // Determine home site and whether agent is at home
   const homesiteNames = parseHomesiteNames(agentDef.homesite ?? '');
-  let agentSiteName: string | null = null;
-  if (agent.siteStack.length > 0) {
-    const topSite = agent.siteStack[agent.siteStack.length - 1];
-    const siteDef = defById(state, topSite.definitionId);
-    if (siteDef && isSiteCard(siteDef)) agentSiteName = siteDef.name;
-  } else {
-    agentSiteName = homesiteNames[0] ?? null;
-  }
+  const agentSiteName = agentCurrentSiteName(state, agent, agentDef);
   const isAtHome = agentSiteName !== null && homesiteNames.includes(agentSiteName);
 
   // Rule 10.14 bonus: +2 DI if at home site
@@ -921,14 +944,7 @@ export function handleAgentTapReturnCharacter(
   // The agent's current site: top of its site stack, or its first home site
   // when the stack is empty (a face-down agent sitting at home).
   const homesiteNames = parseHomesiteNames(agentDef.homesite ?? '');
-  let agentSiteName: string | null = null;
-  if (agent.siteStack.length > 0) {
-    const topSite = agent.siteStack[agent.siteStack.length - 1];
-    const siteDef = defById(state, topSite.definitionId);
-    if (siteDef && isSiteCard(siteDef)) agentSiteName = siteDef.name;
-  } else {
-    agentSiteName = homesiteNames[0] ?? null;
-  }
+  const agentSiteName = agentCurrentSiteName(state, agent, agentDef);
   const atHome = agentSiteName !== null && homesiteNames.includes(agentSiteName);
 
   const targetMind = targetChar.effectiveStats.mind ?? targetDef.mind ?? 0;
@@ -937,22 +953,8 @@ export function handleAgentTapReturnCharacter(
   logDetail(`Pilfer Anything Unwatched: agent "${agentDef.name}" (site ${agentSiteName ?? '?'}, atHome=${atHome}) targeting "${targetDef.name}" (mind ${targetMind}); roll +${atHome ? effect.atHomeSiteBonus : 0} must be > ${threshold}`);
 
   // Tap the agent, discard the short event, count it against the hazard limit.
-  const newHand = removeById(hazardPlayer.hand, handCard.instanceId);
-  const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
-  const newHazardCount = bypassesLimit ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
-
-  let newState: GameState = updatePlayer(state, hazardIndex, p => ({
-    ...p,
-    hand: newHand,
-    discardPile: [...p.discardPile, handCard],
-    agents: p.agents.map((a, i) => i === agentIdx
-      ? { ...a, character: { ...a.character, status: CardStatus.Tapped } }
-      : a),
-  }));
-  newState = {
-    ...newState,
-    phaseState: { ...mhState, hazardsPlayedThisCompany: newHazardCount, resourcePlayerPassed: false },
-  };
+  let newState = updateAgent(commitHazardEventPlay(state, mhState, hazardIndex, handCard, def), hazardIndex, agentIdx,
+    a => ({ ...a, character: { ...a.character, status: CardStatus.Tapped } }));
 
   // The hazard player rolls; on a pass the target returns to its owner's hand.
   newState = enqueueResolution(newState, {
@@ -1069,22 +1071,7 @@ export function handleAgentTapFactionInfluence(
   const autoSuccess = factionAtAgentHome && effect.autoSuccessAtHomeSite === true;
 
   // Tap and reveal the agent, discard the short event, count the hazard.
-  const newHand = removeById(hazardPlayer.hand, handCard.instanceId);
-  const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
-  const newHazardCount = bypassesLimit ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
-
-  let newState: GameState = updatePlayer(state, hazardIndex, p => ({
-    ...p,
-    hand: newHand,
-    discardPile: [...p.discardPile, handCard],
-    agents: p.agents.map((a, i) => i === agentIdx
-      ? { ...a, revealed: true, character: { ...a.character, status: CardStatus.Tapped } }
-      : a),
-  }));
-  newState = {
-    ...newState,
-    phaseState: { ...mhState, hazardsPlayedThisCompany: newHazardCount, resourcePlayerPassed: false },
-  };
+  let newState = updateAgent(commitHazardEventPlay(state, mhState, hazardIndex, handCard, def), hazardIndex, agentIdx, tapAndReveal);
 
   // An automatically successful attempt needs no attacker roll.
   let attackerRoll = 0;
@@ -1291,22 +1278,10 @@ export function handleAgentTapMultiInfluence(
   const boostModifier = cardBonus + bankedBoost;
 
   // Tap and reveal the agent, discard the short event, count the hazard.
-  const newHand = removeById(hazardPlayer.hand, handCard.instanceId);
-  const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
-  const newHazardCount = bypassesLimit ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
-
-  let newState: GameState = updatePlayer(state, hazardIndex, p => ({
-    ...p,
-    hand: newHand,
-    discardPile: [...p.discardPile, handCard],
-    agents: p.agents.map((a, i) => i === agentIdx
-      ? { ...a, revealed: true, character: { ...a.character, status: CardStatus.Tapped } }
-      : a),
-  }));
+  let newState = updateAgent(commitHazardEventPlay(state, mhState, hazardIndex, handCard, def), hazardIndex, agentIdx, tapAndReveal);
   newState = {
     ...newState,
     activeConstraints: newState.activeConstraints.filter(c => !consumedIds.includes(c.id as string)),
-    phaseState: { ...mhState, hazardsPlayedThisCompany: newHazardCount, resourcePlayerPassed: false },
   };
 
   const { roll, rng, cheatRollTotal } = roll2d6(newState);
@@ -1376,21 +1351,7 @@ export function handleAgentInfluenceBoost(
 
   logDetail(`${def.name}: banking +${effect.attemptBonus} influence boost on agent ${agentInstanceId as string}`);
 
-  const newHand = removeById(hazardPlayer.hand, handCard.instanceId);
-  const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
-  const newHazardCount = bypassesLimit ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
-
-  let newState: GameState = updatePlayer(state, hazardIndex, p => ({
-    ...p,
-    hand: newHand,
-    discardPile: [...p.discardPile, handCard],
-  }));
-  newState = {
-    ...newState,
-    phaseState: { ...mhState, hazardsPlayedThisCompany: newHazardCount, resourcePlayerPassed: false },
-  };
-
-  newState = addConstraint(newState, {
+  const newState = addConstraint(commitHazardEventPlay(state, mhState, hazardIndex, handCard, def), {
     source: handCard.instanceId,
     sourceDefinitionId: def.id,
     scope: { kind: 'until-cleared' },
@@ -1530,22 +1491,7 @@ export function handleAgentTapOpponentInfluence(
   if (sharesHome && effect.homeSiteBonus) boostModifier += effect.homeSiteBonus;
 
   // Tap and reveal the agent, discard the short event, count the hazard.
-  const newHand = removeById(hazardPlayer.hand, handCard.instanceId);
-  const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
-  const newHazardCount = bypassesLimit ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
-
-  let newState: GameState = updatePlayer(state, hazardIndex, p => ({
-    ...p,
-    hand: newHand,
-    discardPile: [...p.discardPile, handCard],
-    agents: p.agents.map((a, i) => i === agentIdx
-      ? { ...a, revealed: true, character: { ...a.character, status: CardStatus.Tapped } }
-      : a),
-  }));
-  newState = {
-    ...newState,
-    phaseState: { ...mhState, hazardsPlayedThisCompany: newHazardCount, resourcePlayerPassed: false },
-  };
+  let newState = updateAgent(commitHazardEventPlay(state, mhState, hazardIndex, handCard, def), hazardIndex, agentIdx, tapAndReveal);
 
   const { roll, rng, cheatRollTotal } = roll2d6(newState);
   const attackerRoll = roll.die1 + roll.die2 + rollBonus;
@@ -1656,12 +1602,6 @@ export function handleTapAgentAtSite(
     ? { ...p, hand: newHand, cardsInPlay: [...p.cardsInPlay, { instanceId: handCard.instanceId, definitionId: handCard.definitionId, status: CardStatus.Untapped }] }
     : { ...p, hand: newHand, discardPile: [...p.discardPile, handCard] });
 
-  // --- Increment hazard count (the card counts; the attack does not) ---
-  const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
-  const newHazardCount = bypassesLimit
-    ? mhState.hazardsPlayedThisCompany
-    : mhState.hazardsPlayedThisCompany + 1;
-
   // Rule 3.II.2.R3/B3: a Ringwraith or Balrog player treats agent hazard
   // attacks against their companies as detainment — mirrors the site-phase
   // declare-agent-attack path.
@@ -1695,11 +1635,8 @@ export function handleTapAgentAtSite(
     state: {
       ...stateAfterReveal,
       combat,
-      phaseState: {
-        ...mhState,
-        hazardsPlayedThisCompany: newHazardCount,
-        resourcePlayerPassed: false,
-      },
+      // The card counts against the hazard limit; the attack does not.
+      phaseState: chargeHazardSlot(mhState, hasPlayFlag(def, 'no-hazard-limit')),
     },
   };
 }
