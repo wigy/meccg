@@ -37,9 +37,9 @@ import { scoredEvaluation } from '../core/evaluation.js';
 import { namedCharacter, namedDiscardTarget } from '../core/action-fields.js';
 import { computeBeliefs } from './beliefs.js';
 import { computeCharacterValue } from './character-value.js';
-import { computeDefence, hazardSlots } from './defence.js';
+import { automaticAttacksOf, computeDefence, hazardSlots } from './defence.js';
 import { computeDrawValue } from './draw-value.js';
-import { inPlayNamed, withoutInPlay } from './attack-modifiers.js';
+import { boostInPlay, inPlayNamed, withoutInPlay } from './attack-modifiers.js';
 import { unseenDeckCards } from './deck-reach.js';
 import { playFloorTsd, windowOf } from './deck-plan.js';
 import { rosterOf } from './strike/prowess.js';
@@ -610,14 +610,34 @@ function reliefFromRemoval(
 ): { tsd: number; reason: string } | null {
   const { view, cardPool, standing, tunables } = context;
   const defence = computeDefence(view, cardPool, standing, tunables);
+  // The site each company will still have to enter this turn: its declared
+  // destination, or where it stands. Only on our own turn before the site
+  // phase — once a company has entered, its automatic-attacks are behind it.
+  const phase = view.phaseState.phase;
+  const beforeSites = view.activePlayer === view.self.id
+    && (phase === Phase.Organization || phase === Phase.LongEvent || phase === Phase.MovementHazard);
   const companies = view.self.companies.map(company => ({
     roster: rosterOf(company, view.self.characters, cardPool),
     size: company.characters.length,
+    site: beforeSites
+      ? ((company.destinationSite ?? company.currentSite)?.definitionId as string | undefined) ?? null
+      : null,
   }));
-  const now = companies.reduce((sum, c) => sum + defence.expectedHarm(c.roster, hazardSlots(c.size)), 0);
+  // A hazard event strengthens the automatic-attacks a company is walking into
+  // as well as the creatures aimed at it: Wake of War turns Isengard's Wolves
+  // from 3 strikes at 7 into 5 at 9 under Doors of Night (game
+  // mvy8h3au-b3sdfm), and the typical creature this service prices — a median
+  // over what the opponent has shown — need not be a Wolf at all.
+  const siteHarm = (excluding?: string | readonly string[]): number => {
+    const boost = boostInPlay(view, cardPool, excluding === undefined ? {} : { excluding });
+    return companies.reduce((sum, c) => (c.site === null ? sum
+      : sum + defence.harmFrom(c.roster, automaticAttacksOf(cardPool, c.site, boost))), 0);
+  };
+  const now = companies.reduce((sum, c) => sum + defence.expectedHarm(c.roster, hazardSlots(c.size)), 0)
+    + siteHarm();
   const reliefFrom = (instanceId: string | readonly string[]): number => now - companies.reduce(
     (sum, c) => sum + defence.harmWithout(instanceId, c.roster, hazardSlots(c.size)), 0,
-  );
+  ) - siteHarm(instanceId);
 
   const target = namedDiscardTarget(action);
   if (target) {
@@ -652,7 +672,7 @@ function reliefFromRemoval(
     return {
       tsd: relief,
       reason: `discarding ${name} takes ${relief.toFixed(1)} of harm off our companies — `
-        + 'the attacks it was strengthening go back to their printed numbers',
+        + 'the attacks it was strengthening, creatures and automatic-attacks alike, go back to their printed numbers',
     };
   }
 
