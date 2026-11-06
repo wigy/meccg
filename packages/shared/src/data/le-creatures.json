@@ -632,7 +632,7 @@
         "stat": "prowess",
         "value": 4,
         "when": {
-          "defender.alignment": "ringwraith"
+          "defender.race": "ringwraith"
         }
       }
     ]

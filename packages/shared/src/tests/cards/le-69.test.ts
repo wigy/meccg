@@ -16,7 +16,7 @@
  * | # | Effect Type      | Status | Notes                                                  |
  * |---|------------------|--------|--------------------------------------------------------|
  * | 1 | combat-detainment| OK     | Hero defenders (+covert fallen-wizard) take detainment |
- * | 2 | stat-modifier    | OK     | +4 prowess when defender.alignment === "ringwraith"    |
+ * | 2 | stat-modifier    | OK     | +4 prowess per strike vs a Ringwraith character (race) |
  *
  * keyedTo:
  * | # | Entry                                 | When                          | Notes                 |
@@ -36,6 +36,7 @@ import {
   buildTestState, resetMint,
   makeMHState, makeShadowMHState, makeDoubleWildernessMHState,
   playCreatureHazardAndResolve,
+  findCharInstanceId, dispatch,
   handCardId, companyIdAt,
   viableActions,
   RESOURCE_PLAYER, HAZARD_PLAYER,
@@ -49,6 +50,7 @@ import type { CardDefinitionId, CardInstanceId, GameState } from '../../index.js
 const ELF_LORD_REVEALED = 'le-69' as CardDefinitionId;
 const MIONID = 'as-3' as CardDefinitionId;
 const AZOG = 'ba-2' as CardDefinitionId;
+const ADUNAPHEL = 'le-50' as CardDefinitionId;
 
 const WILDERNESS_KEYING = { method: 'region-type' as const, value: RegionType.Wilderness };
 
@@ -93,7 +95,7 @@ describe('Elf-lord Revealed in Wrath (le-69)', () => {
     expect(afterChain.combat!.detainment).toBe(true);
   });
 
-  test('attack on Ringwraith (minion) company: +4 prowess (19), no detainment', () => {
+  test('attack on Ringwraith-player company: no +4 folded into attack prowess (15), no detainment', () => {
     const state = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.MovementHazard,
@@ -126,8 +128,88 @@ describe('Elf-lord Revealed in Wrath (le-69)', () => {
     );
 
     expect(afterChain.combat).not.toBeNull();
-    expect(afterChain.combat!.strikeProwess).toBe(19);
+    // "+4 prowess versus Ringwraiths" targets Ringwraith *characters*
+    // (CRF: Ringwraith section), so it is resolved per strike, not per company.
+    expect(afterChain.combat!.strikeProwess).toBe(15);
     expect(afterChain.combat!.detainment).toBe(false);
+  });
+
+  test('strike against a non-Ringwraith minion character: no +4 bonus (need uses prowess 15)', () => {
+    // Regression (game mvzvxrru-iq39mw): the +4 was applied to a strike
+    // against Lieutenant of Angmar, a troll, because the bonus was gated on
+    // the defending player's alignment rather than the struck character.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: MORIA, characters: [MIONID] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [ELF_LORD_REVEALED],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+    const ready: GameState = { ...state, phaseState: makeDoubleWildernessMHState() };
+    const afterChain = playCreatureHazardAndResolve(
+      ready, PLAYER_2, handCardId(ready, HAZARD_PLAYER), companyIdAt(ready, RESOURCE_PLAYER), WILDERNESS_KEYING,
+    );
+    const mionidId = findCharInstanceId(afterChain, RESOURCE_PLAYER, MIONID);
+    const s = dispatch(afterChain, { type: 'assign-strike', player: PLAYER_1, characterId: mionidId });
+    expect(s.combat!.phase).toBe('resolve-strike');
+
+    // Mîonid prowess 5 tapped to fight vs 15 → need 11 (would be 15 with +4).
+    const resolve = viableActions(s, PLAYER_1, 'resolve-strike')
+      .map(a => a.action)
+      .find(a => a.type === 'resolve-strike' && a.tapToFight);
+    expect(resolve).toBeDefined();
+    expect(resolve!.type === 'resolve-strike' && resolve.need).toBe(11);
+  });
+
+  test('strike against a Ringwraith character: +4 bonus applies (need uses prowess 19)', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: MORIA, characters: [ADUNAPHEL] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [ELF_LORD_REVEALED],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+    const ready: GameState = { ...state, phaseState: makeDoubleWildernessMHState() };
+    const afterChain = playCreatureHazardAndResolve(
+      ready, PLAYER_2, handCardId(ready, HAZARD_PLAYER), companyIdAt(ready, RESOURCE_PLAYER), WILDERNESS_KEYING,
+    );
+    expect(afterChain.combat!.strikeProwess).toBe(15);
+    const adunaphelId = findCharInstanceId(afterChain, RESOURCE_PLAYER, ADUNAPHEL);
+    const s = dispatch(afterChain, { type: 'assign-strike', player: PLAYER_1, characterId: adunaphelId });
+    expect(s.combat!.phase).toBe('resolve-strike');
+
+    // Adûnaphel prowess 8 vs 15 + 4 = 19 → need 12 (would be 8 without the bonus).
+    const needs = viableActions(s, PLAYER_1, 'resolve-strike')
+      .map(a => a.action)
+      .flatMap(a => (a.type === 'resolve-strike' ? [a.need] : []));
+    expect(needs.length).toBeGreaterThan(0);
+    expect(needs).toContain(12);
   });
 
   test('attack on Balrog company: no +4 bonus, no detainment (base prowess 15)', () => {

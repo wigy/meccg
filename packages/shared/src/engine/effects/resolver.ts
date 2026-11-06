@@ -1512,8 +1512,10 @@ export interface CreatureSelfContext {
   /**
    * Alignment of the defending player (e.g. "hero", "ringwraith"). Exposed
    * as `defender.alignment` in the self-effect context so conditions can
-   * key on the attacked company's alignment — used by cards like
-   * *Elf-lord Revealed in Wrath* ("+4 prowess versus Ringwraiths").
+   * key on the attacked company's alignment (e.g. detainment-coupled
+   * strike changes). Bonuses against a specific character race — such as
+   * *Elf-lord Revealed in Wrath*'s "+4 prowess versus Ringwraiths" — gate
+   * on `defender.race` instead and are applied per strike.
    */
   readonly defenderAlignment?: string;
   /**
