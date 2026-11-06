@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1431 | 1431 | 0 | 100.0% |
+| 1432 | 1432 | 0 | 100.0% |
 
 ## Category Breakdown
 
@@ -14,7 +14,7 @@
 |:---------|:-----:|:----:|:-:|
 | AS | 134 | 134 | 100.0% |
 | BA | 101 | 101 | 100.0% |
-| DM | 158 | 158 | 100.0% |
+| DM | 159 | 159 | 100.0% |
 | LE | 349 | 349 | 100.0% |
 | TD | 154 | 154 | 100.0% |
 | TW | 430 | 430 | 100.0% |
@@ -397,6 +397,7 @@
 | dm-155 | Rebuild the Town | — | 6 | ☑ |
 | dm-156 | Saw Further and Deeper | — | 8 | ☑ |
 | dm-157 | Secret Ways | — | 7 | ☑ |
+| dm-158 | Sentinels of Númenor | — | 13 | ☑ |
 | dm-159 | Smoke Rings | — | 16 | ☑ |
 | dm-160 | Token of Goodwill | — | 13 | ☑ |
 | dm-162 | Vein of Arda | — | 15 | ☑ |

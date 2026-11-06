@@ -1,5 +1,42 @@
 # Changelog
 
+## 0.228.0 — 2026-11-06
+
+Sentinels of Númenor Certified, Modular AI Learns Deck Play Floors
+
+### Cards
+
+- Certified Sentinels of Númenor (dm-158) (#3484)
+- Added the missing effects to Agburanar Roused (le-259) (#3483)
+- Elf-lord Revealed in Wrath's +4 applies only to strikes against Ringwraiths (#3499)
+- Trouble on All Borders can target the hazard player's own factions (#3498)
+- Forewarned Is Forearmed applies whichever player controls it (#3497)
+
+### Game Engine
+
+- Hazard-limit actions stay available after a company is emptied (#3501)
+- A re-tapped avatar can fetch from the sideboard again (#3488)
+- Region-transform targets are gated on `when` in the any-phase short-event path (#3494)
+- DSL: Doors of Night gates are expressed through the generic `inPlay` condition (#3493)
+- Refactors: shared short-event target pools, extracted `commitHazardEventPlay`/`chargeHazardSlot`, shared creature keying expansion, `enqueueCostTapperCorruptionCheck` and `attachItemAndDequeue` helpers (#3494, #3492, #3491, #3490, #3489)
+
+### Web Client
+
+- Replacement-site buttons are shown for Chance of Being Lost (#3503)
+- Players can take items with Old Cache and Swag in the visual view (#3502)
+- Avatar sideboard access is clearly labelled in the character menu (#3487)
+- Company-targeting permanent events default to the focused company (#3486)
+- Each influence-attempt variant is labelled distinctly in the choice menu (#3485)
+
+### AI
+
+- Modular AI uses a per-deck play floor mined from winning human games, and no longer credits travel for cards with no tap on arrival (#3481)
+- Hazard events are priced by the automatic-attacks they strengthen (#3482)
+- Route steps are graded by movements rather than regions (#3495)
+- Capped point cards are thrown last among floor ties (#3496)
+- A pinned ally's loss is charged when matching goals to companies (#3500)
+- H2 prices a stranded Ringwraith company by follower-group splits (#3504)
+
 ## 0.227.0 — 2026-11-01
 
 Deckless Join Fix and Itangast Roused Certified
