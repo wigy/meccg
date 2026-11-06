@@ -7298,7 +7298,9 @@ discard is the cost, so the incoming character bypasses the usual play gates
 ### 15. `reduce-attacks-to-one`
 
 Marker effect for *Forewarned Is Forearmed* (dm-132). When a card with this
-effect is in play it activates two engine-level reductions:
+effect is in play, under either player's control, it activates two engine-level
+reductions. Under CoE 9.3.5, an opponent's copy of the opposing alignment does
+not reduce a site's attacks; creature attacks have no such limit:
 
 1. **Site attacks**: At the start of the site phase's automatic-attack
    sequence, if the active company's site (non-Dragon-lair) has more than one
