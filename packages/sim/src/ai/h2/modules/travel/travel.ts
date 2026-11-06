@@ -46,12 +46,12 @@
  * the output would say which was wrong.
  */
 
-import { BASE_MAX_REGION_DISTANCE, CardStatus, Phase, isSiteCard, matchesCondition } from '@meccg/shared';
-import type { CardDefinition, CardInstanceId, CompanyId, GameAction, PlayerView, RegionType } from '@meccg/shared';
+import { BASE_MAX_REGION_DISTANCE, CardStatus, Phase, isSiteCard } from '@meccg/shared';
+import type { CardInstanceId, CompanyId, GameAction, PlayerView, RegionType } from '@meccg/shared';
 import type { Evaluation, H2Module, ModuleContext, Outcome, Rationale } from '../../core/types.js';
 import type { Plan, PlanStep } from '../../core/plan.js';
 import { ROUTE_STEP, reachProbability } from '../../core/plan.js';
-import type { MpDelta, MpSource } from '../../core/tsd.js';
+import type { MpSource } from '../../core/tsd.js';
 import { netTsdDelta } from '../../core/tsd.js';
 import { leaf, node } from '../../core/rationale.js';
 import { scoredEvaluation } from '../../core/evaluation.js';
@@ -71,6 +71,7 @@ import { storedValue } from '../../services/stored-value.js';
 import { playFloorTsd, windowOf } from '../../services/deck-plan.js';
 import { companyMayPlay } from '../../services/named-target.js';
 import { computeDeckReach } from '../../services/deck-reach.js';
+import { allyLossOnArrival } from '../../services/ally-restriction.js';
 
 /** Action types this module scores. */
 const OWNED_ACTION_TYPES = [
@@ -103,31 +104,6 @@ interface Destination {
   readonly playable: readonly PlayableCard[];
   /** Untapped characters available to tap for those plays. */
   readonly tapsAvailable: number;
-}
-
-/**
- * Whether an ally's own `on-event: company-arrives-at-site` effect discards
- * it the moment its company arrives in `region` — the pattern behind
- * Treebeard (tw-353), Leaflock (tw-265), Skinbark (tw-328), Tom Bombadil
- * (tw-350) and Last Child of Ungoliant (le-153): "discard this ally if his
- * company moves to a site that is not in [regions]."
- *
- * Mirrors the engine's own match in `fireAllyArrivalEffects`
- * (`mh-hazard-play.ts`) rather than importing it: the sim depends only on
- * `@meccg/shared`'s public surface, not on internal reducer helpers.
- */
-function allyDiscardedByArrivingIn(ally: CardDefinition | undefined, region: string): boolean {
-  const effects = (ally as unknown as {
-    readonly effects?: readonly {
-      readonly type?: string;
-      readonly event?: string;
-      readonly apply?: { readonly type?: string; readonly select?: string; readonly to?: string };
-      readonly when?: Parameters<typeof matchesCondition>[0];
-    }[];
-  } | undefined)?.effects ?? [];
-  return effects.some(e => e.type === 'on-event' && e.event === 'company-arrives-at-site'
-    && e.apply?.type === 'move' && e.apply.select === 'self' && e.apply.to === 'discard'
-    && (!e.when || matchesCondition(e.when, { site: { region } })));
 }
 
 /**
@@ -582,28 +558,19 @@ function destinationValue(context: ModuleContext, destination: Destination): Des
     : 0;
 
   // Allies who are discarded outright by arriving here — see
-  // `allyDiscardedByArrivingIn`. Undetected, these scored like any other
+  // `services/ally-restriction`. Undetected, these scored like any other
   // destination: nothing charged an unnecessary Treebeard trip to Rivendell
   // any differently from a trip that only crossed a region, so the module
   // could — and did — route a restricted ally to his own discard for a card
   // draw a safe site offered just as well. Priced the way `character-value`
   // prices losing a character: the marshalling points leaving with it, plus
   // the flat `eliminationTempoCost` every loss carries.
-  const arrivingSiteDef = context.cardPool[arriving];
-  const arrivingRegion = arrivingSiteDef && isSiteCard(arrivingSiteDef) ? arrivingSiteDef.region : undefined;
-  const discardedAllies = arrivingRegion === undefined || company === undefined
-    ? []
-    : company.characters
-      .flatMap(id => context.view.self.characters[id]?.allies ?? [])
-      .filter(ally => allyDiscardedByArrivingIn(context.cardPool[ally.definitionId], arrivingRegion));
-  const allyLossHarm = discardedAllies.reduce((sum, ally) => {
-    const fields = context.cardPool[ally.definitionId] as unknown as
-      { readonly marshallingPoints?: number; readonly marshallingCategory?: string } | undefined;
-    const points = fields?.marshallingPoints ?? 0;
-    const source = (fields?.marshallingCategory ?? 'ally') as MpSource;
-    const delta: MpDelta = points ? { [source]: -points } : {};
-    return sum + (standing.tsd - standing.tsdAfter(delta)) + tunables.eliminationTempoCost;
-  }, 0);
+  const allyLoss = company === undefined
+    ? { allyDefinitionIds: [], harmTsd: 0 }
+    : allyLossOnArrival(context.view, context.cardPool, company.characters, arriving, standing, tunables);
+  const allyLossHarm = allyLoss.harmTsd;
+  const arrivalDef = context.cardPool[arriving];
+  const regionOfArrival = arrivalDef && isSiteCard(arrivalDef) ? arrivalDef.region : undefined;
 
   // Where the deck can still score. A deck keeps its marshalling-point sites
   // within one movement of each other, and a company inside that cluster is one
@@ -713,8 +680,8 @@ function destinationValue(context: ModuleContext, destination: Destination): Des
       ? [leaf('allies discarded on arrival', allyLossHarm, {
         unit: 'tsd',
         tunable: 'eliminationTempoCost',
-        note: `${discardedAllies.map(a => context.cardPool[a.definitionId]?.name ?? a.definitionId).join(', ')} `
-          + `would be discarded — ${arrivingRegion ?? '?'} is outside the region(s) they may travel to`,
+        note: `${allyLoss.allyDefinitionIds.map(id => context.cardPool[id]?.name ?? id).join(', ')} `
+          + `would be discarded — ${regionOfArrival ?? '?'} is outside the region(s) they may travel to`,
       })]
       : []),
     ...(forgone > 0

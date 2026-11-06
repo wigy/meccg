@@ -384,3 +384,50 @@ describe('a company the engine will not let move', () => {
     expect(dwarAlone.u).toBeGreaterThan(organization.valueOf(withFollower).u);
   });
 });
+
+describe('allies pinned to their home regions', () => {
+  // The scenario's board, with a restricted ally placed on one member of the
+  // company that serves a goal somewhere the ally would be discarded.
+  function pinned() {
+    const base = scenarioView(loadScenario('organization/trailing-split-two-goals'));
+    const standing0 = computeStanding(base, model, DEFAULT_TUNABLES);
+    const plain = computeOrganization(base, cardPool, standing0, DEFAULT_TUNABLES, undefined);
+    const current = plain.current();
+    const served = plain.valueOf(current).assignments.find(a =>
+      current.companies[a.companyIndex].characterIds.length >= 2
+      && a.goal.siteDefinitionId !== undefined
+      && a.goal.siteDefinitionId !== current.companies[a.companyIndex].currentSiteDefinitionId);
+    expect(served).toBeDefined();
+    const company = current.companies[served!.companyIndex];
+    const holder = company.characterIds[0] as string;
+    const view = JSON.parse(JSON.stringify(base)) as PlayerView;
+    const character = view.self.characters[holder as CardInstanceId];
+    (character.allies as unknown as { instanceId: string; definitionId: string; status: CardStatus }[])
+      .push({ instanceId: 'test-treebeard', definitionId: 'tw-353', status: CardStatus.Untapped });
+    const standing = computeStanding(view, model, DEFAULT_TUNABLES);
+    const organization = computeOrganization(view, cardPool, standing, DEFAULT_TUNABLES, undefined);
+    return { organization, company, holder, goalId: served!.goal.id, plain, current };
+  }
+
+  test('the company keeping him is not credited with the goal, and leaving him behind is', () => {
+    const { organization, company, holder, goalId, current } = pinned();
+    const rest = current.companies.filter(c => c !== company);
+    const together = organization.valueOf({ companies: [...rest, company] });
+    const apart = organization.valueOf({
+      companies: [
+        ...rest,
+        { ...company, characterIds: [holder as CardInstanceId] },
+        { ...company, characterIds: company.characterIds.filter(id => (id as string) !== holder) },
+      ],
+    });
+    const servesGoal = (value: typeof together) => value.assignments.some(a => a.goal.id === goalId);
+    expect(servesGoal(together)).toBe(false);
+    expect(servesGoal(apart)).toBe(true);
+    expect(apart.opportunityTsd).toBeGreaterThan(together.opportunityTsd);
+  });
+
+  test('the same goal stays credited on a board with no restricted ally', () => {
+    const { plain, current, goalId } = pinned();
+    expect(plain.valueOf(current).assignments.some(a => a.goal.id === goalId)).toBe(true);
+  });
+});
