@@ -158,6 +158,40 @@ function isImmobileRoster(
   return leaders > 1 || (ringwraiths > 0 && others > 0);
 }
 
+/**
+ * The groups one `split-company` can peel off a roster: each character
+ * together with everyone he holds by direct influence, transitively, as the
+ * reducer moves them. Deduplicated, and excluding a group that is the whole
+ * roster — splitting that off leaves the source empty, which the engine never
+ * offers.
+ */
+function splitGroups(
+  characterIds: readonly string[],
+  controllerOf: (id: string) => string,
+): Set<string>[] {
+  const groups: Set<string>[] = [];
+  const seen = new Set<string>();
+  for (const splitter of characterIds) {
+    const group = new Set<string>([splitter]);
+    let grew = true;
+    while (grew) {
+      grew = false;
+      for (const id of characterIds) {
+        if (!group.has(id) && group.has(controllerOf(id))) {
+          group.add(id);
+          grew = true;
+        }
+      }
+    }
+    if (group.size === characterIds.length) continue;
+    const key = characterIds.filter(id => group.has(id)).join('|');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    groups.push(group);
+  }
+  return groups;
+}
+
 /** One MP-bearing thing the arrangement could be serving. */
 export interface OrganizationGoal {
   /** Stable identity: the plan's own ID, or `opportunity/<card>@<site>`. */
@@ -448,28 +482,49 @@ function buildComputeOrganization(
     return immobile;
   };
 
-  // Per-roster harm, cached by canonical roster signature — the same rosters
-  // recur across every candidate this position offers.
+  // Per-roster harm, cached by canonical roster signature plus who controls
+  // whom inside it — the same rosters recur across every candidate this
+  // position offers.
   //
   // An immobile roster (see `isImmobileRoster`) is priced at the cheapest
-  // sequence of single-character splits that leaves every piece free to move —
-  // one split action peels one character off, so the recursion is over the
-  // shapes the agent can actually reach. Pricing it at its own hazard limit
-  // instead made a stranded company *cheaper* than every first step out of it
-  // (a lone character still invites two hazards), so the agent never took
-  // that step and the company sat at its haven for the whole game. With this,
-  // staying stranded costs what resolving it costs and serves nothing, and
-  // the goals the freed companies can reach decide.
+  // sequence of splits that leaves every piece free to move. One split action
+  // peels one character off *together with everyone he holds by direct
+  // influence* (the reducer moves followers with their controller), so the
+  // recursion peels follower groups under the arrangement's effective
+  // controllers — the shapes the agent can actually reach. Peeling single
+  // characters instead priced a Ringwraith company at a floor no split could
+  // reach whenever the Ringwraith held a follower (Dwar with Bûrat, game
+  // mw4o7cmo-95owwb): every real split then scored below standing still and
+  // the company never left Dol Guldur. Un-stacking that follower is what
+  // makes the floor reachable, and because the controller mapping is part of
+  // the key, `move-to-influence` is now credited for exactly that.
+  //
+  // Pricing an immobile roster at its own hazard limit instead made a stranded
+  // company *cheaper* than every first step out of it (a lone character still
+  // invites two hazards), so the agent never took that step and the company
+  // sat at its haven for the whole game. With this, staying stranded costs
+  // what resolving it costs and serves nothing, and the goals the freed
+  // companies can reach decide.
   const harmCache = new Map<string, number>();
-  const harmOf = (characterIds: readonly string[]): number => {
-    const key = characterIds.join('|');
+  const harmOf = (characterIds: readonly string[], controllerOf: (id: string) => string): number => {
+    const key = `${characterIds.join('|')}#${characterIds.map(controllerOf).join('|')}`;
     let harm = harmCache.get(key);
     if (harm === undefined) {
       if (characterIds.length > 1 && immobileOf(characterIds)) {
         harm = Infinity;
-        for (const peeled of characterIds) {
-          const rest = characterIds.filter(id => id !== peeled);
-          harm = Math.min(harm, harmOf([peeled]) + harmOf(rest));
+        const peels = splitGroups(characterIds, controllerOf);
+        for (const group of peels) {
+          const rest = characterIds.filter(id => !group.has(id));
+          harm = Math.min(harm, harmOf([...group], controllerOf) + harmOf(rest, controllerOf));
+        }
+        // Everyone held, directly or not, by one character: no split can
+        // break the roster up, only an influence move can. Fall back to
+        // single-character peels so the price stays finite.
+        if (peels.length === 0) {
+          for (const peeled of characterIds) {
+            const rest = characterIds.filter(id => id !== peeled);
+            harm = Math.min(harm, harmOf([peeled], controllerOf) + harmOf(rest, controllerOf));
+          }
         }
       } else {
         const roster = rosterOf({ characters: characterIds as unknown as CardInstanceId[] },
@@ -562,7 +617,7 @@ function buildComputeOrganization(
       return best;
     };
 
-    const harmPerCompany = companies.map(company => harmOf(company.characterIds));
+    const harmPerCompany = companies.map(company => harmOf(company.characterIds, controllerOf));
     const harmTsd = harmPerCompany.reduce((sum, harm) => sum + harm, 0);
 
     // The weight matrix of the matching:
