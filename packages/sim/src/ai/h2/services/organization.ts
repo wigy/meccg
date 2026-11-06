@@ -419,6 +419,7 @@ function buildComputeOrganization(
 ): Organization {
   const defence = computeDefence(view, cardPool, standing, tunables);
   const reach = computeReach(cardPool);
+  const waypoints = view.self.siteDeck.map(site => site.definitionId as string);
   const { goals, capBound } = goalList(view, cardPool, standing, tunables, commitment);
   const headroom = headroomCandidates(view, cardPool, standing, tunables);
 
@@ -608,7 +609,7 @@ function buildComputeOrganization(
             destinationSite: company.destinationSiteDefinitionId === undefined
               ? null : { definitionId: company.destinationSiteDefinitionId },
           },
-          goal.siteDefinitionId, reach, tunables,
+          goal.siteDefinitionId, reach, tunables, waypoints,
         );
       const checkP = goal.faction
         ? pAtLeast(Math.max(2, (goal.influenceTarget ?? DEFAULT_INFLUENCE_TARGET)

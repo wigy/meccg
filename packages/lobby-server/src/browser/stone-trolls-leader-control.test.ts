@@ -56,8 +56,8 @@ describe('Stone Trolls leader-control influence variant is reachable in the UI',
 
   test('the leader-control variant has a distinct, descriptive label', () => {
     const found = findInfluenceVariants(variants, STONE_TROLLS, TROLL_CHIEF);
-    const labels = found.map(influenceVariantLabel);
+    const labels = found.map(v => influenceVariantLabel(v));
     expect(new Set(labels).size).toBe(2); // the two options are distinguishable
-    expect(labels).toContain("Place under leader's control (site not tapped)");
+    expect(labels).toContain("Place under leader's control (site not tapped, need 4+)");
   });
 });

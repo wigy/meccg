@@ -3446,13 +3446,25 @@
       {
         "type": "on-event",
         "event": "self-enters-play",
+        "when": { "$not": { "inPlay": "Doors of Night" } },
         "apply": {
           "type": "add-constraint",
           "constraint": "auto-attack-prowess-boost",
           "scope": "company-site-phase",
           "value": -1,
-          "siteType": "border-hold",
-          "doublesWithDoorsOfNight": true
+          "siteType": "border-hold"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "when": { "inPlay": "Doors of Night" },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "auto-attack-prowess-boost",
+          "scope": "company-site-phase",
+          "value": -2,
+          "siteType": "border-hold"
         }
       },
       {
@@ -5340,7 +5352,27 @@
         "site": "Caves of Ûlund"
       }
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "influence-modification",
+        "options": [
+          { "discardItemSubtype": "major", "value": 3 },
+          { "discardItemSubtype": "greater", "value": 6 }
+        ]
+      },
+      {
+        "type": "cancel-manifestation-attacks",
+        "manifestId": "tw-3"
+      },
+      {
+        "type": "ahunt-attack",
+        "regionNames": ["Withered Heath", "Northern Rhovanion", "Grey Mountain Narrows", "Iron Hills"],
+        "strikes": 2,
+        "prowess": 15,
+        "body": 9,
+        "race": "dragon"
+      }
+    ],
     "text": "Unique. Manifestation of Agburanar. Playable at Caves of Ûlund if the influence check is greater than 12. Modifications: influencer discards a major item (+3) or a greater item (+6). All attacks by manifestations of Agburanar against any of your companies are canceled. Any company moving in Withered Heath, Northern Rhovanion, Grey Mountain Narrows, and/or Iron Hills faces one attack: Dragon — 2 strikes at 15/9."
   },
   {

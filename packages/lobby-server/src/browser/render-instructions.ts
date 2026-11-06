@@ -7,7 +7,7 @@
  * meter breadcrumb (see {@link module:render-phase-meter}).
  */
 
-import type { PlayerView, GameAction, ActivateGrantedAction, CardInstanceId } from '@meccg/shared';
+import type { PlayerView, GameAction, ActivateGrantedAction, CardInstanceId, TapTakeItemAction } from '@meccg/shared';
 import { Phase, getTitleCharacter } from '@meccg/shared';
 import { appState, cardPool } from './app-state.js';
 import { passButtonLabel } from './pass-button-label.js';
@@ -77,6 +77,65 @@ function renderReturnToHandButtons(
     rendered = true;
   }
   return rendered;
+}
+
+/** Player-facing name of the pile a `tap-take-item` action takes its item from. */
+const TAP_TAKE_SOURCE_LABELS: Readonly<Record<TapTakeItemAction['source'], string>> = {
+  deck: 'play deck',
+  'discard-pile': 'discard pile',
+  sideboard: 'sideboard',
+};
+
+/**
+ * Render the picks of a `tap-take-item` sub-flow (Old Cache le-213, Swag
+ * le-236) into `tier`: one "Take <item>" button per distinct item and pile.
+ * When several characters could tap for that item, clicking it opens a menu
+ * naming them; a lone eligible character is picked directly. Identical copies
+ * in one pile are interchangeable, so they share a button, which keeps the
+ * stack short when many characters × items are legal.
+ *
+ * `pass` is always viable alongside these picks, so it took the primary button
+ * while the picks had no control at all, leaving a player no way to use the
+ * card. Bug report d43809ad260bf4fa (game mw1105wx-bfxx58, seq 2756): Old Cache
+ * resolved, Pass was the only option on screen, and the event was discarded
+ * with nothing taken.
+ */
+function renderTapTakeItemButtons(
+  view: PlayerView,
+  onAction: (action: GameAction) => void,
+  tier: HTMLElement | null,
+): void {
+  const nameOf = (id: CardInstanceId): string | undefined => {
+    const defId = appState.lastInstanceLookup(id);
+    return defId ? cardPool[defId as string]?.name : undefined;
+  };
+  const groups = new Map<string, { label: string; byCharacter: Map<string, TapTakeItemAction> }>();
+  for (const ea of view.legalActions) {
+    const action = ea.action;
+    if (!ea.viable || action.type !== 'tap-take-item') continue;
+    const itemName = nameOf(action.cardInstanceId) ?? 'item';
+    const key = `${itemName}|${action.source}`;
+    const group = groups.get(key) ?? { label: `Take ${itemName} (${TAP_TAKE_SOURCE_LABELS[action.source]})`, byCharacter: new Map<string, TapTakeItemAction>() };
+    if (!group.byCharacter.has(action.characterId as string)) group.byCharacter.set(action.characterId as string, action);
+    groups.set(key, group);
+  }
+  for (const { label, byCharacter } of groups.values()) {
+    const actions = [...byCharacter.values()];
+    const takeBtn = document.createElement('button');
+    takeBtn.className = 'enter-site-btn tap-take-item-btn';
+    takeBtn.textContent = label;
+    takeBtn.onclick = () => {
+      if (actions.length === 1) {
+        onAction(actions[0]);
+        return;
+      }
+      showTooltipMenu(takeBtn, actions.map(action => ({
+        label: `${nameOf(action.characterId) ?? (action.characterId as string)} taps`,
+        onClick: () => onAction(action),
+      })), { placement: 'over' });
+    };
+    tier?.appendChild(takeBtn);
+  }
 }
 
 /** Render the pass/stop button in the visual view if a pass-like action is available. */
@@ -429,6 +488,33 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
       return;
     }
 
+    // Chance of Being Lost (dm-49): after a passed roll the hazard player must
+    // pick the moving company's replacement site (`swap-new-site-choice`). The
+    // choice is mandatory with no default, so it is absent from the pass-like
+    // whitelist; without this branch the panel hid entirely while these actions
+    // were viable. Havens can hold several copies of one site, and those copies
+    // are interchangeable, so each distinct card definition gets one button.
+    // Bug report 15140d0e02b8ae3d (game mw3njyc8-tovajp, seq 157): "Im stuck".
+    const swapSiteEvals = view.legalActions.filter(ea => ea.viable && ea.action.type === 'swap-new-site-choice');
+    if (swapSiteEvals.length > 0) {
+      btn.classList.add('hidden');
+      waitingEl?.classList.add('hidden');
+      const offeredSites = new Set<string>();
+      for (const ea of swapSiteEvals) {
+        const swapAction = ea.action;
+        if (swapAction.type !== 'swap-new-site-choice') continue;
+        const siteKey = (appState.lastInstanceLookup(swapAction.replacementSiteInstanceId) ?? swapAction.replacementSiteInstanceId) as string;
+        if (offeredSites.has(siteKey)) continue;
+        offeredSites.add(siteKey);
+        const swapBtn = document.createElement('button');
+        swapBtn.className = 'enter-site-btn swap-new-site-choice-btn';
+        swapBtn.textContent = swapAction.explanation;
+        swapBtn.onclick = () => onAction(swapAction);
+        inPhaseTier?.appendChild(swapBtn);
+      }
+      return;
+    }
+
     // Tutorial enter-or-skip:the script demands entering the site, so the
     // gate demoted the normal Skip (pass) to non-viable — which would hide
     // the whole button pair. Show the familiar Enter/Skip controls anyway:
@@ -499,6 +585,8 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
   // `pass` (finalize) button appears, but the player may still return more
   // characters ("any number ... whose total mind equals or exceeds").
   renderReturnToHandButtons(view, onAction, inPhaseTier);
+
+  renderTapTakeItemButtons(view, onAction, inPhaseTier);
 
   // When the primary button is a non-pass action (e.g. Draw) and a pass action
   // also exists, show a secondary Pass button so both options are available.

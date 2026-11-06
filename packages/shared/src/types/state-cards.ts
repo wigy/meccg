@@ -368,6 +368,14 @@ export interface CardInPlay {
    */
   readonly mpPinned?: number;
   /**
+   * Instance ID of the in-play card this faction was "placed under" when it was
+   * influenced into play (`contain-influenced-factions`, Sentinels of Númenor
+   * dm-158). The faction stays in its controller's play area and scores
+   * normally, plus the carrier's `mpBonus` while the carrier is in play.
+   * Cleared when the carrier leaves play.
+   */
+  readonly containedBy?: CardInstanceId;
+  /**
    * For a permanent event placed "with" a card stored in its controller's
    * marshalling-point pile (Wizard's Trove wh-85 `storage-site-transfer`
    * mode): the stored card's instance ID. While this link is live and the

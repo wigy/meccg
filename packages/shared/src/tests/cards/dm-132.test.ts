@@ -49,6 +49,7 @@ import type { CardInPlay, CardInstanceId, CardDefinitionId, SitePhaseState, Site
 const FOREWARNED_IS_FOREARMED = 'dm-132' as CardDefinitionId;
 const ETTENMOORS_LE = 'le-373' as CardDefinitionId;
 const CAVES_OF_ULUND = 'tw-381' as CardDefinitionId;
+const CIRITH_GORGOR_HERO = 'as-137' as CardDefinitionId;
 const SLAYER = 'le-90' as CardDefinitionId;
 
 /** Convenience: add Forewarned to RESOURCE_PLAYER's cardsInPlay. */
@@ -306,11 +307,10 @@ describe('Forewarned Is Forearmed (dm-132)', () => {
     expect(afterChain.combat!.uncancelable).toBe(true);
   });
 
-  test('hazard player\'s own copy does NOT reduce a multi-attack creature they play against the opponent', () => {
-    // Bug report: Forewarned Is Forearmed protects the company of the player
-    // who played it. A hazard player who happens to have their own copy in
-    // play (protecting their own companies elsewhere) must not have it
-    // weaken an Assassin *they* are playing against the opponent's company.
+  test('hazard player\'s own copy also reduces a multi-attack creature they play against the opponent', () => {
+    // Bug report (game mvzhcu7n-5gks42, seq 793-805): the card says "Any
+    // creature or other hazard", so it applies whichever player controls it.
+    // The hazard player's copy reduces their own Assassin to one attack.
     const state = buildTestState({
       activePlayer: PLAYER_1,
       phase: PhaseEnum.MovementHazard,
@@ -357,11 +357,104 @@ describe('Forewarned Is Forearmed (dm-132)', () => {
     const afterChain = resolveChain(afterPlay);
 
     expect(afterChain.combat).not.toBeNull();
-    // Assassin keeps its full 3 attacks — the hazard player's own Forewarned
-    // Is Forearmed does not apply to attacks they play against the opponent.
-    expect(afterChain.combat!.strikesTotal).toBe(3);
-    expect(afterChain.combat!.isolated).toBeFalsy();
-    expect(afterChain.combat!.uncancelable).toBeFalsy();
+    expect(afterChain.combat!.strikesTotal).toBe(1);
+    expect(afterChain.combat!.isolated).toBe(true);
+    expect(afterChain.combat!.uncancelable).toBe(true);
+    expect(afterChain.combat!.cancelByTapRemaining).toBeUndefined();
+  });
+
+  test('hazard player\'s copy reduces the automatic-attacks of a hero site', () => {
+    const base = buildDualHandSitePhaseState({
+      site: CIRITH_GORGOR_HERO,
+      step: 'reveal-on-guard-attacks',
+    });
+    const state = pushCardInPlay(base, HAZARD_PLAYER, {
+      instanceId: 'fia-hazard-player' as CardInstanceId,
+      definitionId: FOREWARNED_IS_FOREARMED,
+      status: CardStatus.Untapped,
+    });
+
+    const afterPass = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    expect(phaseStateAs<SitePhaseState>(afterPass).step).toBe('forewarned-select-attack');
+  });
+
+  test('opponent\'s hero copy does not affect a minion site (CoE 9.3.5)', () => {
+    const base = buildDualHandSitePhaseState({
+      site: ETTENMOORS_LE,
+      step: 'reveal-on-guard-attacks',
+    });
+    const state = pushCardInPlay(base, HAZARD_PLAYER, {
+      instanceId: 'fia-hazard-player' as CardInstanceId,
+      definitionId: FOREWARNED_IS_FOREARMED,
+      status: CardStatus.Untapped,
+    });
+
+    const afterPass = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    expect(phaseStateAs<SitePhaseState>(afterPass).step).toBe('automatic-attacks');
+  });
+
+  test('hazard player\'s copy goes to their discard pile when the isolated attack is defeated', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: PhaseEnum.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: BREE, characters: [ARAGORN] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [GIMLI] }],
+          hand: [ASSASSIN],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+    const withFia = pushCardInPlay(state, HAZARD_PLAYER, {
+      instanceId: 'fia-hazard-player' as CardInstanceId,
+      definitionId: FOREWARNED_IS_FOREARMED,
+      status: CardStatus.Untapped,
+    });
+    const gameState = {
+      ...withFia,
+      phaseState: makeMHState({
+        resolvedSitePath: [],
+        resolvedSitePathNames: [],
+        destinationSiteType: SiteType.BorderHold,
+        destinationSiteName: 'Bree',
+      }),
+    };
+
+    const afterChain = resolveChain(dispatch(gameState, {
+      type: 'play-hazard',
+      player: PLAYER_2,
+      cardInstanceId: handCardId(gameState, HAZARD_PLAYER),
+      targetCompanyId: companyIdAt(gameState, RESOURCE_PLAYER),
+      keyedBy: { method: 'site-type' as const, value: 'border-hold' },
+    }));
+    const afterPass = dispatch(afterChain, { type: 'pass', player: PLAYER_1 });
+    const afterAssign = dispatch(afterPass, {
+      type: 'assign-strike',
+      player: PLAYER_2,
+      characterId: charIdAt(afterPass, RESOURCE_PLAYER),
+      tapped: false,
+    });
+
+    // Aragorn prowess 6 + roll 12 = 18 beats the Assassin's prowess 11.
+    const withRoll = { ...afterAssign, cheatRollTotal: 12 };
+    const resolve = computeLegalActions(withRoll, PLAYER_1)
+      .find(a => a.viable && a.action.type === 'resolve-strike');
+    expect(resolve).toBeDefined();
+    const afterStrike = dispatch(withRoll, resolve!.action);
+
+    expect(afterStrike.combat).toBeNull();
+    expect(afterStrike.players[HAZARD_PLAYER].cardsInPlay.some(
+      c => c.definitionId === FOREWARNED_IS_FOREARMED,
+    )).toBe(false);
+    expectInDiscardPile(afterStrike, HAZARD_PLAYER, FOREWARNED_IS_FOREARMED);
   });
 
   // ── Rule 4: Isolated attack cannot be canceled ───────────────────────────

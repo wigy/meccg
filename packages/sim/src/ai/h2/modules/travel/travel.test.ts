@@ -361,6 +361,53 @@ describe('a detour to a starter-movement-adjacent haven', () => {
     // the near-zero result the raw three-region graph distance produced.
     expect(probability).toBeCloseTo(DEFAULT_TUNABLES.planUnroutedReachProbability, 6);
   });
+
+  test('a stop that brings a far site within one movement raises the route step', () => {
+    const cardPool = loadCardPool();
+    const WELLINGHALL = 'tw-437';
+    const EDORAS = 'tw-394';
+    const DOL_AMROTH = 'tw-386';
+    const plan: Plan = {
+      id: 'test/far',
+      module: 'resources',
+      goal: { label: 'play Knights of Dol Amroth', source: 'faction', mp: 3 },
+      payoffTsd: 3,
+      deadline: 32,
+      requirements: [{ kind: 'company-at-site', companyId: COMPANY, siteDefinitionId: DOL_AMROTH, byTurn: 32 }],
+      steps: [{ label: 'route step', p: 0.0625, owner: 'travel', tag: ROUTE_STEP } satisfies PlanStep],
+    };
+    const context = {
+      view: {
+        turnNumber: 9,
+        self: {
+          companies: [{
+            id: COMPANY,
+            characters: [],
+            currentSite: { instanceId: 'well-inst', definitionId: WELLINGHALL, status: 'untapped' },
+            destinationSite: null,
+          }],
+          characters: {},
+          hand: [],
+          siteDeck: [
+            { instanceId: 'edoras-inst', definitionId: EDORAS },
+            { instanceId: 'dol-amroth-inst', definitionId: DOL_AMROTH },
+          ],
+        },
+        opponent: {},
+        phaseState: { phase: 'organization' },
+      } as never,
+      cardPool,
+      legalActions: [],
+      tunables: DEFAULT_TUNABLES,
+      standing: {} as never,
+    } as ModuleContext;
+    const action = {
+      type: 'plan-movement', player: 'p2', companyId: COMPANY, destinationSite: 'edoras-inst',
+    } as unknown as GameAction;
+
+    expect(travelModule.planStepDelta!(action, plan, plan.steps[0], 0, context))
+      .toBeCloseTo(DEFAULT_TUNABLES.planUnroutedReachProbability, 6);
+  });
 });
 
 describe('route danger from the creatures the opponent has shown', () => {

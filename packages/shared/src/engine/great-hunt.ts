@@ -165,7 +165,7 @@ export function buildGreatHuntCombat(
     (e): e is import('../types/effects.js').CombatMultiAttackEffect => e.type === 'combat-multi-attack',
   );
   const rawMultiAttackCount = multiAttackEffect?.count ?? 1;
-  const forewarnedActive = rawMultiAttackCount > 1 && isReduceAttacksToOneInPlay(state, controllerIndex);
+  const forewarnedActive = rawMultiAttackCount > 1 && isReduceAttacksToOneInPlay(state);
   if (forewarnedActive) {
     logDetail(`Forewarned Is Forearmed: reducing multi-attack from ${rawMultiAttackCount} to 1`);
   }

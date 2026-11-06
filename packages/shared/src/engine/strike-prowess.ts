@@ -193,8 +193,9 @@ export function strikeProwessTerms(
  * Such modifiers cannot be folded into `combat.strikeProwess` at combat
  * initiation: the struck character — and therefore its race — is not known
  * until strike assignment. The defending company's *alignment* IS known at
- * initiation, so alignment-gated self-modifiers (e.g. Elf-lord Revealed in
- * Wrath's "+4 vs Ringwraith") are already baked into `strikeProwess`. To avoid
+ * initiation, so alignment-gated self-modifiers are already baked into
+ * `strikeProwess`. (Elf-lord Revealed in Wrath's "+4 versus Ringwraiths"
+ * targets Ringwraith characters, so it is race-gated and handled here.) To avoid
  * double-counting them, a modifier contributes here only when it matches the
  * struck character's race context but did NOT already match the race-less
  * (initiation-equivalent) context.

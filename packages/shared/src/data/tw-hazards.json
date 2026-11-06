@@ -226,7 +226,7 @@
         "when": {
           "$and": [
             {
-              "environment.doorsOfNightInPlay": true
+              "inPlay": "Doors of Night"
             },
             {
               "company.destinationSiteType": "ruins-and-lairs"
@@ -246,7 +246,7 @@
         "when": {
           "$and": [
             {
-              "environment.doorsOfNightInPlay": true
+              "inPlay": "Doors of Night"
             },
             {
               "company.pathRegionTypes": {
@@ -1269,7 +1269,7 @@
         "when": {
           "$and": [
             {
-              "environment.doorsOfNightInPlay": true
+              "inPlay": "Doors of Night"
             },
             {
               "company.destinationSiteType": "shadow-hold"
@@ -1289,7 +1289,7 @@
         "when": {
           "$and": [
             {
-              "environment.doorsOfNightInPlay": true
+              "inPlay": "Doors of Night"
             },
             {
               "company.destinationRegionType": "shadow"
@@ -1606,7 +1606,7 @@
         "when": {
           "$and": [
             {
-              "environment.doorsOfNightInPlay": true
+              "inPlay": "Doors of Night"
             },
             {
               "company.destinationRegionType": "border"
@@ -1627,7 +1627,7 @@
         "when": {
           "$and": [
             {
-              "environment.doorsOfNightInPlay": true
+              "inPlay": "Doors of Night"
             },
             {
               "company.destinationSiteType": "border-hold"
@@ -2233,7 +2233,7 @@
         "when": {
           "$and": [
             {
-              "environment.doorsOfNightInPlay": true
+              "inPlay": "Doors of Night"
             },
             {
               "company.destinationSiteType": "free-hold"
@@ -2253,7 +2253,7 @@
         "when": {
           "$and": [
             {
-              "environment.doorsOfNightInPlay": true
+              "inPlay": "Doors of Night"
             },
             {
               "company.destinationRegionType": "free"

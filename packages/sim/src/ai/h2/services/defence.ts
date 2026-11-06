@@ -48,8 +48,10 @@
  */
 
 import type { CardDefinition, PlayerView } from '@meccg/shared';
+import { normalizeCreatureRace } from '@meccg/shared';
 import { memoizeOnFirst } from '../core/memo.js';
 import type { Tunables } from '../core/tunables.js';
+import type { AttackBoost } from './attack-modifiers.js';
 import { boostForRace, boostInPlay } from './attack-modifiers.js';
 import type { Standing } from './standing.js';
 import type { StrikeTarget } from './strike/prowess.js';
@@ -361,22 +363,33 @@ export const computeDefence = memoizeOnFirst(buildComputeDefence);
  * the journey costs off what the goal is worth. A second copy of this would be
  * a second opinion about what a site does to a company, which is the failure
  * this whole service exists to prevent.
+ *
+ * `boost`, when given, is the board's attack modifiers (`boostInPlay`): the
+ * engine applies Wake of War or Minions Stir to an automatic-attack exactly as
+ * to a creature, so Isengard's Wolves are 5 strikes at 9 prowess while Wake of
+ * War and Doors of Night are both out. Each attack is boosted by the race its
+ * printed creature type normalises to. Omitted, the printed numbers are used.
  */
 export function automaticAttacksOf(
   cardPool: Readonly<Record<string, CardDefinition>>,
   siteDefinitionId: string,
+  boost?: AttackBoost | null,
 ): AttackProfile[] {
   const def = cardPool[siteDefinitionId] as unknown as {
     automaticAttacks?: readonly {
       strikes?: number; prowess?: number; body?: number; creatureType?: string;
     }[];
   } | undefined;
-  return (def?.automaticAttacks ?? []).map(attack => ({
-    strikeProwess: attack.prowess ?? 0,
-    strikes: attack.strikes ?? 1,
-    creatureBody: attack.body ?? null,
-    detainment: false,
-    bodyCheckModifier: 0,
-    name: attack.creatureType,
-  }));
+  return (def?.automaticAttacks ?? []).map(attack => {
+    const race = attack.creatureType ? normalizeCreatureRace(attack.creatureType) : undefined;
+    const added = boostForRace(boost, race);
+    return {
+      strikeProwess: (attack.prowess ?? 0) + added.prowess,
+      strikes: Math.max(1, (attack.strikes ?? 1) + added.strikes),
+      creatureBody: attack.body ?? null,
+      detainment: false,
+      bodyCheckModifier: 0,
+      name: attack.creatureType,
+    };
+  });
 }

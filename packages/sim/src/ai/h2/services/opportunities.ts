@@ -66,6 +66,8 @@ export interface RouteEstimate {
   readonly heading: boolean;
   /** Inclusive region distance, or null when the map does not join them. */
   readonly distance: number | null;
+  /** Movements needed through the sites held, or null when they join no route. */
+  readonly moves: number | null;
   /** Probability the company ever ends up at the site. */
   readonly routeProbability: number;
 }
@@ -75,7 +77,8 @@ export interface RouteEstimate {
  *
  * The proposers' own rule, shared: certainty when the company is already
  * there or already headed there; otherwise `planUnroutedReachProbability`
- * per region still to cross; and the flat prior when the map does not join
+ * per movement still needed, stopping only at the sites in `waypoints`; zero
+ * when those sites join no route; and the flat prior when the map does not join
  * the two sites, because an unreachable-looking site is far more often a gap
  * in the map than a real island.
  */
@@ -84,18 +87,22 @@ export function routeProbabilityFor(
   siteDefinitionId: string,
   reach: Reach,
   tunables: Tunables,
+  waypoints: readonly string[],
 ): RouteEstimate {
   const standingAt = company.currentSite?.definitionId;
   const here = standingAt === siteDefinitionId;
   const heading = company.destinationSite?.definitionId === siteDefinitionId;
   const from = company.destinationSite?.definitionId ?? standingAt;
   const distance = from === undefined ? null : reach.between(from, siteDefinitionId);
+  const moves = from === undefined ? null : reach.movesBetween(from, siteDefinitionId, waypoints);
   const routeProbability = heading || here
     ? 1
     : distance === null
       ? tunables.planUnroutedReachProbability
-      : reachProbability(distance, tunables.planUnroutedReachProbability);
-  return { here, heading, distance, routeProbability };
+      : moves === null
+        ? 0
+        : reachProbability(moves, tunables.planUnroutedReachProbability);
+  return { here, heading, distance, moves, routeProbability };
 }
 
 /**
@@ -165,7 +172,7 @@ export function opportunityPlan(
     readonly extraSteps?: readonly PlanStep[];
   },
 ): Plan {
-  const { here, heading, distance, routeProbability } = opportunity.route;
+  const { here, heading, moves, routeProbability } = opportunity.route;
   const deadline = opts.turnNumber + opts.planHorizonTurns;
   return {
     id: `${opts.module}/${opportunity.cardInstanceId as string}@${opportunity.siteDefinitionId}`,
@@ -193,7 +200,7 @@ export function opportunityPlan(
         tag: ROUTE_STEP,
         source: heading || here
           ? 'already there or already headed there'
-          : `${distance ?? '?'} region(s) away, at planUnroutedReachProbability per region`,
+          : `${moves ?? '?'} movement(s) away, at planUnroutedReachProbability per movement`,
       },
       {
         label: `still hold ${opportunity.cardName}`,
@@ -256,6 +263,7 @@ function buildEnumerateOpportunities(
 
   for (const company of view.self.companies) {
     const candidateSites = sitesFor(company, view.self.siteDeck);
+    const waypoints = view.self.siteDeck.map(site => site.definitionId as string);
     const roster = rosterOf(company, view.self.characters, cardPool);
     // The site's toll is a property of (company, site) and not of the card,
     // so it is computed once per site rather than once per card.
@@ -321,7 +329,7 @@ function buildEnumerateOpportunities(
           grossPayoffTsd,
           harmTsd,
           netPayoffTsd,
-          route: routeProbabilityFor(company, site.definitionId, reach, tunables),
+          route: routeProbabilityFor(company, site.definitionId, reach, tunables, waypoints),
         });
       }
     }
