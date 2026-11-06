@@ -1016,7 +1016,10 @@ moved the cadence**:
   could move it. It is now `rate^(regions − 1)` on the engine's own inclusive
   region distance, with `planUnroutedReachProbability` re-read as the chance of
   covering one region — no new constant, and progress toward a distant goal
-  finally has a value. Cadence: 32% → 31%.
+  finally has a value. Cadence: 32% → 31%. *Since replaced:* the grade is now
+  `rate^moves`, counting movements through the held site deck
+  (`reach.movesBetween`), because per-region grading put any site two trips off
+  below `planAbandonProbability`, so no plan for it was ever committed.
 - **The site's printed resource draws, priced.** Movement is how a deck is
   drawn, and the destination model ignored it entirely. Now counted as
   potential at the same `resourceDrawValue` the module already spends on
