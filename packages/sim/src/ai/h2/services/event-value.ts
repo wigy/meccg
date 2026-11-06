@@ -41,6 +41,7 @@ import { computeDefence, hazardSlots } from './defence.js';
 import { computeDrawValue } from './draw-value.js';
 import { inPlayNamed, withoutInPlay } from './attack-modifiers.js';
 import { unseenDeckCards } from './deck-reach.js';
+import { playFloorTsd, windowOf } from './deck-plan.js';
 import { rosterOf } from './strike/prowess.js';
 import type { StrikeTarget } from './strike/prowess.js';
 
@@ -1121,7 +1122,15 @@ export function declaredEventEvaluation(
   // is worse than having no opinion about them — unless the card carries
   // points, which is something read off the card rather than out of its text,
   // and enough to rank it.
-  if (!gain && mp === 0) return null;
+  // The same goes for a card winners on this deck are known to play here: what
+  // they do with it is an opinion even where its text cannot be read.
+  const floor = playFloorTsd(
+    card.definitionId as string,
+    windowOf(context.view, context.view.self.id),
+    context.ownDeck,
+    context.tunables,
+  );
+  if (!gain && mp === 0 && !floor) return null;
   // The card is charged at the *spending* price, not at what it is worth to
   // hold. Those became the same number when `card-price` learned to value
   // events, and for a single-use event they must not be: the reservation
@@ -1145,7 +1154,11 @@ export function declaredEventEvaluation(
 
   const does = gain?.tsd ?? 0;
   const reason = gain?.reason ?? `${mp} ${source} MP, and an effect family this cannot read`;
-  const dtsd = netTsdDelta({ realized: does + points - risk, potential, tempo: spent }, tunables);
+  const priced = netTsdDelta({ realized: does + points - risk, potential, tempo: spent }, tunables);
+  // A floor rather than a bonus, with a trace of the price left in, so the
+  // choice between two targets of one card still follows what the model read.
+  const lifted = floor !== null && priced < floor.tsd;
+  const dtsd = lifted ? floor.tsd + 0.05 * priced : priced;
   const outcomes: Outcome[] = [{ p: 1, label: `play ${name} — ${reason}`, dtsd }];
 
   const detail: Rationale[] = [
@@ -1170,6 +1183,13 @@ export function declaredEventEvaluation(
   }
   if (check) {
     detail.push(leaf('the corruption check it forces', risk, { unit: 'tsd', note: check.reason }));
+  }
+  if (lifted) {
+    detail.push(leaf('what winners on this deck do', floor.tsd, {
+      unit: 'tsd',
+      tunable: 'deckPlanPlayTsd',
+      note: `they play it in ${(floor.rate * 100).toFixed(0)}% of the windows offering it here`,
+    }));
   }
   detail.push(leaf('the card it spends', spent, {
     unit: 'tsd',
