@@ -52,7 +52,7 @@ import { resolveAdjacency, isUnderDeepsAdjacent, getUnderDeepsReachable, ringwra
 import { buildInPlayNames } from './recompute-derived.js';
 import { collectRegionNameKeyingGrants, computeCandidateRegionPaths, extraKeyedToFromRegionNameGrants } from './region-keying.js';
 import { resolveCreatureKeyingSiteType, resolveCreatureKeyingSiteInstanceId } from './effective.js';
-import { handleAgentMove, handleAgentMoveBack, handleAgentReturnHome, handleAgentHeal, handleAgentUntap, handleAgentTurnFaceDown, handleAgentKeyCreatures, handleAgentInfluenceAttempt, handleAgentTapAttack, handleAgentTapGrantCreatureKeying, handleTapAgentAtSite, handleAgentTapReturnCharacter, handleAgentTapFactionInfluence, handleAgentTapMultiInfluence, handleAgentInfluenceBoost, handleAgentTapOpponentInfluence } from './mh-agents.js';
+import { handleAgentMove, handleAgentMoveBack, handleAgentReturnHome, handleAgentHeal, handleAgentUntap, handleAgentTurnFaceDown, handleAgentKeyCreatures, handleAgentInfluenceAttempt, handleAgentTapAttack, handleAgentTapGrantCreatureKeying, handleTapAgentAtSite, handleAgentTapReturnCharacter, handleAgentTapFactionInfluence, handleAgentTapMultiInfluence, handleAgentInfluenceBoost, handleAgentTapOpponentInfluence, chargeHazardSlot, commitHazardEventPlay } from './mh-agents.js';
 
 /**
  * Handle actions during the play-hazards step (CoE step 7).
@@ -656,10 +656,8 @@ function playHazardInAltMode(
   },
 ): ReducerResult {
   const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
-  const newHazardCount = bypassesLimit
-    ? mhState.hazardsPlayedThisCompany
-    : mhState.hazardsPlayedThisCompany + 1;
-  logDetail(`Play-hazards: hazard player plays ${opts.description} (${newHazardCount}/${currentHazardLimit(state, mhState, action.targetCompanyId)})${bypassesLimit ? ' [no-hazard-limit]' : ''}${opts.logSuffix ?? ''}`);
+  const charged = chargeHazardSlot(mhState, bypassesLimit);
+  logDetail(`Play-hazards: hazard player plays ${opts.description} (${charged.hazardsPlayedThisCompany}/${currentHazardLimit(state, mhState, action.targetCompanyId)})${bypassesLimit ? ' [no-hazard-limit]' : ''}${opts.logSuffix ?? ''}`);
 
   const newState: GameState = {
     ...updatePlayer(state, hazardIndex, p => ({
@@ -667,11 +665,7 @@ function playHazardInAltMode(
       hand: removeById(p.hand, handCard.instanceId),
       ...(opts.discardOnPlay ? { discardPile: [...p.discardPile, handCard] } : {}),
     })),
-    phaseState: {
-      ...mhState,
-      hazardsPlayedThisCompany: newHazardCount,
-      resourcePlayerPassed: false,
-    },
+    phaseState: charged,
   };
   return { state: initiateOrPushChain(newState, action.player, handCard, opts.payload, !bypassesLimit) };
 }
@@ -827,19 +821,15 @@ export function handlePlayHazardCard(
     // carried on the chosen `keyedBy`.
     const keyingGrantExempt = action.keyedBy?.hazardLimitExempt === true;
     const limitExempt = raceExempt || keyingGrantExempt;
-    const newHazardCount = limitExempt ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
-    logDetail(`Play-hazards: hazard player plays creature "${def.name}" (${newHazardCount}/${currentHazardLimit(state, mhState, action.targetCompanyId)})${raceExempt ? ` [race "${def.race}" exempt from hazard limit]` : keyingGrantExempt ? ' [hazard-limit-exempt grant]' : ''} — initiating chain`);
+    const charged = chargeHazardSlot(mhState, limitExempt);
+    logDetail(`Play-hazards: hazard player plays creature "${def.name}" (${charged.hazardsPlayedThisCompany}/${currentHazardLimit(state, mhState, action.targetCompanyId)})${raceExempt ? ` [race "${def.race}" exempt from hazard limit]` : keyingGrantExempt ? ' [hazard-limit-exempt grant]' : ''} — initiating chain`);
 
     // Remove card from hand — it resides on the chain entry until combat resolves
     const newHand = removeById(hazardPlayer.hand, handCard.instanceId);
 
     let newState: GameState = {
       ...updatePlayer(state, hazardIndex, p => ({ ...p, hand: newHand })),
-      phaseState: {
-        ...mhState,
-        hazardsPlayedThisCompany: newHazardCount,
-        resourcePlayerPassed: false,
-      },
+      phaseState: charged,
     };
 
     // Consume one charge of any matching creature-keying-bypass constraint
@@ -976,8 +966,8 @@ export function handlePlayHazardCard(
     }
 
     const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
-    const newHazardCount = bypassesLimit ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
-    logDetail(`Play-hazards: hazard player plays short-event "${def.name}" (${newHazardCount}/${currentHazardLimit(state, mhState, action.targetCompanyId)})${bypassesLimit ? ' [no-hazard-limit]' : ''}`);
+    const charged = chargeHazardSlot(mhState, bypassesLimit);
+    logDetail(`Play-hazards: hazard player plays short-event "${def.name}" (${charged.hazardsPlayedThisCompany}/${currentHazardLimit(state, mhState, action.targetCompanyId)})${bypassesLimit ? ' [no-hazard-limit]' : ''}`);
 
     // Move card from hand to discard (short events are discarded after resolution)
     let newHand = removeById(hazardPlayer.hand, handCard.instanceId);
@@ -1020,12 +1010,7 @@ export function handlePlayHazardCard(
         hand: newHand,
         discardPile: [...p.discardPile, handCard, ...(costDiscardCard ? [costDiscardCard] : [])],
       })),
-      phaseState: {
-        ...mhState,
-        hazardsPlayedThisCompany: newHazardCount,
-        resourcePlayerPassed: false,
-        corruptionCardsPlayedPerChar: shortCorruptionPerChar,
-      },
+      phaseState: { ...charged, corruptionCardsPlayedPerChar: shortCorruptionPerChar },
     };
 
     // "show opponent" — reveal the discarded cost card's identity.
@@ -1164,8 +1149,8 @@ export function handlePlayHazardCard(
   // would let the card fizzle at resolution (CoE 2.IV.iii.1) whenever the
   // count it wasn't supposed to affect happens to exceed the limit.
   const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
-  const newHazardCount = bypassesLimit ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
-  logDetail(`Play-hazards: hazard player plays ${def.eventType}-event "${def.name}" (${newHazardCount}/${currentHazardLimit(state, mhState, action.targetCompanyId)})${bypassesLimit ? ' [no-hazard-limit]' : ''} → enters chain`);
+  const charged = chargeHazardSlot(mhState, bypassesLimit);
+  logDetail(`Play-hazards: hazard player plays ${def.eventType}-event "${def.name}" (${charged.hazardsPlayedThisCompany}/${currentHazardLimit(state, mhState, action.targetCompanyId)})${bypassesLimit ? ' [no-hazard-limit]' : ''} → enters chain`);
 
   // Remove card from hand — it now resides on the chain
   const newHand = removeById(hazardPlayer.hand, handCard.instanceId);
@@ -1209,15 +1194,7 @@ export function handlePlayHazardCard(
         discardPile: [...p.discardPile, cardDiscardedFromPlay],
       } : {}),
     })),
-    phaseState: {
-      ...mhState,
-      hazardsPlayedThisCompany: bypassesLimit
-        ? mhState.hazardsPlayedThisCompany
-        : mhState.hazardsPlayedThisCompany + 1,
-      // Reset resource player's pass — they may respond
-      resourcePlayerPassed: false,
-      corruptionCardsPlayedPerChar: updatedCorruptionPerChar,
-    },
+    phaseState: { ...charged, corruptionCardsPlayedPerChar: updatedCorruptionPerChar },
   };
 
   // `action.targetCompanyId` is present on *every* play-hazard action — it names
@@ -1314,9 +1291,6 @@ export function handleSwapNewSite(
 
   logDetail(`${def.name}: replacing "${destDef.name}" (company ${company.id as string}'s new site) with "${replacementDef.name}" from ${hazardPlayer.name}'s location deck`);
 
-  const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
-  const newHazardCount = bypassesLimit ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
-
   // Discard the short-event and remove the replacement from the hazard
   // player's own location deck.
   let newState: GameState = updatePlayer(state, hazardIndex, p => ({
@@ -1347,9 +1321,7 @@ export function handleSwapNewSite(
   newState = {
     ...newState,
     phaseState: {
-      ...mhState,
-      hazardsPlayedThisCompany: newHazardCount,
-      resourcePlayerPassed: false,
+      ...chargeHazardSlot(mhState, hasPlayFlag(def, 'no-hazard-limit')),
       destinationSiteName: replacementDef.name,
       destinationSiteType: replacementDef.siteType,
     },
@@ -1396,20 +1368,7 @@ export function handleRollThenSwapNewSite(
 
   logDetail(`${def.name}: company ${company.id as string} has ${rangerCount} ranger(s) (${formatSignedNumber(rangerTotalModifier)}); roll must exceed ${effect.threshold}`);
 
-  const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
-  const newHazardCount = bypassesLimit ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
-
-  let newState: GameState = updatePlayer(state, hazardIndex, p => ({
-    ...p,
-    hand: removeById(p.hand, handCard.instanceId),
-    discardPile: [...p.discardPile, handCard],
-  }));
-  newState = {
-    ...newState,
-    phaseState: { ...mhState, hazardsPlayedThisCompany: newHazardCount, resourcePlayerPassed: false },
-  };
-
-  newState = enqueueResolution(newState, {
+  const newState = enqueueResolution(commitHazardEventPlay(state, mhState, hazardIndex, handCard, def), {
     source: handCard.instanceId,
     actor: hazardPlayer.id,
     scope: { kind: 'phase-step', phase: Phase.MovementHazard, step: 'play-hazards' },
@@ -4029,9 +3988,9 @@ function handleTapAltPermanentEvent(
     const charge = chargeHazardLimit(state, mhState, activeCompany.id, 'tap-alt-permanent-event');
     if ('error' in charge) return { state, error: charge.error };
   }
-  const newHazardCount = bypassesLimit ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
+  const charged = chargeHazardSlot(mhState, bypassesLimit);
 
-  logDetail(`Creature-permanent-event "${def?.name ?? card.definitionId}" tapped during opponent M/H → becomes a short-event (${newHazardCount})`);
+  logDetail(`Creature-permanent-event "${def?.name ?? card.definitionId}" tapped during opponent M/H → becomes a short-event (${charged.hazardsPlayedThisCompany})`);
 
   // Khamûl the Easterling (tw-47): its on-tap short-event forces the opponent to
   // discard one card "for every Nazgûl permanent-event in play (including this
@@ -4065,7 +4024,7 @@ function handleTapAltPermanentEvent(
       cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== action.cardInstanceId),
       discardPile: [...p.discardPile, cardInstance],
     })),
-    phaseState: { ...mhState, hazardsPlayedThisCompany: newHazardCount, resourcePlayerPassed: false },
+    phaseState: charged,
   };
 
   const payload: import('../index.js').ChainEntryPayload = {
@@ -4157,14 +4116,11 @@ function handleAttackFromAltPermanentEvent(
     const charge = chargeHazardLimit(state, mhState, activeCompany.id, 'attack-alt-permanent-event');
     if ('error' in charge) return { state, error: charge.error };
   }
-  const newHazardCount = bypassesLimit ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
+  const charged = chargeHazardSlot(mhState, bypassesLimit);
 
-  logDetail(`Creature-permanent-event "${def?.name ?? card.definitionId}" attacks from its permanent-event state (${newHazardCount}/${currentHazardLimit(state, mhState, activeCompany.id)}) — initiating chain`);
+  logDetail(`Creature-permanent-event "${def?.name ?? card.definitionId}" attacks from its permanent-event state (${charged.hazardsPlayedThisCompany}/${currentHazardLimit(state, mhState, activeCompany.id)}) — initiating chain`);
 
-  const newState: GameState = {
-    ...state,
-    phaseState: { ...mhState, hazardsPlayedThisCompany: newHazardCount, resourcePlayerPassed: false },
-  };
+  const newState: GameState = { ...state, phaseState: charged };
 
   // Leave the card in `cardsInPlay` (do not remove it here) — its own
   // stat-modifier effects must still be visible when `initiateCreatureCombat`
