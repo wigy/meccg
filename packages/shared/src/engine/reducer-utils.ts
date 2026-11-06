@@ -7060,10 +7060,9 @@ export function countFactionAttachedCopies(
  * via `CardInPlay.attachedTo` (the generic faction play-target binding also
  * used by `attached-faction-mp-bonus` and `faction-siege`). Searches *both*
  * players' `cardsInPlay` for both the source and its target, since a hazard
- * permanent-event's faction target belongs to its controller's opponent, not
- * itself (Trouble on All Borders as-40 — CoE 2.IV.vii.3: hazard events target
- * the opponent's entities), unlike the resource-event cards above which only
- * ever bind to the controller's own faction. Returns `undefined` when the
+ * permanent-event's faction target may belong to either player (Trouble on
+ * All Borders as-40: "a unique faction in play"), unlike the resource-event
+ * cards above which only ever bind to the controller's own faction. Returns `undefined` when the
  * source card is not attached, its target has since left play, or the target
  * is not actually a faction card.
  */

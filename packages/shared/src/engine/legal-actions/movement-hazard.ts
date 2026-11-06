@@ -4636,13 +4636,17 @@ function playHazardsActionsForCompany(
         }
       } else if (playTarget?.target === 'faction') {
         // Faction-targeting permanent hazard events (Trouble on All Borders
-        // as-40): one action per the resource player's own qualifying
-        // in-play faction — hazard events target the opponent's entities
-        // (CoE 2.IV.vii.3), never the hazard player's own factions in play
-        // (mirrors the short-event faction-targeting branch above).
+        // as-40): one action per qualifying faction in play, owned by
+        // *either* player. The card reads "Playable on a unique faction in
+        // play" with no owner restriction, and its "detainment if the company
+        // and faction are both minion or both hero" clause only makes sense
+        // if the faction may belong to the hazard player. CoE 2.IV.vii.3
+        // lets the hazard player play a permanent-event that only
+        // *potentially* targets the current company — the faction-driven
+        // attack does — so the hazard player's own factions are legal hosts.
         const factionDupLimit = findDuplicationLimitEffect(def, 'faction');
         let anyFactionTarget = false;
-        for (const cip of resourcePlayer.cardsInPlay) {
+        for (const cip of state.players.flatMap(p => p.cardsInPlay)) {
           const factionDef = defById(state, cip.definitionId);
           if (!factionDef || !isFactionCard(factionDef)) continue;
           if (playTarget.filter) {

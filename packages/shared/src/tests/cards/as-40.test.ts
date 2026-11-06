@@ -12,9 +12,10 @@
  *  duplicated on a given faction. Discard when any play deck is exhausted."
  *
  * Effects (4):
- *   - play-target (faction, filter: unique only) — targets the resource
- *     player's own in-play faction (hazard events target the opponent's
- *     entities, CoE 2.IV.vii.3).
+ *   - play-target (faction, filter: unique only) — targets any unique
+ *     faction in play, owned by either player ("a unique faction in play";
+ *     the hero/minion detainment clause presumes the faction may be the
+ *     hazard player's own).
  *   - ahunt-attack: regionsFromAttachedFaction + raceFromAttachedFaction +
  *     detainmentMatchesAttachedFactionAlignment, 4 strikes / 8 prowess.
  *   - duplication-limit (scope: faction, max 1).
@@ -55,8 +56,11 @@ const LAGDUF = 'le-18' as CardDefinitionId; // minion orc
 const cip = (definitionId: CardDefinitionId, instanceId: string, extra: Partial<CardInPlay> = {}): CardInPlay =>
   ({ instanceId: instanceId as CardInstanceId, definitionId, status: CardStatus.Untapped, ...extra });
 
-/** M/H play-hazard state: PLAYER_2 (hazard, minion) holds the card; PLAYER_1 (resource) has the given own factions in play. */
-function buildPlayState(resourceCardsInPlay: CardInPlay[] = []): GameState {
+/**
+ * M/H play-hazard state: PLAYER_2 (hazard, minion) holds the card; PLAYER_1
+ * (resource) has `resourceCardsInPlay` and PLAYER_2 has `hazardCardsInPlay`.
+ */
+function buildPlayState(resourceCardsInPlay: CardInPlay[] = [], hazardCardsInPlay: CardInPlay[] = []): GameState {
   const base = buildTestState({
     activePlayer: PLAYER_1,
     phase: Phase.MovementHazard,
@@ -71,6 +75,7 @@ function buildPlayState(resourceCardsInPlay: CardInPlay[] = []): GameState {
         id: PLAYER_2, alignment: Alignment.Ringwraith,
         companies: [{ site: MINAS_MORGUL, characters: [LAGDUF] }],
         hand: [TROUBLE_ON_ALL_BORDERS], siteDeck: [MINAS_MORGUL],
+        cardsInPlay: hazardCardsInPlay,
       },
     ],
   });
@@ -121,7 +126,7 @@ function buildOrderEffectsState(opts: {
 describe('Trouble on All Borders (as-40)', () => {
   beforeEach(() => resetMint());
 
-  // ─── Rule 1: play-target — unique faction only, opponent's own ───────────
+  // ─── Rule 1: play-target — unique faction in play (either player's) ──────
 
   test('offers a target for each of the resource player\'s own UNIQUE in-play factions', () => {
     const state = buildPlayState([cip(MEN_OF_DORWINION, 'f1'), cip(SNAGA_HAI, 'f2')]);
@@ -133,7 +138,23 @@ describe('Trouble on All Borders (as-40)', () => {
     expect(plays.map(a => (a.action as PlayHazardAction).targetFactionInstanceId)).toEqual(['f1']);
   });
 
-  test('NOT playable when the resource player has no faction in play', () => {
+  test('also offers the hazard player\'s OWN unique in-play factions as targets', () => {
+    // Bug report (game mvzvxrru-iq39mw): the hazard player held Trouble on
+    // All Borders with three of their own unique factions in play and the
+    // resource player had none — the card was not offered at all.
+    const state = buildPlayState([], [cip(MEN_OF_DORWINION, 'h1'), cip(SNAGA_HAI, 'h2'), cip(EASTERLINGS, 'h3')]);
+    const cardId = findHandCardId(state, HAZARD_PLAYER, TROUBLE_ON_ALL_BORDERS);
+    const plays = viableActions(state, PLAYER_2, 'play-hazard').filter(a =>
+      (a.action as PlayHazardAction).cardInstanceId === cardId && a.viable,
+    );
+    expect(plays.map(a => (a.action as PlayHazardAction).targetFactionInstanceId)).toEqual(['h1', 'h3']);
+
+    const after = resolveChain(dispatch(state, plays[0].action));
+    const host = after.players[HAZARD_PLAYER].cardsInPlay.find(c => c.definitionId === TROUBLE_ON_ALL_BORDERS);
+    expect(host?.attachedTo).toBe('h1');
+  });
+
+  test('NOT playable when no faction is in play', () => {
     const state = buildPlayState([]);
     const cardId = findHandCardId(state, HAZARD_PLAYER, TROUBLE_ON_ALL_BORDERS);
     const plays = viableActions(state, PLAYER_2, 'play-hazard').filter(a =>
