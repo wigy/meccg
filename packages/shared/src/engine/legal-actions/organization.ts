@@ -3507,6 +3507,99 @@ export function collectItemUntapTargets(
   return out;
 }
 
+/** The result of {@link collectShortEventTargetPools} for a playable card. */
+export interface ShortEventTargetPools {
+  readonly discardTargetIds: CardInstanceId[] | null;
+  readonly regionTransformTargets: { regionName: string; newRegionType: RegionType }[] | null;
+  readonly siteUntapTargets: { siteInstanceId: CardInstanceId; siteName: string }[] | null;
+  readonly itemUntapEffect: ItemUntapEffect | undefined;
+}
+
+/**
+ * Target pools a resource short-event's play action can draw from, or the
+ * reason the card is not playable because a pool it needs is empty.
+ *
+ * Shared by the organization/site emitter and the any-phase emitter so the two
+ * cannot drift apart on which targets exist; they differ only in how they turn
+ * the pools into actions. Each pool is `null` when the card has no such effect
+ * (or its `when` gate is unmet), which the emitters read as "no such choice".
+ *
+ * The (sage × tapped item) pool of Wielded Twice (td-167) is relative to the
+ * sage's company, so only its effect is returned, for the emitter to cross.
+ *
+ * @param opts.discardOptional An alternative mode keeps the card playable with
+ *   no discard target (Ancient Secrets ba-36's organization-only sideboard fetch).
+ * @param opts.emptyRegionPoolBlocksCombinable The any-phase emitter refuses a
+ *   combinable card whose gate holds but whose region pool is empty; the
+ *   organization/site emitter does not. Kept as found, despite the CRF ruling
+ *   that The Evenstar is playable with no such region.
+ */
+export function collectShortEventTargetPools(
+  state: GameState,
+  playerId: PlayerId,
+  def: ResourceEventCard,
+  playTarget: PlayTargetEffect | undefined,
+  inPlayNames: readonly string[],
+  opts: { discardOptional: boolean; emptyRegionPoolBlocksCombinable: boolean },
+): ShortEventTargetPools | { readonly blockedReason: string } {
+  // Single-target discard (Marvels Told). A `when` gate on the effect is also
+  // evaluated (The Cock Crows requires Gates of Morning). A company-scoped
+  // discard (`targetScope: "play-target-company"`) is enumerated per caster by
+  // `companyHazardDiscardActions` instead.
+  const discardInPlay = findMoveEffectByShape(def, 'target', 'in-play', 'discard');
+  const discardWhenMet = !discardInPlay?.when
+    || matchesCondition(discardInPlay.when, { inPlay: inPlayNames });
+  let discardTargetIds: CardInstanceId[] | null = null;
+  if (discardWhenMet && discardInPlay && discardInPlay.filter && !discardInPlay.targetScope) {
+    discardTargetIds = collectDiscardInPlayTargets(state, discardInPlay.filter, playerId);
+    if (discardTargetIds.length === 0 && !opts.discardOptional) {
+      logDetail(`${def.name}: no eligible discard-in-play target — not playable`);
+      return { blockedReason: `${def.name} has no valid target to discard` };
+    }
+  }
+
+  // Region-transform (Master of Wood, Water, or Hill td-136). A card that also
+  // carries a cost-less, filter-only character `play-target` (The Evenstar
+  // tw-343) offers the region choice as an optional layer on top of that
+  // target rather than as its sole mode, so an unmet gate must not block it.
+  const regionTransformEffect = findCardEffect(def, 'region-transform');
+  const regionTransformCombinable = !!playTarget
+    && playTarget.target === 'character'
+    && !playTarget.cost?.tap
+    && !!playTarget.filter;
+  let regionTransformTargets: { regionName: string; newRegionType: RegionType }[] | null = null;
+  if (regionTransformEffect) {
+    const regionTransformGateMet = !regionTransformEffect.when
+      || matchesCondition(regionTransformEffect.when, { inPlay: inPlayNames });
+    if (regionTransformGateMet) {
+      regionTransformTargets = collectRegionTransformTargets(state, regionTransformEffect);
+    } else {
+      logDetail(`${def.name}: region-transform "when" gate not met`);
+    }
+    const regionBlocked = regionTransformGateMet
+      ? regionTransformTargets?.length === 0 && (!regionTransformCombinable || opts.emptyRegionPoolBlocksCombinable)
+      : !regionTransformCombinable;
+    if (regionBlocked) {
+      logDetail(`${def.name}: no region currently matches a region-transform option — not playable`);
+      return { blockedReason: `${def.name} has no eligible region to transform` };
+    }
+  }
+
+  // Site-untap (Look More Closely Later td-128).
+  const siteUntapEffect = findCardEffect(def, 'site-untap');
+  let siteUntapTargets: { siteInstanceId: CardInstanceId; siteName: string }[] | null = null;
+  if (siteUntapEffect) {
+    siteUntapTargets = collectSiteUntapTargets(state, siteUntapEffect);
+    if (siteUntapTargets.length === 0) {
+      logDetail(`${def.name}: no tapped site currently matches the site-untap filter — not playable`);
+      return { blockedReason: `${def.name} has no eligible site to untap` };
+    }
+  }
+
+  const itemUntapEffect = findCardEffect(def, 'item-untap');
+  return { discardTargetIds, regionTransformTargets, siteUntapTargets, itemUntapEffect };
+}
+
 /**
  * Returns all {@link PlayOptionEffect}s declared on the given card.
  */
@@ -4949,89 +5042,17 @@ export function playResourceShortEventActions(
         return sideboardFetch.filter ? matchesDefinition(cd, sideboardFetch.filter) : true;
       });
 
-    // Collect eligible discard-in-play targets (e.g. Marvels Told forces
-    // discard of a hazard non-environment permanent/long event). If the
-    // card has a discard-in-play move effect but no valid targets exist,
-    // it cannot be played — UNLESS an alternative sideboard-fetch mode is
-    // available (ba-36), in which case the card is still playable (mode 2
-    // only) and simply offers no discard actions. A `when` gate on the effect
-    // is also evaluated (e.g. The Cock Crows requires Gates of Morning in play).
-    const discardInPlay = findMoveEffectByShape(def, 'target', 'in-play', 'discard');
-    const discardWhenMet = !discardInPlay?.when
-      || matchesCondition(discardInPlay.when, { inPlay: inPlayNames });
-    let discardTargetIds: CardInstanceId[] | null = null;
-    // A company-scoped discard (`targetScope: "play-target-company"`) is
-    // enumerated per caster by `companyHazardDiscardActions` instead.
-    if (discardWhenMet && discardInPlay && discardInPlay.filter && !discardInPlay.targetScope) {
-      discardTargetIds = collectDiscardInPlayTargets(state, discardInPlay.filter, playerId);
-      if (discardTargetIds.length === 0 && !sideboardModeAvailable) {
-        logDetail(`${def.name}: no eligible discard-in-play target — not playable`);
-        actions.push(notPlayable(playerId, handCard.instanceId, `${def.name} has no valid target to discard`));
-        continue;
-      }
+    // Empty discard pools do not block the card while the alternative
+    // sideboard-fetch mode is available (ba-36): it then offers mode 2 only.
+    const pools = collectShortEventTargetPools(state, playerId, def, playTarget, inPlayNames, {
+      discardOptional: sideboardModeAvailable,
+      emptyRegionPoolBlocksCombinable: false,
+    });
+    if ('blockedReason' in pools) {
+      actions.push(notPlayable(playerId, handCard.instanceId, pools.blockedReason));
+      continue;
     }
-
-    // Collect eligible region-transform targets (Master of Wood, Water, or
-    // Hill td-136: "change one Wilderness to a Border-land or Shadow-land or
-    // one Shadow-land to a Wilderness or one Border-land to a Wilderness").
-    // One (region name, destination type) pair per matching region on the
-    // map; not playable when nothing currently qualifies.
-    const regionTransformEffect = def.effects?.find(
-      (e): e is RegionTransformEffect => e.type === 'region-transform',
-    );
-    // A card that also carries a cost-less, filter-only character `play-target`
-    // (The Evenstar tw-343: "the prowess of one Elf ...") offers the region
-    // choice as an *additional*, optional layer on top of that character
-    // target rather than as the card's sole mode (Master of Wood, Water, or
-    // Hill td-136, whose only other effect is a tap-cost sage target). For
-    // that combinable shape, an unmet `when` gate or an empty target list
-    // must not block the card — it just means no region-choice variant is
-    // offered this time, and the plain character-only action still is.
-    const regionTransformCombinable = !!playTarget
-      && playTarget.target === 'character'
-      && !playTarget.cost?.tap
-      && !!playTarget.filter;
-    let regionTransformTargets: { regionName: string; newRegionType: RegionType }[] | null = null;
-    if (regionTransformEffect) {
-      const regionTransformGateMet = !regionTransformEffect.when
-        || matchesCondition(regionTransformEffect.when, { inPlay: inPlayNames });
-      if (regionTransformGateMet) {
-        regionTransformTargets = collectRegionTransformTargets(state, regionTransformEffect);
-      } else {
-        logDetail(`${def.name}: region-transform "when" gate not met`);
-      }
-      if (!regionTransformCombinable && (!regionTransformGateMet || regionTransformTargets?.length === 0)) {
-        logDetail(`${def.name}: no region currently matches a region-transform option — not playable`);
-        actions.push(notPlayable(playerId, handCard.instanceId, `${def.name} has no eligible region to transform`));
-        continue;
-      }
-    }
-
-    // Collect eligible site-untap targets (Look More Closely Later td-128:
-    // "Tap a sage to untap a site at which Information is playable"). One
-    // target per currently-tapped site (either player's) matching the
-    // effect's filter; not playable when nothing currently qualifies.
-    const siteUntapEffect = def.effects?.find(
-      (e): e is SiteUntapEffect => e.type === 'site-untap',
-    );
-    let siteUntapTargets: { siteInstanceId: CardInstanceId; siteName: string }[] | null = null;
-    if (siteUntapEffect) {
-      siteUntapTargets = collectSiteUntapTargets(state, siteUntapEffect);
-      if (siteUntapTargets.length === 0) {
-        logDetail(`${def.name}: no tapped site currently matches the site-untap filter — not playable`);
-        actions.push(notPlayable(playerId, handCard.instanceId, `${def.name} has no eligible site to untap`));
-        continue;
-      }
-    }
-
-    // Wielded Twice (td-167): "Tap a sage to untap an item in his company."
-    // Unlike site-untap, the target pool is company-relative (one sage's own
-    // company, not every company on the map), so it cannot be precomputed
-    // here independent of which sage taps — the (sage × item) cross happens
-    // below, in the `playTarget.cost?.tap === 'character'` branch.
-    const itemUntapEffect = def.effects?.find(
-      (e): e is ItemUntapEffect => e.type === 'item-untap',
-    );
+    const { discardTargetIds, regionTransformTargets, siteUntapTargets, itemUntapEffect } = pools;
 
     // duplication-limit: scope "turn" — cannot play if a copy was already
     // played this turn (tracked via active constraints sourced from this def).
