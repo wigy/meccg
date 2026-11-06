@@ -9365,6 +9365,52 @@ export interface FactionInfluenceRestrictionEffect extends EffectBase {
   readonly blockCards?: readonly string[];
   /** When true, the restriction has no effect on a minion (Ringwraith) influencer. */
   readonly noEffectOnMinion?: boolean;
+  /**
+   * Faction names exempt from the restriction (Sentinels of Númenor dm-158:
+   * "(except Army of the Dead)").
+   */
+  readonly exceptFactions?: readonly string[];
+  /**
+   * When true, the restriction matches the faction being influenced by the
+   * regions of the sites it is *playable at* ({@link factionPlayableSiteRegions})
+   * rather than by the region of the influencing company's current site — the
+   * literal reading of "a faction playable at a site in …", which also covers
+   * untethered influence attempts made away from that site (Roäc the Raven
+   * tw-320, region-penalty diplomacy). Used by Sentinels of Númenor (dm-158).
+   */
+  readonly matchFactionPlayableRegions?: boolean;
+}
+
+/**
+ * Carried by a bare in-play permanent resource event: every faction its
+ * controller successfully influences into play while the carrier is in play,
+ * and which is playable at a site in one of `regionNames` (and not named in
+ * `exceptFactions`), is "placed under" the carrier — stamped with
+ * {@link CardInPlay.containedBy} = the carrier's instance ID. Each contained
+ * faction gives `mpBonus` additional faction marshalling points while the
+ * carrier stays in play. Pair with `discard-on-card-leaves-play`
+ * `containedOnly: true` for "discard when any faction under this card is
+ * discarded". When the carrier leaves play the stamps are cleared and the
+ * factions themselves remain in play.
+ *
+ * Used by Sentinels of Númenor (dm-158): "Place any such faction you
+ * successfully influence (while this card is in play) under this card. All
+ * factions under this card give an additional marshalling point."
+ *
+ * ```json
+ * { "type": "contain-influenced-factions",
+ *   "regionNames": ["Anórien", "Lebennin", "Lamedon", "Belfalas", "Anfalas"],
+ *   "exceptFactions": ["Army of the Dead"], "mpBonus": 1 }
+ * ```
+ */
+export interface ContainInfluencedFactionsEffect extends EffectBase {
+  readonly type: 'contain-influenced-factions';
+  /** Regions; a faction playable at a site in any of them qualifies. */
+  readonly regionNames: readonly string[];
+  /** Faction names that never qualify. */
+  readonly exceptFactions?: readonly string[];
+  /** Additional faction MP each contained faction gives. */
+  readonly mpBonus: number;
 }
 
 /**
@@ -10110,6 +10156,13 @@ export interface DiscardOnCardLeavesPlayEffect extends EffectBase {
    * available). A leaving card that matches triggers the self-discard.
    */
   readonly filter: Condition;
+  /**
+   * When true, only a leaving card that was *contained by this carrier*
+   * ({@link CardInPlay.containedBy} equal to the carrier's instance ID in the
+   * pre-action state) triggers the self-discard. Sentinels of Númenor
+   * (dm-158): "Discard when any faction under this card is discarded."
+   */
+  readonly containedOnly?: boolean;
 }
 
 /**
@@ -11119,6 +11172,7 @@ export type CardEffect =
   | RetainHazardLongEventsEffect
   | OpposedRollEffect
   | FactionInfluenceRestrictionEffect
+  | ContainInfluencedFactionsEffect
   | FactionSelfInfluenceBoostBlockEffect
   | NullifyInfluenceModificationsEffect
   | MultiplyStandardModificationsEffect

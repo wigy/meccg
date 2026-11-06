@@ -27,7 +27,7 @@ import { availableDI, conditionalDISpentOnFollowers, normalUnusedDI } from './le
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
-import { collectFactionCardEffects, agentAttackSiteBoost, gateDeckSearchFetch, hasSiteFlag, markPrisonersRescued, makeCombatState, matchesDefinition, companySiteName, resolveAttackerChoosesDefenders, resolveDefenderFreeStrikeAssignment, canAttackAlignment, companyAttemptSupportBonus, companyHasBalrog, companyHasRingwraith, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, companyEffectiveSize, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, globalCheckExtraRollSource, roll2d6KeepBetter, influenceModificationsNullified, characterHomeSiteRegions, defById, diceRollEffect, drawCardsExhausting, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, companySiteDef, playedAfterFactionMpPin, unrevealedOnGuardDiscarded, agentAttackAllowedOnSkip, companySkipsSiteOnGuardCards, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, siteHasWarForgesItemUnlock, sweepCharacterLeavesCompanyEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, tapCompanyCardsOnItemPlay, updatePlayer, wrongActionType, siteStartOfPhaseAttacks, buildFactionCheckContext, buildFactionControllerContext, defNamesOf, findCardEffect } from './reducer-utils.js';
+import { collectFactionCardEffects, agentAttackSiteBoost, gateDeckSearchFetch, hasSiteFlag, markPrisonersRescued, makeCombatState, matchesDefinition, companySiteName, resolveAttackerChoosesDefenders, resolveDefenderFreeStrikeAssignment, canAttackAlignment, companyAttemptSupportBonus, companyHasBalrog, companyHasRingwraith, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, companyEffectiveSize, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, globalCheckExtraRollSource, roll2d6KeepBetter, influenceModificationsNullified, characterHomeSiteRegions, defById, diceRollEffect, drawCardsExhausting, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, companySiteDef, playedAfterFactionMpPin, factionContainerHost, unrevealedOnGuardDiscarded, agentAttackAllowedOnSkip, companySkipsSiteOnGuardCards, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, siteHasWarForgesItemUnlock, sweepCharacterLeavesCompanyEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, tapCompanyCardsOnItemPlay, updatePlayer, wrongActionType, siteStartOfPhaseAttacks, buildFactionCheckContext, buildFactionControllerContext, defNamesOf, findCardEffect } from './reducer-utils.js';
 import { normalAttackOverride } from './normal-attack-override.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent, handlePlayShortEvent, dispatchShortEventByCardType } from './reducer-events.js';
 import { goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit, handleStoreItem } from './reducer-organization.js';
@@ -4256,7 +4256,7 @@ export function resolveInfluenceAttemptRoll(
     const siteRegionName = (currentSiteDef as { region?: string } | undefined)?.region;
     const influencerIsMinion = player.alignment === Alignment.Ringwraith;
     const { modifier: restrictionModifier, blockedCardNames: blockedBoostCardNames } =
-      collectFactionInfluenceRestriction(state, siteRegionName, influencerIsMinion);
+      collectFactionInfluenceRestriction(state, siteRegionName, influencerIsMinion, def);
     if (restrictionModifier !== 0) {
       logDetail(`Faction-influence-restriction at ${siteRegionName}: ${formatSignedNumber(restrictionModifier)}${blockedBoostCardNames.size > 0 ? `, blocks [${[...blockedBoostCardNames].join(', ')}]` : ''}${nullifyMods ? ' — nullified' : ''}`);
       if (!nullifyMods) modifier += restrictionModifier;
@@ -4347,7 +4347,7 @@ export function resolveInfluenceAttemptRoll(
       : undefined;
     const siteRegionName = (currentSiteDef as { region?: string } | undefined)?.region;
     const influencerIsMinion = player.alignment === Alignment.Ringwraith;
-    const { modifier: restrictionModifier } = collectFactionInfluenceRestriction(state, siteRegionName, influencerIsMinion);
+    const { modifier: restrictionModifier } = collectFactionInfluenceRestriction(state, siteRegionName, influencerIsMinion, def);
     if (restrictionModifier !== 0 && !nullifyMods) {
       modifier += restrictionModifier;
       logDetail(`Faction-influence-restriction at ${siteRegionName}: ${formatSignedNumber(restrictionModifier)}`);
@@ -4486,9 +4486,16 @@ export function resolveInfluenceAttemptRoll(
     if (mpPin !== undefined) {
       logDetail(`Site: ${def.name} placed under Await the Onset — pinned to ${mpPin} marshalling point(s)`);
     }
+    // Sentinels of Númenor (dm-158): a qualifying faction influenced while the
+    // carrier is in play is placed under it (+1 MP, discard link).
+    const containerHost = factionContainerHost(state, player, def);
+    if (containerHost !== undefined) {
+      logDetail(`Site: ${def.name} placed under carrier ${containerHost as string} (contain-influenced-factions)`);
+    }
+    const containedStamp = containerHost !== undefined ? { containedBy: containerHost } : {};
     const factionEntry = willPlaceUnderControl
-      ? { instanceId: entry.card.instanceId, definitionId: entry.card.definitionId, status: CardStatus.Untapped, controlledBy: charId, ...(mpPin !== undefined ? { mpPinned: mpPin } : {}) }
-      : { instanceId: entry.card.instanceId, definitionId: entry.card.definitionId, status: CardStatus.Untapped, ...(mpPin !== undefined ? { mpPinned: mpPin } : {}) };
+      ? { instanceId: entry.card.instanceId, definitionId: entry.card.definitionId, status: CardStatus.Untapped, controlledBy: charId, ...(mpPin !== undefined ? { mpPinned: mpPin } : {}), ...containedStamp }
+      : { instanceId: entry.card.instanceId, definitionId: entry.card.definitionId, status: CardStatus.Untapped, ...(mpPin !== undefined ? { mpPinned: mpPin } : {}), ...containedStamp };
     const newCardsInPlay = [...player.cardsInPlay, factionEntry];
     // No Strangers at this Time (as-51): "if you have played a faction there"
     // is a persistent fact about the site, so record it by definitionId

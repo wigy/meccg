@@ -2974,7 +2974,7 @@ export function playResourcesActions(
           // minion (Ringwraith) influencer when so flagged.
           const influencerIsMinion = player.alignment === 'ringwraith';
           const { modifier: restrictionMod, blockedCardNames: blockedBoosts } =
-            collectFactionInfluenceRestriction(state, siteDefForFaction.region, influencerIsMinion);
+            collectFactionInfluenceRestriction(state, siteDefForFaction.region, influencerIsMinion, factionDef);
           if (restrictionMod !== 0 && !nullifyMods) {
             infModifier += restrictionMod;
             infParts.push(`region restriction ${formatSignedNumber(restrictionMod)}`);

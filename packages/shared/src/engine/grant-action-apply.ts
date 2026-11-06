@@ -26,7 +26,7 @@ import { CardStatus, cardStatusFromName } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
-import { gateDeckSearchFetch, characterHasCannotUntapConstraint, roll2d6, diceRollEffect, clonePlayers, companyAttemptSupportBonus, drawCardsExhausting, toCardInstance, removeAttachment, companyKeywordDiscardCandidates, updatePlayer, updateCharacter, findCharacterCompany, getCardEffects, defById, discardCardsInPlayWhere, collectGlobalCheckModifier, globalCheckExtraRollSource, roll2d6KeepBetter, influenceModificationsNullified, playedAfterFactionMpPin, buildFactionCheckContext, extendHealingToCompany } from './reducer-utils.js';
+import { gateDeckSearchFetch, characterHasCannotUntapConstraint, roll2d6, diceRollEffect, clonePlayers, companyAttemptSupportBonus, drawCardsExhausting, toCardInstance, removeAttachment, companyKeywordDiscardCandidates, updatePlayer, updateCharacter, findCharacterCompany, getCardEffects, defById, discardCardsInPlayWhere, collectGlobalCheckModifier, globalCheckExtraRollSource, roll2d6KeepBetter, influenceModificationsNullified, playedAfterFactionMpPin, factionContainerHost, collectFactionInfluenceRestriction, buildFactionCheckContext, extendHealingToCompany } from './reducer-utils.js';
 import { isFactionCard } from '../types/cards.js';
 import { enqueueCorruptionCheck, enqueueResolution, addConstraint, removeConstraint } from './pending.js';
 import { revealInstances } from './visibility.js';
@@ -986,6 +986,14 @@ function runGrantApply(
         modifier += globalMod;
         logDetail(`Grant-action ${ctx.action.actionId}: game-wide influence check-modifier ${formatSignedNumber(globalMod)}`);
       }
+      // Faction-influence-restriction matched by the faction's playable-site
+      // regions (Sentinels of Númenor dm-158) applies even away from the site.
+      const { modifier: restrictionMod } = collectFactionInfluenceRestriction(
+        state, undefined, bearerPlayer.alignment === 'ringwraith', factionDef);
+      if (restrictionMod !== 0) {
+        modifier += restrictionMod;
+        logDetail(`Grant-action ${ctx.action.actionId}: faction-influence-restriction ${formatSignedNumber(restrictionMod)}`);
+      }
     }
 
     // Tidings of Death (le-245): a game-wide `check-extra-roll` makes an
@@ -1009,13 +1017,14 @@ function runGrantApply(
     const succeeded = total >= factionDef.influenceNumber;
     if (succeeded) {
       const mpPin = playedAfterFactionMpPin(state, bearerPlayer);
+      const containerHost = factionContainerHost(state, bearerPlayer, factionDef);
       logDetail(`Grant-action ${ctx.action.actionId}: influence attempt succeeded — ${factionDef.name} enters play untapped, no site tapped`);
       newPlayers[ctx.playerIndex] = {
         ...bearerPlayer,
         hand: newHand,
         cardsInPlay: [
           ...bearerPlayer.cardsInPlay,
-          { instanceId: handCard.instanceId, definitionId: handCard.definitionId, status: CardStatus.Untapped, ...(mpPin !== undefined ? { mpPinned: mpPin } : {}) },
+          { instanceId: handCard.instanceId, definitionId: handCard.definitionId, status: CardStatus.Untapped, ...(mpPin !== undefined ? { mpPinned: mpPin } : {}), ...(containerHost !== undefined ? { containedBy: containerHost } : {}) },
         ],
         lastDiceRoll: roll,
       };

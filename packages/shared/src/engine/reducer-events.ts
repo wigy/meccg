@@ -22,7 +22,7 @@ import { ownerOf, resolveInstanceId } from '../types/state.js';
 import { resolveDef, getEffectiveSkills, buildBearerContext, collectCharacterEffects } from './effects/index.js';
 import { revealInstances } from './visibility.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { makeCombatState, clearPlannedMovement, companyById, deckSearchCancellerFor, companySiteName, companySiteRegion, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, factionPlayableSiteRegions, findAttachment, findById, findCharacterCompany, findDuplicationLimitEffect, gateDeckSearchFetch, getCardEffects, getOnEventEffects, influenceRegionPenalty, isCovertCompany, matchesDefinition, playedAfterFactionMpPin, removeAttachment, removeById, roll2d6, rollDiceForPlayer, toCardInstance, updateCharacter, updatePlayer, wrongActionType, applyTapSiteOnPlayFlag, attackSourceCreatureInstanceId, findCardEffect, hasCardEffect } from './reducer-utils.js';
+import { makeCombatState, clearPlannedMovement, companyById, deckSearchCancellerFor, companySiteName, companySiteRegion, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, factionPlayableSiteRegions, findAttachment, findById, findCharacterCompany, findDuplicationLimitEffect, gateDeckSearchFetch, getCardEffects, getOnEventEffects, influenceRegionPenalty, isCovertCompany, matchesDefinition, playedAfterFactionMpPin, factionContainerHost, collectFactionInfluenceRestriction, influenceModificationsNullified, removeAttachment, removeById, roll2d6, rollDiceForPlayer, toCardInstance, updateCharacter, updatePlayer, wrongActionType, applyTapSiteOnPlayFlag, attackSourceCreatureInstanceId, findCardEffect, hasCardEffect } from './reducer-utils.js';
 import { flagCouncilCall } from './reducer-end-of-turn.js';
 import { addRemovalProtection } from './removal-protection.js';
 import { addConstraint, dequeueResolution, enqueueCorruptionCheck, enqueueResolution, sweepExpired } from './pending.js';
@@ -440,7 +440,13 @@ function resolveFactionInfluenceRegionPenalty(
   const targetRegions = factionPlayableSiteRegions(state, factionDef);
   const regionDistance = influenceRegionPenalty(state, influencerRegion, targetRegions);
   const freeDI = availableDI(state, diplomatId, player);
-  const modifier = freeDI - (apply.penaltyBase + regionDistance);
+  // Faction-influence-restriction matched by the faction's playable-site
+  // regions (Sentinels of Númenor dm-158) applies even away from the site.
+  const { modifier: restrictionMod } = influenceModificationsNullified(state)
+    ? { modifier: 0 }
+    : collectFactionInfluenceRestriction(state, undefined, player.alignment === 'ringwraith', factionDef);
+  const modifier = freeDI - (apply.penaltyBase + regionDistance) + restrictionMod;
+  if (restrictionMod !== 0) logDetail(`${def.name}: faction-influence-restriction ${restrictionMod}`);
 
   // Tap the diplomat — the cost of declaring the attempt — before rolling,
   // matching the card's own text ("tap the diplomat, then roll") and
@@ -463,6 +469,7 @@ function resolveFactionInfluenceRegionPenalty(
 
   if (succeeded) {
     const mpPin = playedAfterFactionMpPin(state, player);
+    const containerHost = factionContainerHost(state, player, factionDef);
     logDetail(`${def.name}: influence attempt succeeded — ${factionDef.name} enters play untapped`);
     nextState = updatePlayer(nextState, playerIndex, p => ({
       ...p,
@@ -470,7 +477,7 @@ function resolveFactionInfluenceRegionPenalty(
       discardPile: [...p.discardPile, handCard],
       cardsInPlay: [
         ...p.cardsInPlay,
-        { instanceId: factionHandCard.instanceId, definitionId: factionHandCard.definitionId, status: CardStatus.Untapped, ...(mpPin !== undefined ? { mpPinned: mpPin } : {}) },
+        { instanceId: factionHandCard.instanceId, definitionId: factionHandCard.definitionId, status: CardStatus.Untapped, ...(mpPin !== undefined ? { mpPinned: mpPin } : {}), ...(containerHost !== undefined ? { containedBy: containerHost } : {}) },
       ],
     }));
     const siteInPlay = company.currentSite;
