@@ -169,6 +169,13 @@ export interface Tunables {
    */
   readonly cyclingKeepPoints: number;
   /**
+   * What throwing a marshalling-point card priced at the held floor costs
+   * beyond the floor, in TSD. Only orders the tie: the floor is where a source
+   * the hand alone cannot un-cap lands, yet the deck still can, so such a card
+   * goes after the cards that have no points at all.
+   */
+  readonly cappedPointsTieBreak: number;
+  /**
    * What cycling gains while ahead and loses while behind, in TSD: run the deck
    * out while leading, to control when the game ends, and do not hurry an end
    * that would lose. Off: winning humans cycle at 31–32% of their chances whether
@@ -738,6 +745,7 @@ export const DEFAULT_TUNABLES: Tunables = {
   cyclingPaceTsd: 5,
   cyclingKeepAnswers: 0,
   cyclingKeepPoints: 1,
+  cappedPointsTieBreak: 0.01,
   deckPaceLeadTsd: 0,
   deckPlanPlayTsd: 6,
   deckPlanMinRate: 0.5,
