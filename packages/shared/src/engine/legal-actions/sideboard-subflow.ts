@@ -33,7 +33,7 @@ import { filterSideboardByDef, playerById } from '../reducer-utils.js';
 export interface SideboardFetchSubflowConfig {
   /** Destination locked into phase state by the flow's start/intent action. */
   readonly destination: 'deck' | 'discard';
-  /** Number of cards already fetched in this sub-flow (or this turn, for the organization flow's shared counter). */
+  /** Number of cards already fetched in this sub-flow (i.e. during the current avatar tap, for the organization flow). */
   readonly fetched: number;
   /** Maximum cards fetchable to the discard pile in this sub-flow. */
   readonly maxToDiscard: number;
