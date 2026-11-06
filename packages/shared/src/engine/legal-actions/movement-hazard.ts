@@ -2434,6 +2434,17 @@ const COMPANYLESS_SHORT_EVENT_EFFECTS: ReadonlySet<string> = new Set([
 ]);
 
 /**
+ * Action types that adjust the hazard limit with a card the hazard player has
+ * in play: a Dragon "At Home" discard (METD §4) and Power Built by Waiting's
+ * tap/untap (as-34). They need no characters in the company, only its running
+ * limit, which outlives them (CoE 2.IV), so they stay available once the
+ * company is emptied and can open room for company-independent hazards.
+ */
+const COMPANYLESS_HAZARD_LIMIT_ACTIONS: ReadonlySet<string> = new Set([
+  'discard-card-for-hazard-limit', 'tap-hazard-card-for-limit', 'pay-hazard-limit-to-untap-card',
+]);
+
+/**
  * Whether a `play-hazard` action can still be played once the active
  * company has no characters left. The company's M/H phase does not end when
  * its characters are eliminated — its base hazard limit "stays fixed"
@@ -2517,11 +2528,12 @@ function playHazardsActions(
   if (targetCompanyRef && targetCompanyRef.characters.length === 0 && !isResourcePlayer) {
     // The active company's characters have all left play, but its M/H phase
     // goes on (see isCompanylessHazardPlay): offer the hazard player only the
-    // hazards that do not need the company, plus pass.
+    // hazards that do not need the company, the actions that adjust its
+    // hazard limit, plus pass.
     const result: EvaluatedAction[] = [];
     const blocked = new Set<string>();
     for (const ea of playHazardsActionsForCompany(state, playerId, mhState, isResourcePlayer)) {
-      if (ea.action.type === 'pass') {
+      if (ea.action.type === 'pass' || COMPANYLESS_HAZARD_LIMIT_ACTIONS.has(ea.action.type)) {
         result.push(ea);
       } else if (ea.action.type === 'play-hazard') {
         if (isCompanylessHazardPlay(state, ea.action)) {
