@@ -349,4 +349,38 @@ describe('a company the engine will not let move', () => {
     expect(after.expectedTsd).toBeGreaterThan(before.expectedTsd);
     expect(after.u).toBeGreaterThanOrEqual(before.u);
   });
+
+  test('a Ringwraith holding a follower: un-stacking him, and splitting the Ringwraith off, score above staying', () => {
+    // Bug report 23d75d5a00096d79 (game mw4o7cmo-95owwb): Bûrat is Dwar's
+    // follower, so a split of Dwar takes Bûrat along and the company stays
+    // mixed. The stranded price peeled single characters — a floor no real
+    // split reached — so every split scored below passing, as did moving
+    // Bûrat to general influence, and the company never left Dol Guldur.
+    const { view, organization } = organizationFor('organization/ringwraith-follower-stranded');
+    const current = organization.current();
+    const before = organization.valueOf(current);
+    expect(before.assignments).toHaveLength(0);
+    const dwar = characterNamed(view, 'Dwar the Ringwraith');
+    const burat = characterNamed(view, 'Bûrat');
+    expect(view.self.characters[dwar as CardInstanceId].followers).toContain(burat);
+
+    // Un-stacking Bûrat makes the cheap split reachable.
+    const unstacked: Arrangement = { ...current, controllers: { [burat]: 'general' } };
+    expect(organization.valueOf(unstacked).u).toBeGreaterThan(before.u);
+
+    // Splitting Dwar off as the engine does it — Bûrat goes with him — frees
+    // the rest of the company, so it no longer scores below staying (it did:
+    // the old floor was out of its reach). With no goal in reach here it ties.
+    const withFollower: Arrangement = {
+      companies: current.companies.flatMap(company => [
+        { ...company, characterIds: company.characterIds.filter(id => id !== dwar && id !== burat) },
+        { ...company, characterIds: [dwar, burat] as CardInstanceId[] },
+      ]),
+    };
+    expect(organization.valueOf(withFollower).u).toBeGreaterThanOrEqual(before.u - 1e-12);
+
+    // And once Bûrat is un-stacked, splitting Dwar alone is better still.
+    const dwarAlone = organization.valueOf({ ...splitOff(current, dwar), controllers: { [burat]: 'general' } });
+    expect(dwarAlone.u).toBeGreaterThan(organization.valueOf(withFollower).u);
+  });
 });
