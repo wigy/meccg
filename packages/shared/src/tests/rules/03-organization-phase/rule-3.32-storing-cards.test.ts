@@ -18,9 +18,10 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import type { CardDefinitionId } from '../../../index.js';
 import {
-  buildTestState, resetMint, viableFor, findCharInstanceId, Phase,
+  buildTestState, resetMint, viableFor, viableActions, findCharInstanceId, Phase,
   PLAYER_1, PLAYER_2,
-  BILBO, LEGOLAS, GIMLI,
+  BILBO, LEGOLAS, GIMLI, GANDALF, BEREGOND,
+  SAPLING_OF_THE_WHITE_TREE,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   SCROLL_OF_ISILDUR,
   RESOURCE_PLAYER,
@@ -494,6 +495,47 @@ describe('Rule 3.32 — Storing Cards', () => {
 
     expect(corruptionChecks.some(a =>
       a.action.characterId === gimliId && a.action.corruptionPoints === 5,
+    )).toBe(true);
+  });
+
+  // Bug report (game mw3njyc8-tovajp, seq 504): Éomer at Minas Tirith bore a
+  // Sapling of the White Tree, but no store-item was offered while the
+  // sideboard-to-discard fetch sub-flow was open. 2.II.4 storing is worded
+  // "either before or after organizing" exactly like 2.II.6 sideboard access,
+  // so the sub-flow must not suspend it.
+  test('Sapling of the White Tree is storable at Minas Tirith while a sideboard-to-discard fetch is open', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{
+            site: MINAS_TIRITH,
+            characters: [GANDALF, { defId: BEREGOND, items: [SAPLING_OF_THE_WHITE_TREE] }],
+          }],
+          hand: [],
+          siteDeck: [MORIA],
+          sideboard: [SCROLL_OF_ISILDUR],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+      recompute: true,
+    });
+
+    const startAction = viableActions(state, PLAYER_1, 'start-sideboard-to-discard')[0].action;
+    const midFlow = dispatch(state, startAction);
+
+    const beregondId = findCharInstanceId(midFlow, RESOURCE_PLAYER, BEREGOND);
+    const saplingId = midFlow.players[RESOURCE_PLAYER].characters[beregondId].items[0].instanceId;
+    const stores = viableActions(midFlow, PLAYER_1, 'store-item') as { action: StoreItemAction }[];
+    expect(stores.some(a =>
+      a.action.itemInstanceId === saplingId && a.action.characterId === beregondId,
     )).toBe(true);
   });
 });
