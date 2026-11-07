@@ -5266,7 +5266,18 @@ h2 {
   font-size: 0.8rem;
   color: rgba(196, 163, 90, 0.8);
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 0 8px rgba(0, 0, 0, 0.8);
-  pointer-events: none;
+  /* Clickable/tappable "return to latest" control while in history mode. */
+  pointer-events: auto;
+  cursor: pointer;
+  z-index: 1;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  background: rgba(0, 0, 0, 0.55);
+  user-select: none;
+}
+
+#game-log-header:hover {
+  color: rgba(232, 200, 120, 1);
 }
 
 #game-log-header.hidden {

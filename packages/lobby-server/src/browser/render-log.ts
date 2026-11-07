@@ -16,7 +16,9 @@
  *
  * PgUp/PgDn and the mouse wheel shift the anchor one line at a time. End
  * returns to live tail. Paging down past the newest message also returns
- * to live tail.
+ * to live tail. While anchored, the header line is a clickable / tappable
+ * "return to latest" control, so players without an End key (tablets,
+ * phones) can get back to the current line.
  *
  * The full message log is kept per-game in `gameMessageLog.messages` and
  * cleared via `clearGameMessageLog()` when a new game is assigned.
@@ -109,11 +111,19 @@ function renderGameLogPanel(): void {
   if (gameMessageLog.anchor !== null) {
     panel.classList.add('game-log-panel--history');
     header.classList.remove('hidden');
-    header.textContent = `◀ log ${start + 1}–${end} of ${total} · End to return`;
+    header.textContent = `◀ log ${start + 1}–${end} of ${total} · ▼ tap here (or End) to return to latest`;
+    header.title = 'Return to the latest log line';
+    header.onclick = (e: MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      returnToLiveTail();
+    };
   } else {
     panel.classList.remove('game-log-panel--history');
     header.classList.add('hidden');
     header.textContent = '';
+    header.title = '';
+    header.onclick = null;
   }
 
   entries.replaceChildren();
