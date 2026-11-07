@@ -377,6 +377,52 @@ describe('Wûluag (as-6)', () => {
     expect(untapActions).toHaveLength(0);
   });
 
+  test('untap action not offered when companion is wounded (untap cannot heal)', () => {
+    // Regression (game mw6rsio6-y1dtx5): Wûluag untapped a wounded Tûma.
+    // "Untap" requires the target to be tapped, not wounded.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: ETTENMOORS, characters: [WULUAG, TUMA] }],
+          hand: [],
+          siteDeck: [DOL_GULDUR],
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: MINAS_MORGUL, characters: [GORBAG] }],
+          hand: [],
+          siteDeck: [DOL_GULDUR],
+        },
+      ],
+    });
+
+    const tumaId = findCharInstanceId(base, RESOURCE_PLAYER, TUMA);
+    const wounded: typeof base = {
+      ...base,
+      players: [
+        {
+          ...base.players[RESOURCE_PLAYER],
+          characters: {
+            ...base.players[RESOURCE_PLAYER].characters,
+            [tumaId]: { ...base.players[RESOURCE_PLAYER].characters[tumaId], status: CardStatus.Inverted },
+          },
+        },
+        base.players[HAZARD_PLAYER],
+      ] as typeof base.players,
+    };
+
+    const untapActions = viableActions(wounded, PLAYER_1, 'activate-granted-action').filter(
+      ea => (ea.action as ActivateGrantedAction).actionId === 'untap-companion-at-site',
+    );
+    expect(untapActions).toHaveLength(0);
+  });
+
   // ── Effect 5: Mind -1 when Bûrat or Tûma is in company ────────────────────
 
   test("Wûluag's GI cost is reduced by 1 (mind 3) when Tûma is in the same company", () => {
