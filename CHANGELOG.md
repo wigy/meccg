@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.229.0 — 2026-11-07
+
+Store and Transfer Items While Fetching from Sideboard
+
+### Game Engine
+
+- Storing and transferring items stay available while the sideboard-to-discard fetch is open, matching CoE 2.II.4/2.II.5 "before or after organizing" wording (#3505)
+
 ## 0.228.0 — 2026-11-06
 
 Sentinels of Númenor Certified, Modular AI Learns Deck Play Floors
