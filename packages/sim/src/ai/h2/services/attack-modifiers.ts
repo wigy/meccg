@@ -136,6 +136,15 @@ export function conditionOf(
  *
  * `overrides` is what makes Minions Stir readable: the +2 variants name the +1
  * variants they replace, so the two are not summed when Doors of Night is out.
+ *
+ * An override replaces its base only for the attacks it applies to. The engine
+ * filters each modifier by its condition per attack before resolving
+ * overrides, so Wake of War's Wolf-only "+2 under Doors of Night" replaces the
+ * +1 for Wolf attacks and leaves the +1 on Spider and Animal attacks standing.
+ * Dropping the base for every race once any override applied read Wake of War
+ * under Doors of Night as a Wolf-only card: the AI saw nothing it would do to
+ * the Spiders in hand and played it after both had attacked (game
+ * mw6rsio6-y1dtx5).
  */
 export function attackBoostOf(
   def: CardDefinition | undefined,
@@ -160,17 +169,35 @@ export function attackBoostOf(
   });
   if (entries.length === 0) return null;
 
-  const replaced = new Set(entries.map(e => e.overrides).filter((id): id is string => id !== undefined));
-  const boost = new Map<string, { prowess: number; strikes: number }>();
+  // The races on which each base effect is replaced by an applying override.
+  const replacedOn = new Map<string, Set<string>>();
   for (const entry of entries) {
-    if (replaced.has(entry.key)) continue;
+    if (entry.overrides === undefined) continue;
+    const races = replacedOn.get(entry.overrides) ?? new Set<string>();
+    for (const race of entry.races) races.add(race);
+    replacedOn.set(entry.overrides, races);
+  }
+  const boost = new Map<string, { prowess: number; strikes: number }>();
+  const add = (race: string, stat: string, value: number): void => {
+    const current = boost.get(race) ?? { prowess: 0, strikes: 0 };
+    boost.set(race, stat === 'prowess'
+      ? { ...current, prowess: current.prowess + value }
+      : { ...current, strikes: current.strikes + value });
+  };
+  for (const entry of entries) {
+    const replaced = replacedOn.get(entry.key);
+    if (replaced?.has(ALL_RACES)) continue;
     // One effect may name several races; each gets its own entry, because a
     // boost is looked up by the race printed on the attacking creature.
     for (const race of entry.races) {
-      const current = boost.get(race) ?? { prowess: 0, strikes: 0 };
-      boost.set(race, entry.stat === 'prowess'
-        ? { ...current, prowess: current.prowess + entry.value }
-        : { ...current, strikes: current.strikes + entry.value });
+      if (replaced?.has(race)) continue;
+      add(race, entry.stat, entry.value);
+    }
+    // A base applying to every attack, replaced only for some races: the
+    // lookup sums the every-race entry with the race's own, so take the base
+    // back out on the races its override covers.
+    if (replaced && entry.races.includes(ALL_RACES)) {
+      for (const race of replaced) add(race, entry.stat, -entry.value);
     }
   }
   return boost.size > 0 ? boost : null;

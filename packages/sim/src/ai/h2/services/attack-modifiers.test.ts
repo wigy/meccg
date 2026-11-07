@@ -83,6 +83,23 @@ describe('attackBoostOf', () => {
     expect(boost!.get('orc')?.prowess).toBeGreaterThan(0);
   });
 
+  test('an override replaces its base only on the races it applies to', () => {
+    // Wake of War under Doors of Night: the Wolf-only +2 variants replace the
+    // +1 for Wolf attacks, and the +1 still stands for Spider and Animal
+    // attacks. Dropping the base everywhere read the card as Wolf-only, so the
+    // AI played it after the Spider attacks it would have boosted (game
+    // mw6rsio6-y1dtx5).
+    const wake = byName('Wake of War');
+    const doorsOut = attackBoostOf(wake, bareView, cardPool, 'Doors of Night');
+    expect(doorsOut!.get('wolf')).toEqual({ prowess: 2, strikes: 2 });
+    expect(doorsOut!.get('spider')).toEqual({ prowess: 1, strikes: 1 });
+    expect(doorsOut!.get('animal')).toEqual({ prowess: 1, strikes: 1 });
+
+    const doorsAbsent = attackBoostOf(wake, bareView, cardPool);
+    expect(doorsAbsent!.get('wolf')).toEqual({ prowess: 1, strikes: 1 });
+    expect(doorsAbsent!.get('spider')).toEqual({ prowess: 1, strikes: 1 });
+  });
+
   test('declines a card that declares no all-attacks modifier', () => {
     // Doors of Night's value is that other cards name it, not what it declares.
     expect(attackBoostOf(byName('Doors of Night'), bareView, cardPool)).toBeNull();
