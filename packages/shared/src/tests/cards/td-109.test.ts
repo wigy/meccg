@@ -233,6 +233,7 @@ describe('Dwarven Hoard (td-109)', () => {
     const state = buildSitePhaseState({
       characters: [GIMLI],
       site: MORIA,
+      siteStatus: CardStatus.Tapped,
       hand: [BOUNTY_OF_THE_HOARD],
     });
 

@@ -3915,7 +3915,8 @@ export function buildPlayOptionContext(
  * ally in the company, and its `specialMovement` flag — enough for a generic
  * DSL condition to express positional win prerequisites (e.g. The One Ring
  * and Gollum at Mount Doom), a site-keyword prerequisite (e.g. Bounty of the
- * Hoard td-101 requiring `{ "site.keywords": { "$includes": "hoard" } }`), or
+ * Hoard td-101 requiring `{ "site.keywords": { "$includes": "hoard" } }`
+ * plus `{ "site.tapped": true }` — "played at a tapped site"), or
  * a same-turn special-movement prerequisite (Army of the Dead tw-193: "on the
  * same turn that [Aragorn II] plays Paths of the Dead") without a per-card
  * keyword.
@@ -3957,7 +3958,7 @@ export function buildActiveCompanyContext(
   }
 
   return {
-    site: { name: siteName, type: siteType, keywords: siteKeywords },
+    site: { name: siteName, type: siteType, keywords: siteKeywords, tapped: company.currentSite?.status === CardStatus.Tapped },
     company: { characterNames, itemNames, allyNames, specialMovement: company.specialMovement, ...(extra ?? {}) },
   };
 }

@@ -224,7 +224,8 @@
         "condition": {
           "site.keywords": {
             "$includes": "hoard"
-          }
+          },
+          "site.tapped": true
         }
       },
       {
