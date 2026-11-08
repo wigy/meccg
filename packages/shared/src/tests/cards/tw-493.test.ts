@@ -48,6 +48,12 @@ import {
 import type { CardDefinitionId } from '../../index.js';
 
 const NEEKER_BREEKERS = 'tw-493' as CardDefinitionId;
+/** Moria (minion, le-392) — "Non-Nazgûl creatures played at this site attack normally, not as detainment." */
+const MINION_MORIA = 'le-392' as CardDefinitionId;
+/** Goblin-gate (minion, le-378) */
+const MINION_GOBLIN_GATE = 'le-378' as CardDefinitionId;
+/** Radbug (le-38) — minion Orc character, mind 4 */
+const RADBUG = 'le-38' as CardDefinitionId;
 
 const WILDERNESS_KEYING = { method: 'region-type' as const, value: RegionType.Wilderness };
 const BORDER_KEYING = { method: 'region-type' as const, value: RegionType.Border };
@@ -342,6 +348,39 @@ describe('Neeker-breekers (tw-493)', () => {
     expect(after.players[RESOURCE_PLAYER].killPile.some(c => c.instanceId === creatureInstanceId)).toBe(true);
     expect(after.players[HAZARD_PLAYER].discardPile.some(c => c.instanceId === creatureInstanceId)).toBe(false);
     expect(after.players[RESOURCE_PLAYER].marshallingPoints.kill).toBe(1);
+  });
+
+  test('bug report: Moria\'s "attack normally, not as detainment" does not remove Neeker-breekers\' tap-instead-of-wound text', () => {
+    // Minion Moria (le-392) reads "Non-Nazgûl creatures played at this site
+    // attack normally, not as detainment." Neeker-breekers' "only tapped
+    // instead—no body checks" is the card's own printed text, not the
+    // detainment keyword, so its *normal* attack already taps. Reported: an
+    // Orc character failing the strike at Moria was wounded (and triggered a
+    // Despair of the Heart corruption check) instead of being tapped.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: MINION_MORIA, characters: [RADBUG] }], hand: [], siteDeck: [MINION_GOBLIN_GATE] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [NEEKER_BREEKERS], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const ready = { ...state, phaseState: makeWildernessMHState() };
+    const creatureId = handCardId(ready, HAZARD_PLAYER);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
+    const combatState = playCreatureHazardAndResolve(ready, PLAYER_2, creatureId, companyId, WILDERNESS_KEYING);
+
+    expect(combatState.combat!.detainment).toBe(true);
+
+    const radbugId = findCharInstanceId(combatState, RESOURCE_PLAYER, RADBUG);
+    const s1 = reduce(combatState, { type: 'assign-strike', player: PLAYER_1, characterId: radbugId });
+    expect(s1.error).toBeUndefined();
+
+    // Roll 2 + mind 4 = 6 < 7 → strike succeeds → tapped, not wounded.
+    const s2 = executeAction({ ...s1.state, cheatRollTotal: 2 }, PLAYER_1, 'resolve-strike');
+    expect(s2.combat).toBeNull();
+    expectCharStatus(s2, RESOURCE_PLAYER, RADBUG, CardStatus.Tapped);
   });
 
   // ─── Keying ──────────────────────────────────────────────────────────────

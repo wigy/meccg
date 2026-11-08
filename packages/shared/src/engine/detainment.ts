@@ -202,6 +202,20 @@ function detainmentAlignmentLabel(a: Alignment): string {
 }
 
 export function isDetainmentAttack(ctx: DetainmentContext): boolean {
+  // A `combat-detainment` effect with `awardsKillMp: true` encodes the
+  // creature's own printed "tapped instead of wounded — no body checks" text
+  // (Neeker-breekers tw-493), not the "detainment" keyword. Such an attack's
+  // *normal* form already includes that text (glossary: "normal" is the card
+  // as written), so effects that make attacks "attack normally, not as
+  // detainment" (Moria le-392, Goblin-gate le-378, Alatar, …) cannot remove it.
+  const intrinsic = (ctx.attackEffects ?? []).some(
+    e => e.type === 'combat-detainment' && e.awardsKillMp === true && !e.when,
+  );
+  if (intrinsic) {
+    logDetail('Detainment: attack\'s own printed text taps instead of wounding (combat-detainment awardsKillMp) — not subject to detainment-to-normal overrides');
+    return true;
+  }
+
   if (ctx.defenderForcesNormalAttacks) {
     logDetail('Detainment: overridden — defender converts all detainment attacks to normal (e.g. Alatar wh-1)');
     return false;
