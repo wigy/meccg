@@ -2811,8 +2811,11 @@ export function enumerateGrantActionTargets(
           if (!member) continue;
           // Restrict to specified definition IDs if given
           if (allowedDefIds.length > 0 && !allowedDefIds.includes(member.definitionId as string)) continue;
-          // Only include tapped/inverted characters — untapping an already-untapped character is pointless
-          if (member.status === CardStatus.Untapped) continue;
+          // Only tapped characters can be untapped — an untapped one needs
+          // nothing, and a wounded (inverted) one may only be healed, never
+          // untapped (CoE glossary "untap": requires the card be initially
+          // tapped, i.e. not wounded).
+          if (member.status !== CardStatus.Tapped) continue;
           if (targets.filter) {
             const memberDef = defById(state, member.definitionId);
             if (!memberDef || !matchesDefinition(memberDef, targets.filter)) continue;
