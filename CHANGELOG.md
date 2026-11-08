@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.230.0 — 2026-11-08
+
+Neeker-breekers Hold at Moria, Wake of War Read Right
+
+### Cards
+
+- Neeker-breekers' tap-instead-of-wound survives site rules like minion Moria's "attack normally, not as detainment" (#3506)
+- Wûluag, Bûrat and Tûma's untap ability no longer targets wounded companions (#3508)
+
+### AI
+
+- H2 applies attack-boost overrides per race, so Wake of War keeps its Spider/Animal boosts under Doors of Night (#3507)
+
+### Web Client
+
+- The game-log history header is a tap-to-return-to-latest control for touch-screen players (#3509)
+- The combat Attack panel no longer hides under the expanded opponent deck box (#3510)
+
 ## 0.229.0 — 2026-11-07
 
 Store and Transfer Items While Fetching from Sideboard
