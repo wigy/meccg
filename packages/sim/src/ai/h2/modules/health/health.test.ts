@@ -20,6 +20,7 @@ import { healthModule } from './health.js';
 const HERO = 'tw-hero';
 const PLAIN = 'tw-plain-item';
 const TREASURE = 'tw-treasure';
+const TRINKET = 'tw-trinket';
 
 const POOL = {
   [HERO]: { name: 'Bilbo', cardType: 'hero-character', mind: 3 },
@@ -30,6 +31,7 @@ const POOL = {
     marshallingCategory: 'item',
     effects: [{ type: 'storable-at', marshallingPoints: 5 }],
   },
+  [TRINKET]: { name: 'Horn of Anor', marshallingPoints: 0, marshallingCategory: 'item' },
 } as unknown as Readonly<Record<string, CardDefinition>>;
 
 /** A store or transfer action naming one of the carried items. */
@@ -49,7 +51,7 @@ function contextWith(self: Record<string, number>, opponent: Record<string, numb
           instanceId: 'hero-1',
           definitionId: HERO,
           status: CardStatus.Untapped,
-          items: [PLAIN, TREASURE].map(d => ({ instanceId: `item-${d}`, definitionId: d })),
+          items: [PLAIN, TREASURE, TRINKET].map(d => ({ instanceId: `item-${d}`, definitionId: d })),
           allies: [], hazards: [], followers: [],
           effectiveStats: { prowess: 3, body: 7, directInfluence: 0, corruptionPoints: 0 },
         },
@@ -85,13 +87,25 @@ describe('storing', () => {
     expect(evaluation.expectedTsd).toBeGreaterThan(0);
   });
 
-  test('costs nothing to store when the item source is capped anyway', () => {
+  test('costs only the card when the item source is capped anyway', () => {
     // The points were not counting, so giving them up costs nothing — the
-    // same arithmetic that makes chasing a capped source pointless.
+    // same arithmetic that makes chasing a capped source pointless. The item
+    // itself still leaves play.
     const capped = contextWith({ character: 2, item: 8, faction: 2, ally: 2 }, BALANCED);
     expect(capped.standing.marginal.item).toBe(0);
     const evaluation = healthModule.evaluate(act('store-item', PLAIN), capped)!;
-    expect(evaluation.expectedTsd).toBe(0);
+    expect(evaluation.expectedTsd).toBeLessThan(0);
+    expect(JSON.stringify(evaluation.rationale)).toContain('the card retired from play');
+  });
+
+  test('a 0-MP item is not stored for nothing (game mw82m439-1wlkuj)', () => {
+    // Storing a Horn of Anor or a Cram moves no points but takes the item out
+    // of use (CoE 2.II.4.2); it must rank below a neutral action, not tie it.
+    const context = contextWith(BALANCED, BALANCED);
+    const store = healthModule.evaluate(act('store-item', TRINKET), context)!;
+    const transfer = healthModule.evaluate(act('transfer-item', TRINKET), context)!;
+    expect(store.expectedTsd).toBeLessThan(0);
+    expect(store.utility).toBeLessThan(transfer.utility);
   });
 });
 
