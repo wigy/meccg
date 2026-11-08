@@ -7494,12 +7494,15 @@ body.all-companies-mode:has(#debug-view.hidden) {
 }
 
 /* Combat "Attack" panel (attack-panel.ts): base stats, every card that changed
-   the attack, current totals. Docked top-left of the arena for the whole
-   attack so chain-less modifications stay visible. */
+   the attack, current totals. Stays up for the whole attack so chain-less
+   modifications stay visible. Pinned to the viewport just right of the
+   opponent deck box (left: 1rem, width: 8.5rem) and below the HL chip, so an
+   expanded opponent deck box (MP/GI/SP + piles), which grows downward and is
+   raised above other panels, never covers it. */
 .attack-log-panel {
-  position: absolute;
-  top: 0.5rem;
-  left: 0.5rem;
+  position: fixed;
+  top: 3.25rem;
+  left: calc(9.5rem + 8px);
   max-width: 22rem;
   padding: 6px 10px;
   border-radius: 6px;
