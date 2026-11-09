@@ -2033,6 +2033,11 @@ function applyOneConstraint(
       // `fireEndOfMHHealAndUntap` (mh-hazard-play.ts) when the company's
       // movement/hazard phase ends — no legal-action filtering.
       return base;
+    case 'untap-on-site-reveal':
+      // Washed and Refreshed (td-164): consumed directly by
+      // `fireUntapOnSiteReveal` (mh-steps.ts) when the company's new site is
+      // revealed — no legal-action filtering.
+      return base;
     case 'keyed-attacks-normal':
       // World Gnawed by the Nameless (as-110): consulted directly at
       // hazard-creature combat initiation (`normalAttackOverride`
@@ -3912,6 +3917,50 @@ export function havenRestoreCharacterActions(
   // "may choose" — pass is always available.
   actions.push({ action: { type: 'pass' as const, player: actor }, viable: true });
 
+  return actions;
+}
+
+/**
+ * Legal actions while an `untap-company-characters` resolution is pending
+ * (Washed and Refreshed, td-164).
+ *
+ * One `restore-character-by-effect` action per tapped character in the
+ * company (wounded characters are excluded — untapping does not heal — as
+ * are characters held tapped by a `bearer-cannot-untap` constraint). The
+ * untap is optional ("may untap"), so `pass` is always available.
+ */
+export function untapCompanyCharactersActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'untap-company-characters') return [];
+  const { companyId, remaining } = top.kind;
+  const ownerPlayer = state.players.find(p => p.companies.some(co => co.id === companyId));
+  const company = ownerPlayer ? companyById(ownerPlayer.companies, companyId) : undefined;
+
+  const actions: EvaluatedAction[] = [];
+  for (const charId of company?.characters ?? []) {
+    const ch = ownerPlayer?.characters[charId];
+    if (!ch || ch.status !== CardStatus.Tapped) continue;
+    const charName = defById(state, ch.definitionId)?.name ?? (charId as string);
+    if (characterHasCannotUntapConstraint(state, ch.instanceId)) {
+      logDetail(`untap-company-characters: skipping ${charName} — bearer-cannot-untap constraint active`);
+      continue;
+    }
+    logDetail(`untap-company-characters: offering to untap ${charName} (${remaining} untap(s) left)`);
+    actions.push({
+      action: {
+        type: 'restore-character-by-effect' as const,
+        player: actor,
+        characterInstanceId: ch.instanceId,
+      },
+      viable: true,
+    });
+  }
+
+  // "may untap" — pass is always available.
+  actions.push({ action: { type: 'pass' as const, player: actor }, viable: true });
   return actions;
 }
 

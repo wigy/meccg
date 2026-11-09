@@ -3536,6 +3536,20 @@ function applyShortEventOnEntersPlay(
           kind = { type: 'end-of-mh-heal-and-untap', ...(required ? { requiresDestinationSiteType: required } : {}) };
           break;
         }
+        case 'untap-on-site-reveal': {
+          // Washed and Refreshed (td-164): "When the company's new site is
+          // revealed, the company may untap a number of characters equal to
+          // the number of regions less than four in its site path." The path
+          // is unknown at play time, so the threshold rides on the constraint
+          // and `fireUntapOnSiteReveal` (mh-steps.ts) computes the count.
+          const threshold = onEvent.apply.value;
+          if (typeof threshold !== 'number') {
+            logDetail(`add-constraint(untap-on-site-reveal): missing value (region threshold) — fizzle`);
+            continue;
+          }
+          kind = { type: 'untap-on-site-reveal', regionThreshold: threshold };
+          break;
+        }
         case 'site-path-reduction': {
           // Hey! come merry dol! (td-124): "Each Wilderness [{w}] symbol in the
           // company's site path counts as half a Wilderness [{w}] … round down

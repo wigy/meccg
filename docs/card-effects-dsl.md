@@ -16486,6 +16486,40 @@ constraint is consumed. A `bearer-cannot-untap` lock still binds: that character
 stays tapped, or heals only as far as tapped. Otherwise the constraint stays
 inert until the turn ends.
 
+#### `untap-on-site-reveal` constraint
+
+An end-of-org promise that pays off when the new site is revealed, not when the
+M/H phase ends. Washed and Refreshed (td-164): "Playable at the end of the
+organization phase on a moving company. When the company's new site is
+revealed, the company may untap a number of characters equal to the number of
+regions less than four in its site path."
+
+```json
+{ "type": "play-window", "phase": "organization", "step": "end-of-org" },
+{ "type": "play-target", "target": "company", "filter": { "company.moving": true } },
+{
+  "type": "on-event",
+  "event": "self-enters-play",
+  "apply": {
+    "type": "add-constraint",
+    "constraint": "untap-on-site-reveal",
+    "scope": "turn",
+    "value": 4
+  },
+  "target": "target-company"
+}
+```
+
+`value` is the region threshold (stored as `regionThreshold`).
+`fireUntapOnSiteReveal` (`mh-steps.ts`) runs at `declare-path`, once the site
+path is resolved (after site-path reductions). It consumes the constraint and
+computes `value - regions in path` (an Under-deeps move counts as zero
+regions). If that is positive and the company has a tapped character, it
+enqueues an `untap-company-characters` pending resolution. The player then
+untaps tapped characters one at a time (`restore-character-by-effect`) up to
+that count, or passes to stop. Wounded characters and characters under a
+`bearer-cannot-untap` lock are not offered.
+
 ### 52b-iii. `ally-tap-extra-mh-phase`
 
 Carried by an **in-play ally** attached to a character in the company (not the

@@ -115,6 +115,13 @@ export function buildConstraintKind(
         .requiresDestinationSiteType;
       return { type: 'end-of-mh-heal-and-untap', ...(required ? { requiresDestinationSiteType: required } : {}) };
     }
+    case 'untap-on-site-reveal': {
+      // Washed and Refreshed (td-164): `value` carries the region threshold
+      // (4); the untap count is computed when the site path is declared.
+      const threshold = (onEvent.apply as { value?: number }).value;
+      if (typeof threshold !== 'number') return null;
+      return { type: 'untap-on-site-reveal', regionThreshold: threshold };
+    }
     case 'no-creatures-keyed-to-site': {
       const unless = (onEvent.apply as { unlessSiteRegionType?: import('../types/common.js').RegionType }).unlessSiteRegionType;
       return { type: 'no-creatures-keyed-to-site', ...(unless ? { unlessSiteRegionType: unless } : {}) };
