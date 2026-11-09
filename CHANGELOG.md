@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.231.0 — 2026-11-09
+
+Bounty of the Hoard Needs a Tapped Site, AI Stops Storing for Nothing
+
+### Cards
+
+- Bounty of the Hoard (td-101) can only be played at a tapped site that contains a hoard (#3511)
+
+### AI
+
+- H2 charges the retired card's value when storing an item, so it no longer stores 0-MP items like Horn of Anor for no gain (#3512)
+
 ## 0.230.0 — 2026-11-08
 
 Neeker-breekers Hold at Moria, Wake of War Read Right

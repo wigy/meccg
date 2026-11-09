@@ -29,7 +29,7 @@
 | as-3 | Mîonid | — | 2 | ☑ |
 | as-4 | Perchen | — | 3 | ☑ |
 | as-5 | Tûma | — | 12 | ☑ |
-| as-6 | Wûluag | — | 12 | ☑ |
+| as-6 | Wûluag | — | 13 | ☑ |
 | as-7 | Alatar the Hunter | — | 19 | ☑ |
 | as-8 | Durin’s Folk | — | 6 | ☑ |
 | as-9 | Dwarven Travelers | — | 15 | ☑ |
@@ -56,7 +56,7 @@
 | as-34 | Power Built by Waiting | — | 13 | ☑ |
 | as-35 | Returned Beyond All Hope | — | 17 | ☑ |
 | as-39 | Summons from Long Sleep | — | 9 | ☑ |
-| as-40 | Trouble on All Borders | — | 11 | ☑ |
+| as-40 | Trouble on All Borders | — | 12 | ☑ |
 | as-41 | Turning Hope to Despair | — | 12 | ☑ |
 | as-42 | Unhappy Blows | — | 14 | ☑ |
 | as-44 | All the Bells Ringing | — | 6 | ☑ |
@@ -377,7 +377,7 @@
 | dm-129 | Fifteen Birds in Five Firtrees | — | 15 | ☑ |
 | dm-130 | Fireworks | — | 22 | ☑ |
 | dm-131 | First of the Order | — | 5 | ☑ |
-| dm-132 | Forewarned Is Forearmed | — | 15 | ☑ |
+| dm-132 | Forewarned Is Forearmed | — | 18 | ☑ |
 | dm-134 | Hall of Fire | — | 15 | ☑ |
 | dm-135 | Healing of Nimrodel | — | 9 | ☑ |
 | dm-136 | Herb-lore | — | 15 | ☑ |
@@ -482,7 +482,7 @@
 | le-66 | Cave-drake | — | 5 | ☑ |
 | le-67 | Corpse-candle | — | 12 | ☑ |
 | le-68 | Dire Wolves | — | 5 | ☑ |
-| le-69 | Elf-lord Revealed in Wrath | — | 6 | ☑ |
+| le-69 | Elf-lord Revealed in Wrath | — | 8 | ☑ |
 | le-70 | Elves upon Errantry | — | 6 | ☑ |
 | le-71 | Ent in Search of the Entwives | — | 13 | ☑ |
 | le-72 | Ghosts | — | 6 | ☑ |
@@ -633,7 +633,7 @@
 | le-254 | Where There’s a Whip | — | 11 | ☑ |
 | le-255 | While the Yellow Face Sleeps | — | 13 | ☑ |
 | le-258 | Words of Menace and Deceit | — | 7 | ☑ |
-| le-259 | Agburanar Roused | — | 2 | ☑ |
+| le-259 | Agburanar Roused | — | 5 | ☑ |
 | le-260 | Balchoth | — | 8 | ☑ |
 | le-261 | Beornings | — | 5 | ☑ |
 | le-262 | Black Trolls | — | 7 | ☑ |
@@ -776,7 +776,7 @@
 | td-8 | Cave Worm | — | 3 | ☑ |
 | td-9 | Cruel Caradhras | — | 10 | ☑ |
 | td-10 | Daelomin Ahunt | — | 9 | ☑ |
-| td-11 | Daelomin at Home | — | 12 | ☑ |
+| td-11 | Daelomin at Home | — | 13 | ☑ |
 | td-14 | Dragon’s Blood | — | 13 | ☑ |
 | td-16 | Dragon’s Curse | — | 17 | ☑ |
 | td-18 | Dragon-sickness | — | 9 | ☑ |
@@ -845,7 +845,7 @@
 | td-98 | And Forth He Hastened | — | 8 | ☑ |
 | td-99 | Arrows Shorn of Ebony | — | 13 | ☑ |
 | td-100 | Belegaer  | — | 7 | ☑ |
-| td-101 | Bounty of the Hoard | — | 13 | ☑ |
+| td-101 | Bounty of the Hoard | — | 14 | ☑ |
 | td-102 | Bow of Dragon-horn | — | 8 | ☑ |
 | td-103 | Burglary  | — | 17 | ☑ |
 | td-104 | Cloudless Day | — | 9 | ☑ |
@@ -941,7 +941,7 @@
 | tw-18 | Call of Home | — | 9 | ☑ |
 | tw-19 | Call of the Sea | — | 6 | ☑ |
 | tw-020 | Cave-drake | — | 3 | ☑ |
-| tw-021 | — | — | 19 | ☑ |
+| tw-021 | — | — | 20 | ☑ |
 | tw-22 | Clouds | — | 7 | ☑ |
 | tw-23 | Corpse-candle | — | 13 | ☑ |
 | tw-024 | — | — | 4 | ☑ |
@@ -1247,7 +1247,7 @@
 | tw-340 | Test of Lore | — | 10 | ☑ |
 | tw-341 | The Arkenstone | — | 12 | ☑ |
 | tw-342 | The Cock Crows | — | 10 | ☑ |
-| tw-343 | The Evenstar | — | 13 | ☑ |
+| tw-343 | The Evenstar | — | 14 | ☑ |
 | tw-344 | The Great Eagles | — | 5 | ☑ |
 | tw-345 | The Mithril-coat | — | 5 | ☑ |
 | tw-346 | The Old Thrush | — | 8 | ☑ |
@@ -1344,7 +1344,7 @@
 | tw-438 | Woodmen-town | — | 2 | ☑ |
 | tw-439 | Wose Passage-hold | — | 3 | ☑ |
 | tw-492 | Fury of the Iron Crown | — | 10 | ☑ |
-| tw-493 | Neeker-breekers | — | 16 | ☑ |
+| tw-493 | Neeker-breekers | — | 17 | ☑ |
 | tw-494 | Black Arrow | — | 9 | ☑ |
 | tw-495 | Fatty Bolger | — | 9 | ☑ |
 | tw-496 | The Iron Crown | — | 9 | ☑ |
