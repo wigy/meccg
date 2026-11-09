@@ -68,7 +68,7 @@ const ASSUMPTIONS: readonly string[] = [
   'a transfer moves no marshalling points, which it is — the reasons to transfer '
   + '(spreading corruption, arming the character who will face a strike, freeing a bearer) belong '
   + 'to the modules that own those concerns and are not invented here',
-  'storing is priced by the marshalling points it moves; the trip to the haven that made it '
+  'storing is priced by the marshalling points it moves and the card it takes out of use; the trip to the haven that made it '
   + 'possible is `travel`\'s cost, not counted twice here',
   'both actions enqueue an unconditional corruption check on the bearer giving up the item '
   + '(CoE 2.II.4.1, 2.II.5), priced at the odds of failing it as the bearer stands right now — '
@@ -202,7 +202,15 @@ export const healthModule: H2Module = {
       // ordinary item, which scores nothing once stored, and positive only for
       // one whose `storable-at` override pays more than carrying it does.
       const pointsMoved = storeItemMpGain(context.cardPool, item.definitionId);
-      realized = pointsMoved === 0 ? 0 : standing.tsdAfter({ [item.source]: pointsMoved }) - standing.tsd;
+      const pointsTsd = pointsMoved === 0 ? 0 : standing.tsdAfter({ [item.source]: pointsMoved }) - standing.tsd;
+      // A stored card is removed from play for every purpose but its points
+      // and uniqueness (CoE glossary "store", 2.II.4.2): the company loses
+      // whatever the item did for it. Priced as a card given up, like the
+      // card kept by a salvage. Without it a 0-MP item stored at exactly 0,
+      // tied with every neutral action, and the AI stored a Horn of Anor and
+      // a Cram it still needed for nothing (game mw82m439-1wlkuj, turn 3).
+      const cardRetired = -tunables.provisionalCardPrice;
+      realized = pointsTsd + cardRetired;
       label = pointsMoved >= 0
         ? `store ${item.name} — ${pointsMoved} ${item.source} MP`
         : `store ${item.name} — gives up ${-pointsMoved} ${item.source} MP`;
@@ -217,6 +225,11 @@ export const healthModule: H2Module = {
         leaf(`worth of one ${item.source} point here`, standing.marginal[item.source], {
           unit: 'tsd',
           note: 'CoE 10.3, after doubling and the diversity cap',
+        }),
+        leaf('the card retired from play', cardRetired, {
+          unit: 'tsd',
+          tunable: 'provisionalCardPrice',
+          note: 'a stored item can no longer be used (CoE 2.II.4.2)',
         }),
       ];
     } else {
