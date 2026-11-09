@@ -6,9 +6,9 @@
  * Effects:
  *   1. play-window: phase "site" — only playable during the site phase
  *   2. play-condition: requires "active-company", condition
- *      `{ "site.keywords": { "$includes": "hoard" } }` — rule 5.1.2 bars
- *      playing a short-event with no potential effect on the board state;
- *      this card's only effect can never matter at a non-hoard site.
+ *      `{ "site.keywords": { "$includes": "hoard" }, "site.tapped": true }` —
+ *      the effect applies only "at a tapped site that contains a hoard", and
+ *      rule 5.1.2 bars playing a short-event with no effect on the board.
  *   3. on-event: self-enters-play → set-site-phase-flag(hoardBountyAvailable) — sets
  *      SitePhaseState.hoardBountyAvailable, allowing one additional minor or
  *      major item to be played at the tapped hoard site.
@@ -77,6 +77,7 @@ describe('Bounty of the Hoard (td-101)', () => {
   test('offered during site phase at play-resources step', () => {
     const state = buildSitePhaseState({
       site: THE_LONELY_MOUNTAIN,
+      siteStatus: CardStatus.Tapped,
       hand: [BOUNTY_OF_THE_HOARD],
     });
 
@@ -92,6 +93,22 @@ describe('Bounty of the Hoard (td-101)', () => {
     // there can never unlock an item — the event has no potential effect.
     const state = buildSitePhaseState({
       site: MINAS_TIRITH,
+      siteStatus: CardStatus.Tapped,
+      hand: [BOUNTY_OF_THE_HOARD],
+    });
+
+    const actions = computeLegalActions(state, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'play-short-event');
+    expect(actions).toHaveLength(0);
+  });
+
+  // ─── play-condition active-company: site must be tapped ─────────────────────
+
+  test('not offered at an untapped hoard site (card text: "played at a tapped site")', () => {
+    // Regression (game mw82m439-1wlkuj): Bounty of the Hoard was offered at
+    // untapped Zarak Dûm. Its effect only applies at a tapped hoard site.
+    const state = buildSitePhaseState({
+      site: THE_LONELY_MOUNTAIN,
       hand: [BOUNTY_OF_THE_HOARD],
     });
 
@@ -105,6 +122,7 @@ describe('Bounty of the Hoard (td-101)', () => {
   test('playing the event sets hoardBountyAvailable in phaseState', () => {
     const state = buildSitePhaseState({
       site: THE_LONELY_MOUNTAIN,
+      siteStatus: CardStatus.Tapped,
       hand: [BOUNTY_OF_THE_HOARD],
     });
     const eventInstance = handCardId(state, RESOURCE_PLAYER);
