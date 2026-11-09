@@ -145,8 +145,8 @@ describe('passButtonLabel — other phases', () => {
     expect(passButtonLabel(passAction, viewWith({ phase: Phase.Untap }))).toBe('End Untap');
   });
 
-  test('Phase.Organization -> Continue', () => {
-    expect(passButtonLabel(passAction, viewWith({ phase: Phase.Organization }))).toBe('Continue');
+  test('Phase.Organization -> Next Phase', () => {
+    expect(passButtonLabel(passAction, viewWith({ phase: Phase.Organization }))).toBe('Next Phase');
   });
 
   test('Phase.LongEvent -> Movement/Hazard', () => {
