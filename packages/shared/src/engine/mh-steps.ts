@@ -33,7 +33,7 @@ import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { makeCombatState, resolveAttackerChoosesDefenders, cardName, companyEffectiveSize, companyMovesUnderDeeps, clonePlayers, completeDeckExhaust, defById, getCardEffects, handleExchangeSideboard, hazardPlayer, isCardNameEffectCanceled, isCovertCompany, playerById, regionTypeCounts, startDeckExhaust, toCardInstance, updateCharacter, updatePlayer, roll2d6, diceRollEffect, attachedFactionDef, factionPlayableRegionsAndAdjacent, findCardEffect } from './reducer-utils.js';
 import { normalAttackOverride } from './normal-attack-override.js';
-import { enqueueResolution } from './pending.js';
+import { enqueueResolution, removeConstraint } from './pending.js';
 import { resolveAdjacency, cavernsUnchokedAdjacencyRoll, breachTheHoldSurfaceRoll, balrogOutHeSprangRegionAllowance, dynamicUnderDeepsAdjacencyRoll, collectPassiveMovementBonus } from './legal-actions/organization-companies.js';
 import { buildInPlayNames, applyRegionMovementReduction } from './recompute-derived.js';
 import { companyMovementRestrictions } from './effects/company-restrictions.js';
@@ -269,6 +269,53 @@ function fireSiteRevealedAsNewSite(
         type: 'tap-one-character',
         companyId: company.id,
         sourceDefinitionId: destDef.id,
+      },
+    });
+  }
+  return result;
+}
+
+/**
+ * Apply `untap-on-site-reveal` constraints bound to a moving company the
+ * moment its new site is revealed and its site path declared (Washed and
+ * Refreshed td-164: "the company may untap a number of characters equal to
+ * the number of regions less than four in its site path").
+ *
+ * Each matching constraint is consumed. The untap allowance is
+ * `regionThreshold - pathRegionCount` (never negative); when positive and the
+ * company has at least one tapped character, an `untap-company-characters`
+ * pending resolution is enqueued (scoped to the company's M/H subphase) so
+ * the player picks which characters to untap before hazards are played.
+ * Several copies on the same company each grant their own allowance.
+ */
+function fireUntapOnSiteReveal(
+  state: GameState,
+  actor: import('../types/common.js').PlayerId,
+  company: Company,
+  pathRegionCount: number,
+): GameState {
+  const constraints = state.activeConstraints.filter(c =>
+    c.kind.type === 'untap-on-site-reveal'
+    && c.target.kind === 'company' && c.target.companyId === company.id);
+  if (constraints.length === 0) return state;
+  const player = playerById(state, actor);
+  let result = state;
+  for (const c of constraints) {
+    if (c.kind.type !== 'untap-on-site-reveal') continue;
+    result = removeConstraint(result, c.id);
+    const allowance = Math.max(0, c.kind.regionThreshold - pathRegionCount);
+    const tapped = company.characters.filter(id => player?.characters[id]?.status === CardStatus.Tapped).length;
+    logDetail(`untap-on-site-reveal: company ${company.id as string} site path has ${pathRegionCount} region(s), threshold ${c.kind.regionThreshold} → may untap ${allowance} character(s) (${tapped} tapped)`);
+    if (allowance === 0 || tapped === 0) continue;
+    result = enqueueResolution(result, {
+      source: c.source,
+      actor,
+      scope: { kind: 'company-mh-subphase', companyId: company.id },
+      kind: {
+        type: 'untap-company-characters',
+        companyId: company.id,
+        remaining: allowance,
+        sourceDefinitionId: c.sourceDefinitionId,
       },
     });
   }
@@ -513,6 +560,9 @@ export function handleRevealNewSite(
       logDetail(`Gangways over the Fire: -${gangwaysPenalty} to under-deeps roll (${gangwaysPenalty} complete M/H phase(s) this turn) — required ${required} → ${penalised}`);
       required = penalised;
     }
+    // Washed and Refreshed (td-164): an Under-deeps move has no region path
+    // (zero regions in its site path).
+    state = fireUntapOnSiteReveal(state, action.player, company, 0);
     logDetail(`Under-deeps roll required: ${required}`);
     if (required === 0) {
       logDetail(`Under-deeps: roll not required (0) — auto-advancing through set-hazard-limit`);
@@ -551,6 +601,11 @@ export function handleRevealNewSite(
   // path is resolved, so the reduced path flows to every downstream consumer
   // (creature keying, ahunt matching, force-return-to-origin, corruption counts).
   const reduced = applySitePathReduction(state, player.id, resolvedSitePath, resolvedSitePathNames, company.id);
+
+  // Washed and Refreshed (td-164): the site is now revealed and its path
+  // known — grant the "untap one character per region less than four"
+  // allowance against the (possibly reduced) site path.
+  state = fireUntapOnSiteReveal(state, action.player, company, reduced.path.length);
 
   const nextMhState: MovementHazardPhaseState = {
     ...mhState,

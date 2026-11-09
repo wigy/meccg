@@ -969,6 +969,24 @@ export interface PendingResolution {
       }
     | {
         /**
+         * Washed and Refreshed (td-164): the company "may untap a number of
+         * characters" when its new site is revealed. The controlling player
+         * picks tapped characters of the company one at a time via
+         * `restore-character-by-effect` (each untaps, decrementing
+         * {@link remaining}) or passes to stop. Wounded characters are not
+         * offered (untapping does not heal), nor are characters under a
+         * `bearer-cannot-untap` lock.
+         */
+        readonly type: 'untap-company-characters';
+        /** The company whose tapped characters may untap. */
+        readonly companyId: CompanyId;
+        /** Untaps still available (always >= 1 while pending). */
+        readonly remaining: number;
+        /** Definition ID of the source card (Washed and Refreshed). */
+        readonly sourceDefinitionId: CardDefinitionId;
+      }
+    | {
+        /**
          * Left Behind (td-41): following all movement/hazard phases, the
          * character(s) who were peeled off into a separate `leftBehind`
          * company may rejoin their original company. Offered only when the
@@ -1822,6 +1840,25 @@ export interface ActiveConstraint {
         readonly type: 'end-of-mh-heal-and-untap';
         /** Site type the company must have moved to, or undefined for any. */
         readonly requiresDestinationSiteType?: import('./common.js').SiteType;
+      }
+    | {
+        /**
+         * Washed and Refreshed (td-164): "Playable at the end of the
+         * organization phase on a moving company. When the company's new site
+         * is revealed, the company may untap a number of characters equal to
+         * the number of regions less than four in its site path."
+         *
+         * Installed on the company at the end of the organization phase,
+         * before its movement is resolved. When the company's new site is
+         * revealed and its path declared (`fireUntapOnSiteReveal`,
+         * mh-steps.ts) the constraint is consumed and, if
+         * `regionThreshold - regions in the site path` is positive, an
+         * `untap-company-characters` pending resolution lets the player untap
+         * up to that many of the company's tapped characters.
+         */
+        readonly type: 'untap-on-site-reveal';
+        /** Region count the site path is measured against (4 for td-164). */
+        readonly regionThreshold: number;
       }
     | {
         /**

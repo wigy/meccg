@@ -2175,7 +2175,32 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "organization",
+        "step": "end-of-org"
+      },
+      {
+        "type": "play-target",
+        "target": "company",
+        "filter": {
+          "company.moving": true
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "untap-on-site-reveal",
+          "scope": "turn",
+          "value": 4
+        },
+        "target": "target-company"
+      }
+    ],
+    "certified": "2026-11-09",
     "text": "Playable at the end of the organization phase on a moving company. When the company’s new site is revealed, the company may untap a number of characters equal to the number of regions less than four in its site path."
   },
   {

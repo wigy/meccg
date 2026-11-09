@@ -4835,6 +4835,73 @@ export function applyDiscardCompanyCharacterResolution(
 }
 
 /**
+ * Resolve an `untap-company-characters` pending resolution (Washed and
+ * Refreshed, td-164).
+ *
+ * `pass` ends the optional untapping. A `restore-character-by-effect` action
+ * untaps one tapped character in the company and decrements the remaining
+ * count; the resolution is dequeued once the count reaches zero or no tapped
+ * character remains to untap.
+ */
+export function applyUntapCompanyCharactersResolution(
+  state: GameState,
+  rawAction: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  const g = guardResolutionOrPass(state, rawAction, top, 'restore-character-by-effect', 'untap-company-characters',
+    k => `untap-company-characters: pass (${k.remaining} untap(s) declined)`);
+  if (!g.ok) return g.result;
+  const { action, kind } = g;
+  const { characterInstanceId } = action;
+  const { companyId } = kind;
+
+  const playerIdx = state.players.findIndex(p => p.companies.some(co => co.id === companyId));
+  if (playerIdx < 0) return { state, error: `Company ${companyId as string} not found` };
+  const player = state.players[playerIdx];
+  const company = player.companies.find(co => co.id === companyId);
+  if (!company || !company.characters.some(id => id === characterInstanceId)) {
+    return { state, error: `Character ${characterInstanceId as string} not in company ${companyId as string}` };
+  }
+  const char = player.characters[characterInstanceId];
+  if (!char) return { state, error: `Character ${characterInstanceId as string} not found` };
+  if (char.status !== CardStatus.Tapped) {
+    return { state, error: `Character ${characterInstanceId as string} is not tapped` };
+  }
+  if (characterHasCannotUntapConstraint(state, characterInstanceId)) {
+    return { state, error: `Character ${characterInstanceId as string} cannot untap while a bearer-cannot-untap constraint is active` };
+  }
+
+  const charName = defById(state, char.definitionId)?.name ?? (characterInstanceId as string);
+  const remaining = kind.remaining - 1;
+  logDetail(`untap-company-characters: untapping ${charName} (${remaining} untap(s) left)`);
+
+  let next = updatePlayer(state, playerIdx, p => ({
+    ...p,
+    characters: {
+      ...p.characters,
+      [characterInstanceId as string]: { ...char, status: CardStatus.Untapped },
+    },
+  }));
+
+  const anyLeft = company.characters.some(id => {
+    if (id === characterInstanceId) return false;
+    const ch = player.characters[id];
+    return ch?.status === CardStatus.Tapped && !characterHasCannotUntapConstraint(state, id);
+  });
+  if (remaining <= 0 || !anyLeft) {
+    logDetail(`untap-company-characters: done (${remaining <= 0 ? 'no untaps left' : 'no tapped character left'})`);
+    return { state: dequeueResolution(next, top.id) };
+  }
+  next = {
+    ...next,
+    pendingResolutions: next.pendingResolutions.map(r =>
+      r.id === top.id ? { ...r, kind: { ...kind, remaining } } : r,
+    ),
+  };
+  return { state: next };
+}
+
+/**
  * Resolve a `haven-restore-character` pending resolution (Hall of Fire,
  * dm-134).
  *
