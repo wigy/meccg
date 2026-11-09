@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.232.0 — 2026-11-09
+
+Washed and Refreshed Certified, Organization Ends at Next Phase
+
+### Cards
+
+- Washed and Refreshed (td-164) is certified: when a moving company's new site is revealed, it may untap up to 4 minus the regions in its site path of its tapped characters (#3513)
+
+### Web Client
+
+- The Organization pass button reads "Next Phase" instead of "Continue", so players no longer end Organization by mistake; the tutorial is updated to match (#3514)
+
 ## 0.231.0 — 2026-11-09
 
 Bounty of the Hoard Needs a Tapped Site, AI Stops Storing for Nothing

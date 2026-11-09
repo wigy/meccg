@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1432 | 1432 | 0 | 100.0% |
+| 1433 | 1433 | 0 | 100.0% |
 
 ## Category Breakdown
 
@@ -16,7 +16,7 @@
 | BA | 101 | 101 | 100.0% |
 | DM | 159 | 159 | 100.0% |
 | LE | 349 | 349 | 100.0% |
-| TD | 154 | 154 | 100.0% |
+| TD | 155 | 155 | 100.0% |
 | TW | 430 | 430 | 100.0% |
 | WH | 105 | 105 | 100.0% |
 
@@ -900,6 +900,7 @@
 | td-161 | Valiant Sword | — | 10 | ☑ |
 | td-162 | Vanish in Sunlight! | — | 5 | ☑ |
 | td-163 | Warm Now Be Heart and Limb | — | 9 | ☑ |
+| td-164 | Washed and Refreshed | — | 3 | ☑ |
 | td-165 | Waybread | — | 14 | ☑ |
 | td-166 | When I Know Anything | — | 13 | ☑ |
 | td-167 | Wielded Twice | — | 20 | ☑ |
