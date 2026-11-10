@@ -3670,10 +3670,25 @@ export function applyItemPlacementOfferResolution(
     'item-placement-offer: player declines — source card stays in play');
   if (!g.ok) return g.result;
   const { action, actorIndex: playerIndex, kind } = g;
-  const { characterInstanceId } = kind;
+
+  // Company-scoped form (Mithril dm-173): the player picks an untapped
+  // character in the offer's company, who taps and receives the item.
+  let characterInstanceId = kind.characterInstanceId;
+  if (kind.companyId !== undefined) {
+    const offerPlayer = state.players[playerIndex];
+    const company = offerPlayer.companies.find(c => c.id === kind.companyId);
+    const chosen = action.characterId;
+    if (!chosen || !company?.characters.includes(chosen)) {
+      return { state, error: 'item-placement-offer: recipient must be a character in the offer company' };
+    }
+    if (offerPlayer.characters[chosen]?.status !== CardStatus.Untapped) {
+      return { state, error: 'item-placement-offer: recipient must be untapped' };
+    }
+    characterInstanceId = chosen;
+  }
 
   let currentState = state;
-  if (top.source) {
+  if (top.source && !kind.keepSource) {
     const sourceDefId = resolveInstanceId(currentState, top.source);
     if (sourceDefId) {
       const costResult = applyCost(currentState, { discard: 'self' }, characterInstanceId, {
@@ -3689,24 +3704,36 @@ export function applyItemPlacementOfferResolution(
 
   const { cardInstanceId } = action;
   const currentPlayer = currentState.players[playerIndex];
-  const handIdx = currentPlayer.hand.findIndex(c => c.instanceId === cardInstanceId);
-  if (handIdx < 0) {
-    return { state, error: `Card ${cardInstanceId as string} not found in hand` };
+  const zones = kind.zones ?? ['hand'];
+  const handIdx = zones.includes('hand') ? currentPlayer.hand.findIndex(c => c.instanceId === cardInstanceId) : -1;
+  const discardIdx = handIdx < 0 && zones.includes('discard-pile')
+    ? currentPlayer.discardPile.findIndex(c => c.instanceId === cardInstanceId)
+    : -1;
+  if (handIdx < 0 && discardIdx < 0) {
+    return { state, error: `Card ${cardInstanceId as string} not found in ${zones.join('/')}` };
   }
-  const card = currentPlayer.hand[handIdx];
+  const card = handIdx >= 0 ? currentPlayer.hand[handIdx] : currentPlayer.discardPile[discardIdx];
   const def = defById(currentState, card.definitionId);
   const cardDefName = def?.name ?? (card.definitionId as string);
+  if (!def || !isItemCard(def) || (kind.filter && !matchesDefinition(def, kind.filter))) {
+    return { state, error: `${cardDefName} does not qualify for this item-placement offer` };
+  }
 
-  const stateAfterRemove = updatePlayer(currentState, playerIndex, p => ({
+  let stateAfterRemove = updatePlayer(currentState, playerIndex, p => ({
     ...p,
-    hand: p.hand.filter((_, i) => i !== handIdx),
+    hand: handIdx >= 0 ? p.hand.filter((_, i) => i !== handIdx) : p.hand,
+    discardPile: discardIdx >= 0 ? p.discardPile.filter((_, i) => i !== discardIdx) : p.discardPile,
   }));
 
   const char = stateAfterRemove.players[playerIndex].characters[characterInstanceId];
   if (!char) {
     return { state, error: `Character ${characterInstanceId as string} not found for item-placement-offer placement` };
   }
-  logDetail(`item-placement-offer: playing ${cardDefName} (${cardInstanceId as string}) onto ${defById(state, char.definitionId)?.name ?? (characterInstanceId as string)}`);
+  if (kind.companyId !== undefined) {
+    stateAfterRemove = updatePlayer(stateAfterRemove, playerIndex, p =>
+      updateCharacter(p, characterInstanceId, c => ({ ...c, status: CardStatus.Tapped })));
+  }
+  logDetail(`item-placement-offer: playing ${cardDefName} (${cardInstanceId as string}) from ${handIdx >= 0 ? 'hand' : 'discard pile'} onto ${defById(state, char.definitionId)?.name ?? (characterInstanceId as string)}${kind.companyId !== undefined ? ' (taps)' : ''}`);
 
   return { state: attachItemAndDequeue(stateAfterRemove, playerIndex, characterInstanceId, card, def, top) };
 }

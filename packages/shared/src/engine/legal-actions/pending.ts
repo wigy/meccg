@@ -3689,17 +3689,42 @@ export function itemPlacementOfferActions(
   top: PendingResolution,
 ): EvaluatedAction[] {
   if (top.kind.type !== 'item-placement-offer') return [];
-  const { filter } = top.kind;
+  const { filter, companyId } = top.kind;
 
   const actions: EvaluatedAction[] = [{ action: { type: 'pass', player: actor }, viable: true }];
 
   const player = playerById(state, actor);
   if (!player) return actions;
 
-  const itemIds = fetchZoneItemInstanceIds(state, player, ['hand'], filter);
+  const zones = top.kind.zones ?? ['hand'];
+  const itemIds = fetchZoneItemInstanceIds(state, player, zones, filter);
+  const nameOf = (id: CardInstanceId): string => {
+    const card = player.hand.find(c => c.instanceId === id) ?? player.discardPile.find(c => c.instanceId === id);
+    return (card ? defById(state, card.definitionId)?.name : undefined) ?? (id as string);
+  };
+
+  // Company-scoped form (Mithril dm-173): one action per (item, untapped
+  // company character) — the chosen character taps and receives the item.
+  if (companyId !== undefined) {
+    const company = player.companies.find(c => c.id === companyId);
+    const recipients = (company?.characters ?? [])
+      .map(id => player.characters[id])
+      .filter(ch => ch !== undefined && ch.status === CardStatus.Untapped);
+    if (recipients.length === 0) logDetail(`item-placement-offer: no untapped character in company ${companyId as string}`);
+    for (const itemInstId of itemIds) {
+      for (const ch of recipients) {
+        logDetail(`item-placement-offer: offering ${nameOf(itemInstId)} onto ${ch.instanceId as string} (taps)`);
+        actions.push({
+          action: { type: 'play-item-placement-offer' as const, player: actor, cardInstanceId: itemInstId, characterId: ch.instanceId },
+          viable: true,
+        });
+      }
+    }
+    return actions;
+  }
+
   for (const itemInstId of itemIds) {
-    const def = defById(state, player.hand.find(c => c.instanceId === itemInstId)!.definitionId);
-    logDetail(`item-placement-offer: offering ${def?.name ?? (itemInstId as string)} onto ${top.kind.characterInstanceId as string}`);
+    logDetail(`item-placement-offer: offering ${nameOf(itemInstId)} onto ${top.kind.characterInstanceId as string}`);
     actions.push({
       action: { type: 'play-item-placement-offer' as const, player: actor, cardInstanceId: itemInstId },
       viable: true,

@@ -3997,6 +3997,9 @@ export function buildActiveCompanyContext(
  * - `player.protectedWizardhavenCount` — how many *distinct* protected
  *   Wizardhavens the player controls. Used by Await the Onset (wh-96): "two
  *   protected Wizardhavens [{H}]".
+ * - `player.storedCardNames` — the names of cards the player has stored in
+ *   their marshalling-point pile. Used by Mithril (dm-173): "if you have a
+ *   stored Vein of Arda" → `{ "player.storedCardNames": { "$includes": "Vein of Arda" } }`.
  * - `inPlay` — the names of cards the player has in play, for
  *   `{ "inPlay": "<name>" }` prerequisites (e.g. The White Hand wh-122).
  * - `inPlayAnywhere` — the names of cards **either** player has in play (the
@@ -4072,10 +4075,19 @@ export function buildPlayerStateContext(
       .map(c => (c.currentSite ? defById(state, c.currentSite.definitionId)?.name : undefined))
       .filter((n): n is string => n !== undefined),
   ));
+  // Names of the cards the player has *stored* in their marshalling-point
+  // pile (a `killPile` entry carrying `storedAtSite`, which separates a stored
+  // card from a defeated creature). Backs "if you have a stored <card>"
+  // (Mithril dm-173 / Gems of Arda dm-170: "if you have a stored Vein of Arda").
+  const storedCardNames = player.killPile
+    .filter(c => c.storedAtSite !== undefined)
+    .map(c => defById(state, c.definitionId)?.name)
+    .filter((n): n is string => n !== undefined);
   return {
     player: {
       alignment: player.alignment,
       characterSiteNames,
+      storedCardNames,
       avatar: avatarName,
       avatarInPlay,
       hasRingwraithInPlay,
