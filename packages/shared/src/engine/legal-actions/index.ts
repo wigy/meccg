@@ -162,7 +162,7 @@ function fetchFromPileLegalActions(state: GameState, playerId: PlayerId, effect:
         continue;
       }
       if (effect.playableAtSite !== undefined) {
-        if (!isSiteCard(requiredSite) || !isCardPlayableAtSiteDef(def, requiredSite, state)) {
+        if (!isSiteCard(requiredSite) || !isCardPlayableAtSiteDef(def, requiredSite, state, player)) {
           logDetail(`fetch-from-pile: ${def.name ?? (card.definitionId as string)} filtered out — not playable at ${requiredSite?.name ?? (effect.playableAtSite as string)}`);
           continue;
         }

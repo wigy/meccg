@@ -488,6 +488,40 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
       return;
     }
 
+    // Gems of Arda (dm-170) store-item-play-offer: after storing the card the
+    // player may tap a company character to play an item onto him
+    // (`play-store-item-offer`) or decline (`pass`). The play choice is not in
+    // the pass-like whitelist, so render one button per candidate alongside
+    // a decline button.
+    const storePlayEvals = view.legalActions.filter(ea => ea.viable && ea.action.type === 'play-store-item-offer');
+    if (storePlayEvals.length > 0) {
+      btn.classList.add('hidden');
+      waitingEl?.classList.add('hidden');
+      const nameOf = (id: CardInstanceId): string => {
+        const defId = appState.lastInstanceLookup(id);
+        return (defId ? cardPool[defId as string]?.name : undefined) ?? (id as string);
+      };
+      for (const ea of storePlayEvals) {
+        const playAction = ea.action;
+        if (playAction.type !== 'play-store-item-offer') continue;
+        const playBtn = document.createElement('button');
+        playBtn.className = 'enter-site-btn store-item-play-choice-btn';
+        const pile = playAction.source === 'hand' ? 'hand' : 'discard pile';
+        playBtn.textContent = `Tap ${nameOf(playAction.characterId)}: play ${nameOf(playAction.cardInstanceId)} from ${pile}`;
+        playBtn.onclick = () => onAction(playAction);
+        inPhaseTier?.appendChild(playBtn);
+      }
+      const decline = view.legalActions.find(ea => ea.viable && ea.action.type === 'pass');
+      if (decline) {
+        const declineBtn = document.createElement('button');
+        declineBtn.className = 'enter-site-btn store-item-play-choice-btn';
+        declineBtn.textContent = 'Decline';
+        declineBtn.onclick = () => onAction(decline.action);
+        inPhaseTier?.appendChild(declineBtn);
+      }
+      return;
+    }
+
     // Chance of Being Lost (dm-49): after a passed roll the hazard player must
     // pick the moving company's replacement site (`swap-new-site-choice`). The
     // choice is mandatory with no default, so it is absent from the pass-like

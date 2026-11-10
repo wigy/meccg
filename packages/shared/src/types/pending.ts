@@ -697,6 +697,29 @@ export interface PendingResolution {
       }
     | {
         /**
+         * Store-item play offer — raised once a card carrying a
+         * `play-item-on-store` effect is successfully stored (Gems of Arda
+         * dm-170: "you may immediately tap a character in the same company
+         * and play a non-special item with him from your hand or discard
+         * pile"). The actor taps an untapped character in `companyId` and
+         * plays one item from hand or discard pile matching `itemFilter` onto
+         * him (`play-store-item-offer`), or declines (generic `pass`).
+         */
+        readonly type: 'store-item-play-offer';
+        /** The storing company; the tapped character must belong to it. */
+        readonly companyId: CompanyId;
+        /** Condition on the played item's definition. Absent = any item. */
+        readonly itemFilter?: Condition;
+        /**
+         * The played item must be identical (same name) to an item the
+         * opponent has stored; that stored item is discarded.
+         */
+        readonly matchOpponentStored?: boolean;
+        /** The played item may never be stored (`ItemInPlay.neverStorable`). */
+        readonly playedItemNoStore?: boolean;
+      }
+    | {
+        /**
          * Ally-placement offer — enqueued when a `roll-play-ally` short event
          * resolves (Here, There, or Yonder td-123). The actor may play one
          * hand ally whose mind is below `rollTotal - threshold` and that is

@@ -22,6 +22,7 @@
  * depends back on it) and avoids reintroducing an import cycle.
  */
 
+import { storeItemPlayOfferActions, applyStoreItemPlayOfferResolution } from './store-item-play-offer.js';
 import { allyPlacementOfferActions, applyAllyPlacementOfferResolution } from './roll-play-ally.js';
 import type { GameState, GameAction, PlayerId, EvaluatedAction, PendingResolution } from '../index.js';
 import type { ReducerResult } from './reducer-utils.js';
@@ -188,6 +189,7 @@ export const PENDING_HANDLERS: { readonly [K in PendingKindType]: PendingHandler
   'ally-placement-offer': { legalActions: allyPlacementOfferActions, apply: applyAllyPlacementOfferResolution },
   'dragon-ambush-offer': { legalActions: dragonAmbushOfferActions, apply: applyDragonAmbushOfferResolution },
   'wizard-search-on-store': { legalActions: wizardSearchOnStoreActions, apply: applyWizardSearchOnStoreResolution },
+  'store-item-play-offer': { legalActions: storeItemPlayOfferActions, apply: applyStoreItemPlayOfferResolution },
   'select-card-bearer': { legalActions: selectCardBearerActions, apply: applySelectCardBearerResolution },
   'discard-one-company-item': { legalActions: discardOneCompanyItemActions, apply: applyDiscardOneCompanyItemResolution },
   'discard-substitute-offer': { legalActions: discardSubstituteOfferActions, apply: applyDiscardSubstituteOfferResolution },

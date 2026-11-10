@@ -1517,6 +1517,13 @@ export function storeItemActions(state: GameState, playerId: PlayerId, onlyCompa
           isStorable = false;
         }
 
+        // Gems of Arda (dm-170): "you may never store the item you played" —
+        // an item played through a `playedItemNoStore` store offer.
+        if (isStorable && item.neverStorable) {
+          logDetail(`  → not storable: ${itemDef.name} on ${charName} may never be stored (played via a store offer)`);
+          isStorable = false;
+        }
+
         if (!isStorable) continue;
 
         const itemName = itemDef.name ?? '?';

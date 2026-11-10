@@ -625,6 +625,26 @@ export interface PlayWizardFromSearchAction {
   readonly source: 'play-deck' | 'discard-pile';
 }
 
+/**
+ * Accept a `store-item-play-offer` (Gems of Arda dm-170): tap `characterId`
+ * (an untapped character in the storing company) and play the item
+ * `cardInstanceId` from hand or discard pile onto him. When the offer
+ * requires an identical opponent-stored item, `opponentStoredInstanceId`
+ * names the opponent's stored copy, which is discarded.
+ */
+export interface PlayStoreItemOfferAction {
+  readonly type: 'play-store-item-offer';
+  readonly player: PlayerId;
+  /** The untapped character who taps and receives the item. */
+  readonly characterId: CardInstanceId;
+  /** The item card in the player's hand or discard pile. */
+  readonly cardInstanceId: CardInstanceId;
+  /** Which pile the item comes from. */
+  readonly source: 'hand' | 'discard-pile';
+  /** The opponent's identical stored item to discard, when required. */
+  readonly opponentStoredInstanceId?: CardInstanceId;
+}
+
 /** Skip the wizard-search window — no Wizard desired. */
 export interface SkipWizardSearchAction {
   readonly type: 'skip-wizard-search';

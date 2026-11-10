@@ -2396,6 +2396,7 @@ export type TriggeredActionType =
   | 'enqueue-corruption-check'
   | 'enqueue-body-check'
   | 'enqueue-item-placement-offer'
+  | 'enqueue-store-item-play-offer'
   | 'enqueue-corruption-check-all-in-play'
   | 'whip-discipline'
   | 'enqueue-site-wound-rolls'
@@ -2663,6 +2664,25 @@ export interface EnqueueCorruptionCheckAllInPlayAction extends TriggeredActionBa
   readonly modifier?: number;
   /** Condition matched against each character's definition (absent = every character). */
   readonly filter?: Condition;
+}
+
+/**
+ * `enqueue-store-item-play-offer` — engine-internal `onSuccess` follow-up on
+ * the corruption check made for storing a card that carries a
+ * {@link PlayItemOnStoreEffect} (Gems of Arda dm-170). When the store check
+ * passes, raises a `store-item-play-offer` pending resolution for the
+ * storing company.
+ */
+export interface EnqueueStoreItemPlayOfferAction extends TriggeredActionBase {
+  readonly type: 'enqueue-store-item-play-offer';
+  /** The company the stored card's bearer belonged to. */
+  readonly companyId: CompanyId;
+  /** Condition on the played item's definition. */
+  readonly itemFilter?: Condition;
+  /** See {@link PlayItemOnStoreEffect.matchOpponentStored}. */
+  readonly matchOpponentStored?: boolean;
+  /** See {@link PlayItemOnStoreEffect.playedItemNoStore}. */
+  readonly playedItemNoStore?: boolean;
 }
 
 /**
@@ -4234,6 +4254,7 @@ export type TriggeredAction =
   | EnqueueCorruptionCheckAction
   | EnqueueBodyCheckAction
   | EnqueueItemPlacementOfferAction
+  | EnqueueStoreItemPlayOfferAction
   | EnqueueCorruptionCheckAllInPlayAction
   | WhipDisciplineAction
   | EnqueueGoodwillAttemptAction
@@ -10685,6 +10706,36 @@ export interface FetchWizardOnStoreEffect extends EffectBase {
 }
 
 /**
+ * `play-item-on-store` — "During any organization phase in which you store
+ * <this card>, you may immediately tap a character in the same company and
+ * play <an item> with him from your hand or discard pile."
+ *
+ * Carried by the stored card itself. Once the store succeeds (the bearer's
+ * store corruption check passes — a failed store never fires it), a
+ * `store-item-play-offer` pending resolution is raised: the storing player
+ * may tap an untapped character in the storing company and play one item
+ * from hand or discard pile matching {@link itemFilter} onto him
+ * (`play-store-item-offer`), or decline (generic `pass`).
+ *
+ * - {@link matchOpponentStored}: the played item must be identical (same
+ *   name) to an item the opponent has already stored, and that stored item
+ *   is discarded to the opponent's discard pile.
+ * - {@link playedItemNoStore}: the played item may never be stored
+ *   (`ItemInPlay.neverStorable`).
+ *
+ * Example: Gems of Arda (dm-170).
+ */
+export interface PlayItemOnStoreEffect extends EffectBase {
+  readonly type: 'play-item-on-store';
+  /** Condition on the played item's definition (e.g. non-special). */
+  readonly itemFilter?: Condition;
+  /** The played item must match (by name) an item the opponent has stored; that stored item is discarded. */
+  readonly matchOpponentStored?: boolean;
+  /** The played item may never be stored. */
+  readonly playedItemNoStore?: boolean;
+}
+
+/**
  * Zone reference for {@link MoveEffect}. Identifies where to locate
  * source card instances and where to push them after the move.
  *
@@ -11069,6 +11120,7 @@ export type CardEffect =
   | CancelCardEffectsEffect
   | TapDiscardAttachedHazardEffect
   | FetchWizardOnStoreEffect
+  | PlayItemOnStoreEffect
   | ExtraAgentActionsEffect
   | CompanyCombatBoostEffect
   | AttackRollStrikesFailEffect

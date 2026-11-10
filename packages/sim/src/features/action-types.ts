@@ -254,6 +254,8 @@ export const ACTION_TYPES: readonly string[] = [
   'play-ally-placement-offer',
   // Human-only meta-action: take back a support tap before the roll.
   'withdraw-support',
+  // Added by certifying dm-170 (Gems of Arda).
+  'play-store-item-offer',
 ];
 
 /** Fast index lookup: action type string → 1-based index (0 = unknown). */

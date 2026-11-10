@@ -5221,6 +5221,32 @@ function playableAtEntryMatchesSite(
 }
 
 /**
+ * Names of every card `player` has **stored** — the resource cards in their
+ * marshalling-point pile (`killPile`). Defeated hazard creatures share that
+ * pile but are not "stored", so hazard cards are excluded. Backs "if you have
+ * a stored <card>" conditions (Gems of Arda dm-170: "If you have a stored
+ * Vein of Arda, playable at any Under-deeps site").
+ */
+export function storedCardNames(state: GameState, player: PlayerState): string[] {
+  const names: string[] = [];
+  for (const card of player.killPile) {
+    const def = defById(state, card.definitionId);
+    if (!def || isHazardCreatureOrEventDef(def)) continue;
+    names.push(def.name);
+  }
+  return names;
+}
+
+/**
+ * The `player` context exposed to an `item-play-site` filter: the playing
+ * player's stored card names (`player.storedNames`), so a filter can gate
+ * site playability on "if you have a stored <card>" (Gems of Arda dm-170).
+ */
+export function itemPlaySitePlayerContext(state: GameState, player: PlayerState): { storedNames: string[] } {
+  return { storedNames: storedCardNames(state, player) };
+}
+
+/**
  * True when `def` — an item, ally, or faction — is playable at the site
  * described by `siteDef`, per each card type's own playability rule:
  *
@@ -5241,8 +5267,9 @@ function playableAtEntryMatchesSite(
  * `fetch-to-deck` pending effects (Strider ba-1: "search your discard pile
  * for any one item, ally, or faction playable at his current site").
  */
-export function isCardPlayableAtSiteDef(def: CardDefinition, siteDef: SiteCard, state: GameState): boolean {
+export function isCardPlayableAtSiteDef(def: CardDefinition, siteDef: SiteCard, state: GameState, player?: PlayerState): boolean {
   if (isItemCard(def)) {
+    const playerCtx = player ? itemPlaySitePlayerContext(state, player) : undefined;
     const denyPlaySite = getCardEffects(def).find(
       (e): e is import('../types/effects.js').ItemPlaySiteEffect => e.type === 'item-play-site' && e.deny === true,
     );
@@ -5266,7 +5293,7 @@ export function isCardPlayableAtSiteDef(def: CardDefinition, siteDef: SiteCard, 
     const isHoardItem = (def.keywords as readonly string[] | undefined)?.includes('hoard') === true;
     if (playSite?.filter && !isHoardItem) {
       const autoAttackRaces = siteDef.automaticAttacks.map(a => normalizeCreatureRace(a.creatureType));
-      return matchesContext(playSite.filter, { site: { ...siteDef, autoAttackRaces } });
+      return matchesContext(playSite.filter, { site: { ...siteDef, autoAttackRaces }, ...(playerCtx ? { player: playerCtx } : {}) });
     }
     return false;
   }
@@ -8135,7 +8162,7 @@ export function handleFetchFromPile(state: GameState, action: GameAction): Reduc
   // site") — the qualifying site was captured when the fetch was enqueued.
   if (current.effect.playableAtSite !== undefined) {
     const requiredSite = defById(state, current.effect.playableAtSite);
-    if (!isSiteCard(requiredSite) || !isCardPlayableAtSiteDef(def, requiredSite, state)) {
+    if (!isSiteCard(requiredSite) || !isCardPlayableAtSiteDef(def, requiredSite, state, player)) {
       return { state, error: `Card is not playable at ${requiredSite && 'name' in requiredSite ? requiredSite.name : 'the required site'}` };
     }
   }
