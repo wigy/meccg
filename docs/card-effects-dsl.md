@@ -3853,6 +3853,23 @@ Events:
 - `company-composition-changed` -- fires against every attached hazard whenever a company's character roster changes (play-character, move-to-company, merge-companies, auto-merge at end of MH). The sweeper evaluates the effect's `when` against the bearer's company context and applies the self-discard `move` when the condition is met. Used by *Alone and Unadvised* (discards when company has 4+ characters). Implemented in `reducer-utils.ts` `sweepAutoDiscardHazards()`.
 - `bearer-company-moves` -- fires when the company containing the bearer completes movement (M/H step 8). For each character in the moving company, the reducer scans attached **items and allies** for this event and applies the self-discard `move`, moving the card to the owner's discard pile. An effect with no `when` discards unconditionally (e.g. *Align Palantír*, an item that leaves play the moment its company moves). An effect carrying a `when` clause discards only when the clause matches the context `{ movementType, destination: { name, region, siteType }, sitePath: { regionTypes }, company: { characterCount } }`, where `movementType` is the movement kind used (`"starter"` / `"region"` / `"special"` / `"under-deeps"`) and `company.characterCount` is how many characters the moving company holds on completing the move. Used by *Mistress Lobelia* (dm-178), an ally discarded whenever her company moves to a site outside her allowed set (`when: { $not: { $or: [ { "destination.name": { $in: [...] } }, { "destination.region": "The Shire" } ] } }`); and by *Evil Things Lingering* (ba-45), "Discard this ally if its company moves using region or starter movement" — `when: { "movementType": { "$in": ["region", "starter"] } }` (so Under-deeps/special moves keep it); and by the *Palantír of Amon Sûl* (tw-296 / le-330) and *Palantír of Osgiliath* (tw-301 / le-335), "If the bearer's company is ever below 2 (resp. 4) characters and it moves, discard this item" — `when: { "company.characterCount": { "$lt": 2 } }`. Implemented in `reducer-movement-hazard.ts` (step 8a-2 of `mh-hazard-play.ts`).
 - `host-item-stored` -- fires from `handleStoreItem` (`reducer-organization.ts`) when an item is stored at a Haven. After removing the target item from the bearer, the reducer scans the bearer's **remaining items** for this event and applies the self-store `move` (`apply: { type: "move", select: "self", to: "kill-pile" }`), moving the companion card into the same marshalling point pile alongside the stored item (with the same `storedAtSite` binding). An effect carrying a `when` clause fires only when it matches the context `{ storedItem: { itemKeywords } }`, where `itemKeywords` is the combined `keywords` of the item being stored (via `itemKeywordsOf`). Used by *Align Palantír* (tw-190), CRF 22 errata "If the Palantír is stored, this card is stored too" — `when: { "storedItem.itemKeywords": { "$includes": "palantir" } }` so it follows only a Palantír-keyword item into storage, not an unrelated item stored from the same bearer. Skipped entirely when the item is stored via the item-cache alternate destination (Armory dm-116) — that path is scoped to true minor items, not their companion permanent events.
+- `self-stored` -- fires from `handleStoreItem` (`reducer-organization.ts`, `fireSelfStoredTriggers`) on the **stored item itself**, right after its storage corruption check is enqueued (organization phase or an end-of-turn storing window). The optional `when` is matched against `{ phase }`, so "during any organization phase in which you store X" is `when: { "phase": "organization" }`. Supported applies:
+  - `enqueue-item-placement-offer` with `recipients: "company-untapped-taps"` — opens a company-scoped `item-placement-offer` for the storing company: the player picks one item matching `filter` from the `fetchFrom` piles (`"hand"`, `"discard-pile"`) and one **untapped** character of that company, who taps and receives it (`play-item-placement-offer` carrying `characterId`). `keepSource: true` skips the default "discard the offer's source" cost (the stored card stays stored). Declining is a generic `pass`.
+  - `enqueue-corruption-check-all-in-play` (`modifier`, `filter`) — a corruption check for every character in play, **both players**, whose definition matches `filter`; actor = each character's controller, and the storing player's checks resolve first (the opponent's carry `blockedBy`).
+
+  Used by *Mithril* (dm-173): "During any organization phase in which you store Mithril, you may immediately tap a character in the same company and play with him a non-unique, non-special weapon, armor, shield, or helmet from your hand or discard pile. When Mithril is stored, each Dwarf in play must immediately make a corruption check modified by -3."
+
+  ```json
+  { "type": "on-event", "event": "self-stored", "when": { "phase": "organization" },
+    "apply": { "type": "enqueue-item-placement-offer", "recipients": "company-untapped-taps",
+      "fetchFrom": ["hand", "discard-pile"], "keepSource": true,
+      "filter": { "$and": [ { "unique": { "$ne": true } }, { "subtype": { "$ne": "special" } },
+        { "$or": [ { "keywords": { "$includes": "weapon" } }, { "keywords": { "$includes": "armor" } },
+                   { "keywords": { "$includes": "shield" } }, { "keywords": { "$includes": "helmet" } } ] } ] } } }
+  { "type": "on-event", "event": "self-stored",
+    "apply": { "type": "enqueue-corruption-check-all-in-play", "modifier": -3, "filter": { "race": "dwarf" } } }
+  ```
+
 - `creature-attack-begins` -- fires when a hazard creature attack is locked onto a defending company, after the creature's combat state has been initialized but before any strike is assigned. The attack was not canceled by the time this event fires (canceling an attack prevents `initiateCreatureCombat` from running entirely). Handled in `chain-reducer.ts` `initiateCreatureCombat()`. Supported apply types:
   - `offer-char-join-attack` — scoped to characters in the defending player's *other* companies that are at a haven; the `when` condition is evaluated against `{ bearer: { atHaven: true, siteType: 'haven' }, attack: { attackedCompanyId, bearerCompanyId } }`. Used by *Alatar* (tw-117).
   - `force-check-all-company` — enqueues a corruption check for every character in the attacked company before defenders are selected. Uses `check` (must be `"corruption"`) and optional `modifier`. Used by *Corpse-candle* (tw-23, le-67).
@@ -7380,6 +7397,12 @@ gate: "the character may not untap until this card is stored."
 
 Carried by To Satisfy the Questioner (le-246), That's Been Heard Before Tonight
 (le-241), Rescue Prisoners (tw-315), and The Windlord Found Me (dm-164).
+
+The flag is also honoured on an **item** played in the site phase
+(`handleSitePlayHeroResource`, `reducer-site.ts`): the bearer gets the same
+`bearer-cannot-untap` constraint, cleared when the item is stored. Used by
+Mithril (dm-173): "Sage or Dwarf may not untap until Mithril is stored at a
+Haven [{H}]."
 Deliberately absent on That Ain't No Secret (le-240), whose text omits the
 untap lock.
 

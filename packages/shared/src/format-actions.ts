@@ -867,7 +867,9 @@ export function describeAction(
     case 'play-named-card-offer':
       return `${playerName(action.player)} plays ${instName(action.cardInstanceId)} onto ${instName(action.targetCharacterId)}`;
     case 'play-item-placement-offer':
-      return `${playerName(action.player)} plays ${instName(action.cardInstanceId)} (Necklace of Girion)`;
+      return action.characterId
+        ? `${playerName(action.player)} taps ${instName(action.characterId)} to play ${instName(action.cardInstanceId)} with him`
+        : `${playerName(action.player)} plays ${instName(action.cardInstanceId)} (Necklace of Girion)`;
     case 'play-ally-placement-offer':
       return `${playerName(action.player)} plays ally ${instName(action.cardInstanceId)} (Here, There, or Yonder)`;
     default: {

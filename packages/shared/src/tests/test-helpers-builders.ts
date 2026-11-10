@@ -3893,3 +3893,37 @@ export function buildItemBoostCheckScenario(itemDefId: CardDefinitionId): { stat
   const state = enqueueCorruptionCheck(withItem, PLAYER_1, aragorn);
   return { state, aragorn, item };
 }
+
+/**
+ * Haven storage scenario: player 1's single company stands at Rivendell with
+ * `p1Characters` (items attached via `CharacterEntry.items`), holding `hand`
+ * and `discardPile`; player 2's company stands at Lórien with `p2Characters`.
+ * `phase` defaults to Organization; pass `Phase.EndOfTurn` to exercise the
+ * end-of-turn store path. Derived stats/MP are recomputed. Used by Mithril
+ * (dm-173), whose on-store triggers reach the storing company, its hand and
+ * discard pile, and every Dwarf in play on both sides.
+ */
+export function buildHavenStoreScenario(opts: {
+  p1Characters: CharacterEntry[];
+  p2Characters: CharacterEntry[];
+  hand?: CardDefinitionId[];
+  discardPile?: CardDefinitionId[];
+  phase?: Phase.Organization | Phase.EndOfTurn;
+}): GameState {
+  return buildTestState({
+    activePlayer: PLAYER_1,
+    phase: opts.phase ?? Phase.Organization,
+    recompute: true,
+    players: [
+      {
+        id: PLAYER_1,
+        companies: [{ site: RIVENDELL, characters: opts.p1Characters }],
+        hand: opts.hand ?? [],
+        discardPile: opts.discardPile ?? [],
+        siteDeck: [MORIA],
+        playDeck: makePlayDeck(),
+      },
+      { id: PLAYER_2, companies: [{ site: LORIEN, characters: opts.p2Characters }], hand: [], siteDeck: [MORIA] },
+    ],
+  });
+}

@@ -2397,6 +2397,7 @@ export type TriggeredActionType =
   | 'enqueue-body-check'
   | 'enqueue-item-placement-offer'
   | 'enqueue-store-item-play-offer'
+  | 'enqueue-corruption-check-all-in-play'
   | 'whip-discipline'
   | 'enqueue-site-wound-rolls'
   | 'malady-without-healing'
@@ -2628,7 +2629,40 @@ export interface EnqueueGoodwillAttemptAction extends TriggeredActionBase {
  */
 export interface EnqueueItemPlacementOfferAction extends TriggeredActionBase {
   readonly type: 'enqueue-item-placement-offer';
-  /** DSL condition restricting which hand items qualify (matched against the item's definition). */
+  /** DSL condition restricting which items qualify (matched against the item's definition). */
+  readonly filter?: Condition;
+  /**
+   * Who receives the item. Absent (default) = the fixed character the
+   * trigger is anchored on (Necklace of Girion dm-174: the bearer who passed
+   * the check). `"company-untapped-taps"` = any untapped character in the
+   * anchor character's company, who taps as part of accepting (Mithril
+   * dm-173: "tap a character in the same company and play with him …").
+   */
+  readonly recipients?: 'company-untapped-taps';
+  /** Piles the item may be played from (default `["hand"]`). */
+  readonly fetchFrom?: readonly ('hand' | 'discard-pile')[];
+  /**
+   * When true, accepting does NOT discard the offer's source card (default:
+   * the source is discarded as Necklace of Girion's cost). Mithril dm-173 is
+   * already stored when its offer opens, so nothing is paid from it.
+   */
+  readonly keepSource?: boolean;
+}
+
+/**
+ * `enqueue-corruption-check-all-in-play` — every character in play (both
+ * players') whose card definition matches {@link filter} must make a
+ * corruption check modified by {@link modifier}. One `corruption-check`
+ * pending resolution per matching character, actor = its controller; the
+ * triggering player's checks come first. Used by Mithril (dm-173) under
+ * `on-event: self-stored`: "When Mithril is stored, each Dwarf in play must
+ * immediately make a corruption check modified by -3."
+ */
+export interface EnqueueCorruptionCheckAllInPlayAction extends TriggeredActionBase {
+  readonly type: 'enqueue-corruption-check-all-in-play';
+  /** Roll modifier applied to every check (default 0). */
+  readonly modifier?: number;
+  /** Condition matched against each character's definition (absent = every character). */
   readonly filter?: Condition;
 }
 
@@ -4221,6 +4255,7 @@ export type TriggeredAction =
   | EnqueueBodyCheckAction
   | EnqueueItemPlacementOfferAction
   | EnqueueStoreItemPlayOfferAction
+  | EnqueueCorruptionCheckAllInPlayAction
   | WhipDisciplineAction
   | EnqueueGoodwillAttemptAction
   | EnqueueSiteWoundRollsAction

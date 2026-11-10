@@ -880,8 +880,14 @@ export interface PlayItemPlacementOfferAction {
   readonly type: 'play-item-placement-offer';
   /** The card's owner (who plays). */
   readonly player: PlayerId;
-  /** The hand item instance to play (must match the offer's `filter`). */
+  /** The item instance to play (hand, or discard pile when the offer allows; must match the offer's `filter`). */
   readonly cardInstanceId: CardInstanceId;
+  /**
+   * Chosen recipient for a company-scoped offer (Mithril dm-173): an
+   * untapped character in the offer's company, who taps. Absent for the
+   * fixed-recipient form (Necklace of Girion dm-174).
+   */
+  readonly characterId?: CardInstanceId;
 }
 
 /**

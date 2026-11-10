@@ -6,7 +6,7 @@
  * planning movement, and sideboard access.
  */
 
-import type { GameState, CardInstanceId, CharacterInPlay, CardInstance, CompanyId, OrganizationPhaseState, Company, SiteInPlay, GameAction, FetchWizardOnStoreEffect, PlayItemOnStoreEffect } from '../index.js';
+import type { GameState, CardInstanceId, CharacterInPlay, CardInstance, CompanyId, OrganizationPhaseState, Company, SiteInPlay, GameAction, FetchWizardOnStoreEffect, PlayItemOnStoreEffect, CardDefinition, ResolutionId } from '../index.js';
 import type { PlayFlagEffect } from '../types/effects.js';
 import type { PlayerState } from '../types/state-player.js';
 import { formatSignedNumber } from '../format-helpers.js';
@@ -1866,6 +1866,11 @@ export function handleStoreItem(state: GameState, action: GameAction): ReducerRe
     stateAfterCheck = removeConstraint(stateAfterCheck, c.id);
   }
 
+  // `on-event: self-stored` triggers on the stored item itself (Mithril
+  // dm-173): "During any organization phase in which you store Mithril …"
+  // / "When Mithril is stored, each Dwarf in play must …".
+  stateAfterCheck = fireSelfStoredTriggers(stateAfterCheck, playerIndex, item.instanceId, itemDef, storeCompany?.id);
+
   // Auto-test-gold-ring site-rule (Rule 9.22): storing a gold-ring item at a
   // Darkhaven (or any site declaring this rule) triggers an automatic ring
   // test with the site's roll modifier. Enqueued after the corruption check
@@ -1923,6 +1928,86 @@ export function handleStoreItem(state: GameState, action: GameAction): ReducerRe
   }
 
   return { state: stateAfterCheck };
+}
+
+/**
+ * Fire the `on-event: self-stored` effects carried by a just-stored card
+ * (Mithril dm-173). Each effect's optional `when` is matched against
+ * `{ phase }` (the phase the store happened in — storing is also legal at
+ * end of turn, so "during any organization phase in which you store X" is
+ * `when: { "phase": "organization" }`). Supported applies:
+ *
+ * - `enqueue-item-placement-offer` with `recipients: "company-untapped-taps"`
+ *   — enqueues a company-scoped `item-placement-offer` for the storing
+ *   company (pick an untapped character, tap him, play a matching item from
+ *   `fetchFrom` piles with him).
+ * - `enqueue-corruption-check-all-in-play` — a corruption check (with
+ *   `modifier`) for every character in play, both players, whose definition
+ *   matches `filter`; the storing player's checks resolve first.
+ */
+function fireSelfStoredTriggers(
+  state: GameState,
+  playerIndex: number,
+  storedInstanceId: CardInstanceId,
+  storedDef: CardDefinition | undefined,
+  companyId: CompanyId | undefined,
+): GameState {
+  const triggers = getOnEventEffects(storedDef, 'self-stored');
+  if (triggers.length === 0) return state;
+  const phase = state.phaseState.phase;
+  const ctx = { phase };
+  const storer = state.players[playerIndex];
+  const cardLabel = storedDef?.name ?? (storedInstanceId as string);
+  let current = state;
+  for (const trig of triggers) {
+    if (trig.when && !matchesCondition(trig.when, ctx)) {
+      logDetail(`${cardLabel}: self-stored trigger "${trig.apply.type}" skipped — condition not met in phase ${phase}`);
+      continue;
+    }
+    const apply = trig.apply;
+    if (apply.type === 'enqueue-item-placement-offer') {
+      if (apply.recipients !== 'company-untapped-taps' || companyId === undefined) continue;
+      const company = storer.companies.find(c => c.id === companyId);
+      logDetail(`${cardLabel}: stored — enqueuing company item-placement offer for company ${companyId as string}`);
+      current = enqueueResolution(current, {
+        source: storedInstanceId,
+        actor: storer.id,
+        scope: { kind: 'phase', phase },
+        kind: {
+          type: 'item-placement-offer',
+          characterInstanceId: company?.characters[0] ?? storedInstanceId,
+          companyId,
+          ...(apply.filter ? { filter: apply.filter } : {}),
+          zones: apply.fetchFrom ?? ['hand'],
+          ...(apply.keepSource ? { keepSource: true } : {}),
+        },
+      });
+    } else if (apply.type === 'enqueue-corruption-check-all-in-play') {
+      const ordered = [storer, ...current.players.filter(p => p.id !== storer.id)];
+      let storerCheckIds: ResolutionId[] = [];
+      for (const p of ordered) {
+        const isStorer = p.id === storer.id;
+        for (const char of Object.values(p.characters)) {
+          const charDef = defById(current, char.definitionId);
+          if (!charDef || !isCharacterCard(charDef)) continue;
+          if (apply.filter && !matchesDefinition(charDef, apply.filter)) continue;
+          current = enqueueCorruptionCheck(current, {
+            source: storedInstanceId,
+            actor: p.id,
+            scope: { kind: 'phase', phase },
+            characterId: char.instanceId,
+            reason: cardLabel,
+            modifier: apply.modifier ?? 0,
+            blockedBy: !isStorer && storerCheckIds.length > 0 ? storerCheckIds : undefined,
+          });
+          const minted = current.pendingResolutions[current.pendingResolutions.length - 1];
+          if (isStorer) storerCheckIds = [...storerCheckIds, minted.id];
+          logDetail(`${cardLabel}: stored — corruption check (${formatSignedNumber(apply.modifier ?? 0)}) enqueued for ${charDef.name} (${p.name})`);
+        }
+      }
+    }
+  }
+  return current;
 }
 
 /**

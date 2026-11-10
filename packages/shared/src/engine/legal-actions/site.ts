@@ -2368,6 +2368,14 @@ export function playResourcesActions(
       // reads `company.allyOrFactionPlayedAtSite`, set by
       // `handleSitePlayHeroResource` / the influence-attempt success branch
       // in `reducer-site.ts`.
+      // play-condition: player-state — Mithril (dm-173): "if you have a
+      // stored Vein of Arda" reads `player.storedCardNames`.
+      if (!playerStateGateMet(state, player, playerId, itemDef)) {
+        logDetail(`Item ${itemDef.name}: player-state play-condition not satisfied`);
+        actions.push(notPlayable(playerId, cardInstanceId, `${itemDef.name}: play condition not met`));
+        continue;
+      }
+
       const itemActiveCompanyCond = findPlayConditionEffect(itemDef, 'active-company');
       if (itemActiveCompanyCond?.condition) {
         const ctx = buildActiveCompanyContext(state, player, company, {
