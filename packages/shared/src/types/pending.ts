@@ -677,10 +677,23 @@ export interface PendingResolution {
          * play).
          */
         readonly type: 'item-placement-offer';
-        /** Character who receives the placed item; also the source's current bearer. */
+        /**
+         * Character who receives the placed item; also the source's current
+         * bearer. Ignored when {@link companyId} is set.
+         */
         readonly characterInstanceId: CardInstanceId;
-        /** DSL condition restricting which hand items qualify. Absent = any item. */
+        /** DSL condition restricting which items qualify. Absent = any item. */
         readonly filter?: Condition;
+        /**
+         * When set, the recipient is chosen among the untapped characters of
+         * this company and taps on accepting (Mithril dm-173: "tap a
+         * character in the same company and play with him …").
+         */
+        readonly companyId?: CompanyId;
+        /** Piles the item may be played from (default hand only). */
+        readonly zones?: readonly ('hand' | 'discard-pile')[];
+        /** Accepting does not discard the resolution's source card. */
+        readonly keepSource?: boolean;
       }
     | {
         /**

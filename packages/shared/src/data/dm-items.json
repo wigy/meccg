@@ -353,8 +353,53 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
-    "text": "Unique. Playable with a Sage or Dwarf only during the site phase at The Under-gates if you have a stored Vein of Arda. Sage or Dwarf may not untap until Mithril is stored at a Haven [{H}]. Mithril is worth 7 marshalling points when stored. During any organization phase in which you store Mithril, you may immediately tap a character in the same company and play with him a non-unique, non-special weapon, armor, shield, or helmet from your hand or discard pile. When Mithril is stored, each Dwarf in play must immediately make a corruption check modified by -3."
+    "effects": [
+      { "type": "item-play-site", "sites": ["The Under-gates"] },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "$or": [{ "target.skills": { "$includes": "sage" } }, { "target.race": "dwarf" }] }
+      },
+      {
+        "type": "play-condition",
+        "requires": "player-state",
+        "condition": { "player.storedCardNames": { "$includes": "Vein of Arda" } }
+      },
+      { "type": "play-flag", "flag": "bearer-cannot-untap-until-stored" },
+      { "type": "storable-at", "siteTypes": ["haven"], "marshallingPoints": 7 },
+      {
+        "type": "on-event",
+        "event": "self-stored",
+        "when": { "phase": "organization" },
+        "apply": {
+          "type": "enqueue-item-placement-offer",
+          "recipients": "company-untapped-taps",
+          "fetchFrom": ["hand", "discard-pile"],
+          "keepSource": true,
+          "filter": {
+            "$and": [
+              { "unique": { "$ne": true } },
+              { "subtype": { "$ne": "special" } },
+              {
+                "$or": [
+                  { "keywords": { "$includes": "weapon" } },
+                  { "keywords": { "$includes": "armor" } },
+                  { "keywords": { "$includes": "shield" } },
+                  { "keywords": { "$includes": "helmet" } }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-stored",
+        "apply": { "type": "enqueue-corruption-check-all-in-play", "modifier": -3, "filter": { "race": "dwarf" } }
+      }
+    ],
+    "text": "Unique. Playable with a Sage or Dwarf only during the site phase at The Under-gates if you have a stored Vein of Arda. Sage or Dwarf may not untap until Mithril is stored at a Haven [{H}]. Mithril is worth 7 marshalling points when stored. During any organization phase in which you store Mithril, you may immediately tap a character in the same company and play with him a non-unique, non-special weapon, armor, shield, or helmet from your hand or discard pile. When Mithril is stored, each Dwarf in play must immediately make a corruption check modified by -3.",
+    "certified": "2026-11-10"
   },
   {
     "cardType": "hero-resource-item",

@@ -3482,6 +3482,19 @@ export function handleSitePlayHeroResource(
   // on the bearer that matches the ward filter is immediately discarded
   // (e.g. Adamant Helmet cancelling dark enchantments on its wearer).
   if (isItem) {
+    // `play-flag: bearer-cannot-untap-until-stored` on an item (Mithril
+    // dm-173: "Sage or Dwarf may not untap until Mithril is stored at a
+    // Haven"). The store-item handler clears the constraint on storage.
+    if (hasPlayFlag(def, 'bearer-cannot-untap-until-stored')) {
+      afterAttach = addConstraint(afterAttach, {
+        source: action.cardInstanceId,
+        sourceDefinitionId: def.id,
+        scope: { kind: 'until-cleared' },
+        target: { kind: 'character', characterId: targetCharId },
+        kind: { type: 'bearer-cannot-untap', cardInstanceId: action.cardInstanceId },
+      });
+      logDetail(`Site: ${def.name} placed bearer-cannot-untap constraint on ${charName}`);
+    }
     afterAttach = applyWardToBearer(afterAttach, playerIndex, targetCharId, def, action.cardInstanceId);
     afterAttach = fireCharacterGainsItemChecks(afterAttach, playerIndex, siteState.activeCompanyIndex);
     // Into the Smoking Cone (dm-146): "Tap this card if the company plays a
