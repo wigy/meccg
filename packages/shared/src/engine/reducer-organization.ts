@@ -6,7 +6,7 @@
  * planning movement, and sideboard access.
  */
 
-import type { GameState, CardInstanceId, CharacterInPlay, CardInstance, CompanyId, OrganizationPhaseState, Company, SiteInPlay, GameAction, FetchWizardOnStoreEffect } from '../index.js';
+import type { GameState, CardInstanceId, CharacterInPlay, CardInstance, CompanyId, OrganizationPhaseState, Company, SiteInPlay, GameAction, FetchWizardOnStoreEffect, PlayItemOnStoreEffect } from '../index.js';
 import type { PlayFlagEffect } from '../types/effects.js';
 import type { PlayerState } from '../types/state-player.js';
 import { formatSignedNumber } from '../format-helpers.js';
@@ -1705,6 +1705,11 @@ export function handleStoreItem(state: GameState, action: GameAction): ReducerRe
     return { state, error: `${storeItemDef.name} may not be stored` };
   }
 
+  if (storeItemEntry?.neverStorable) {
+    logDetail(`Store item rejected: ${storeItemDef?.name ?? '?'} may never be stored (played via a store offer)`);
+    return { state, error: `${storeItemDef?.name ?? 'This item'} may never be stored` };
+  }
+
   const removed = removeAttachment(player, 'items', itemInstId);
   if (!removed || removed.charId !== charId) return { state, error: 'Item not found on character' };
   const item = removed.attachment;
@@ -1805,7 +1810,34 @@ export function handleStoreItem(state: GameState, action: GameAction): ReducerRe
   // untapped company mates for +1 each on *any* corruption check that has
   // been declared but not yet resolved — same as the transfer-item check
   // just above, this is not limited to hazard-triggered checks.
+  // play-item-on-store (Gems of Arda dm-170): "During any organization phase
+  // in which you store <this card>, you may immediately tap a character in
+  // the same company and play <an item> with him …". Wired as the store
+  // check's `onSuccess` so a failed store (CoE 2.II.4.1 — the card is
+  // discarded, never stored) raises no offer. Storing outside the
+  // organization phase (Messenger of Mordor's site-phase window, end of turn)
+  // is not "an organization phase in which you store" it.
+  const playOnStore = action.cacheHostInstanceId === undefined
+    && state.phaseState.phase === Phase.Organization
+    ? (getCardEffects(itemDef) as readonly { type: string }[]).find(
+      (e): e is PlayItemOnStoreEffect => e.type === 'play-item-on-store',
+    )
+    : undefined;
+  const storeOnSuccess = playOnStore && storeCompany
+    ? {
+      type: 'enqueue-store-item-play-offer' as const,
+      companyId: storeCompany.id,
+      ...(playOnStore.itemFilter ? { itemFilter: playOnStore.itemFilter } : {}),
+      ...(playOnStore.matchOpponentStored ? { matchOpponentStored: true } : {}),
+      ...(playOnStore.playedItemNoStore ? { playedItemNoStore: true } : {}),
+    }
+    : undefined;
+  if (storeOnSuccess) {
+    logDetail(`Store item: ${itemDef?.name ?? '?'} carries play-item-on-store — offer raised if the store check passes`);
+  }
+
   let stateAfterCheck = enqueueCorruptionCheck(stateAfterStore, {
+    ...(storeOnSuccess ? { onSuccess: storeOnSuccess } : {}),
     source: itemInstId,
     actor: action.player,
     scope: { kind: 'phase', phase: state.phaseState.phase },

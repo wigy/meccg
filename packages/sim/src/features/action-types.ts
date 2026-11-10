@@ -126,6 +126,7 @@ export const ACTION_TYPES: readonly string[] = [
   'play-ring-after-test',
   'play-short-event',
   'play-site-auto-attack',
+  'play-store-item-offer',
   'play-strike-event',
   'play-wizard-from-search',
   'protect-from-assignment',

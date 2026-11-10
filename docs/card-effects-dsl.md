@@ -8521,6 +8521,20 @@ satisfies a constraint. Two mutually-exclusive forms:
   `autoAttackRaces` — the normalized races of the site's
   automatic-attacks — so a filter can match "a site with a Dwarf
   automatic-attack" via `{ "site.autoAttackRaces": { "$includes": "dwarf" } }`.
+  It also carries `player.storedNames` — the names of the playing player's
+  stored (non-hazard marshalling-point pile) cards — for "if you have a
+  stored <card>" gates.
+
+`sites` and `filter` may be combined; the item is playable where either
+matches. *Gems of Arda* (dm-170): "Playable at The Gem-deeps. If you have a
+stored Vein of Arda, playable at any Under-deeps site."
+
+```json
+{ "type": "item-play-site", "sites": ["The Gem-deeps"],
+  "filter": { "$and": [
+    { "site.keywords": { "$includes": "under-deeps" } },
+    { "player.storedNames": { "$includes": "Vein of Arda" } } ] } }
+```
 
 When present, the normal site-type check (`playableResources`) is
 bypassed; the item is playable only if its restriction matches.
@@ -21144,4 +21158,35 @@ corruption checks are required)."
   "apply": { "type": "add-constraint", "constraint": "post-attack-check", "check": "corruption", "value": -2, "scope": "turn" } },
 { "type": "on-event", "event": "self-enters-play",
   "apply": { "type": "add-constraint", "constraint": "return-to-hand-at-end-of-turn", "scope": "turn" } }
+```
+
+### 92. `play-item-on-store` (Gems of Arda)
+
+"During any organization phase in which you store <this card>, you may
+immediately tap a character in the same company and play <an item> with him
+from your hand or discard pile." Carried by the stored card. When a card with
+this effect is stored during the **organization phase**, the store corruption
+check gets an `enqueue-store-item-play-offer` `onSuccess` follow-up, so a
+failed store raises nothing. On success a `store-item-play-offer` pending
+resolution lets the storing player tap an untapped character in the storing
+company and play one item from hand or discard pile onto him
+(`play-store-item-offer`), or decline (`pass`).
+
+Fields:
+
+- `itemFilter` — condition on the played item's definition.
+- `matchOpponentStored` — the item must be identical (same name) to an item
+  the opponent has stored; that stored copy is discarded to the opponent's
+  discard pile.
+- `playedItemNoStore` — the played item is flagged `ItemInPlay.neverStorable`
+  and is never offered (or allowed) as a `store-item`.
+
+Implementation: `reducer-organization.ts` `handleStoreItem`,
+`pending-reducers.ts` (corruption-check `onSuccess`),
+`engine/store-item-play-offer.ts` (legal actions + resolution).
+
+```json
+{ "type": "play-item-on-store",
+  "itemFilter": { "$not": { "subtype": "special" } },
+  "matchOpponentStored": true, "playedItemNoStore": true }
 ```

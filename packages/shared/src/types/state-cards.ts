@@ -144,6 +144,13 @@ export interface ItemInPlay {
    */
   readonly restored?: true;
   /**
+   * The item may never be stored — set on an item played through a
+   * `play-item-on-store` offer whose effect declares `playedItemNoStore`
+   * (Gems of Arda dm-170: "you may never store the item you played").
+   * Suppresses `store-item` offers for this instance.
+   */
+  readonly neverStorable?: true;
+  /**
    * A creature card stored on this item instead of being routed to the
    * defending player's kill pile for marshalling points (Elven Rope ba-34:
    * "Instead of eliminating a creature the bearer's company defeated ...

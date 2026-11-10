@@ -290,8 +290,26 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
-    "text": "Playable at The Gem-deeps. If you have a stored Vein of Arda, playable at any Under-deeps site. During any organization phase in which you store Gems of Arda, you may immediately tap a character in the same company and play a non-special item with him from your hand or discard pile. This item must be identical to an item that your opponent has already stored. Your opponent's stored item is discarded, and you may never store the item you played."
+    "effects": [
+      {
+        "type": "item-play-site",
+        "sites": ["The Gem-deeps"],
+        "filter": {
+          "$and": [
+            { "site.keywords": { "$includes": "under-deeps" } },
+            { "player.storedNames": { "$includes": "Vein of Arda" } }
+          ]
+        }
+      },
+      {
+        "type": "play-item-on-store",
+        "itemFilter": { "$not": { "subtype": "special" } },
+        "matchOpponentStored": true,
+        "playedItemNoStore": true
+      }
+    ],
+    "text": "Playable at The Gem-deeps. If you have a stored Vein of Arda, playable at any Under-deeps site. During any organization phase in which you store Gems of Arda, you may immediately tap a character in the same company and play a non-special item with him from your hand or discard pile. This item must be identical to an item that your opponent has already stored. Your opponent's stored item is discarded, and you may never store the item you played.",
+    "certified": "2026-11-10"
   },
   {
     "cardType": "hero-resource-item",

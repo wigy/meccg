@@ -658,6 +658,8 @@ export function describeAction(
       return `Pair ${instName(action.cardInstanceId)} with Crown of Flowers (${instName(action.cofInstanceId)})`;
     case 'play-wizard-from-search':
       return `Play wizard ${defName(action.wizardDefinitionId)} from ${action.source}`;
+    case 'play-store-item-offer':
+      return `Tap ${instName(action.characterId)} to play ${instName(action.cardInstanceId)} from ${action.source}${action.opponentStoredInstanceId ? ` (discarding opponent's stored ${instName(action.opponentStoredInstanceId)})` : ''}`;
     case 'skip-wizard-search':
       return `Skip wizard search`;
     case 'select-card-bearer':

@@ -683,6 +683,23 @@ export function applyCorruptionCheckResolution(
         },
       });
     }
+    // Gems of Arda (dm-170): the store succeeded — offer the storing company
+    // the chance to tap a character and play a matching item onto him.
+    if (onSuccess?.type === 'enqueue-store-item-play-offer') {
+      logDetail(`play-item-on-store: store check passed — enqueuing store-item-play-offer for company ${onSuccess.companyId as string}`);
+      stateAfterDequeue = enqueueResolution(stateAfterDequeue, {
+        source: top.source,
+        actor: player.id,
+        scope: top.scope,
+        kind: {
+          type: 'store-item-play-offer',
+          companyId: onSuccess.companyId,
+          ...(onSuccess.itemFilter ? { itemFilter: onSuccess.itemFilter } : {}),
+          ...(onSuccess.matchOpponentStored ? { matchOpponentStored: true } : {}),
+          ...(onSuccess.playedItemNoStore ? { playedItemNoStore: true } : {}),
+        },
+      });
+    }
     return { state: stateAfterDequeue, effects: [rollEffect] };
   }
 
