@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1433 | 1433 | 0 | 100.0% |
+| 1435 | 1435 | 0 | 100.0% |
 
 ## Category Breakdown
 
@@ -14,7 +14,7 @@
 |:---------|:-----:|:----:|:-:|
 | AS | 134 | 134 | 100.0% |
 | BA | 101 | 101 | 100.0% |
-| DM | 159 | 159 | 100.0% |
+| DM | 161 | 161 | 100.0% |
 | LE | 349 | 349 | 100.0% |
 | TD | 155 | 155 | 100.0% |
 | TW | 430 | 430 | 100.0% |
@@ -407,7 +407,9 @@
 | dm-166 | Aiglos | — | 22 | ☑ |
 | dm-167 | Dragon-helm | — | 14 | ☑ |
 | dm-168 | Dwarven Light-stone | — | 13 | ☑ |
+| dm-170 | Gems of Arda | — | 10 | ☑ |
 | dm-171 | Leaf Brooch | — | 15 | ☑ |
+| dm-173 | Mithril | — | 15 | ☑ |
 | dm-174 | Necklace of Girion | — | 20 | ☑ |
 | dm-175 | Noldo-lantern | — | 11 | ☑ |
 | dm-176 | Phial of Galadriel | — | 19 | ☑ |

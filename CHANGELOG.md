@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.233.0 — 2026-11-10
+
+Mithril and Gems of Arda Certified
+
+### Cards
+
+- Mithril (dm-173) is certified: playable with a Sage or Dwarf only at The Under-gates if you have a stored Vein of Arda; its bearer cannot untap until it is stored; storing it during organization lets you tap a character in the same company to play a non-unique, non-special weapon, armor, shield or helmet from hand or discard pile, and every Dwarf in play makes a corruption check at -3 (#3515)
+- Gems of Arda (dm-170) is certified: playable at The Gem-deeps, or at any Under-deeps site with a stored Vein of Arda; storing it during organization offers to tap a character in the storing company and play an item identical to one your opponent has stored (discarding theirs); the played item can never be stored (#3516)
+
+### Engine
+
+- New `self-stored` trigger and `play-item-on-store` effect support items that act when stored; item play-site filters can see the player's stored cards (#3515, #3516)
+
+### Web Client
+
+- Buttons for the store-time item play offer (#3516)
+
 ## 0.232.0 — 2026-11-09
 
 Washed and Refreshed Certified, Organization Ends at Next Phase
