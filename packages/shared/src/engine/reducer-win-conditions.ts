@@ -199,7 +199,10 @@ export function resolveWinConditionRoll(
   const rollEffect = diceRollEffect(player.name, roll, cardName);
   logHeading(`${cardName}: ${player.name} rolls ${roll.die1} + ${roll.die2}${modifier ? ` + ${modifier}` : ''} = ${total}`);
 
-  let next: GameState = { ...state, rng, cheatRollTotal };
+  // Record the roll as the rolling player's last dice roll so the UI shows it.
+  const rolledPlayers: [PlayerState, PlayerState] = [state.players[0], state.players[1]];
+  rolledPlayers[ownerPlayerIndex] = { ...player, lastDiceRoll: roll };
+  let next: GameState = { ...state, players: rolledPlayers, rng, cheatRollTotal };
   const band = matchBand(total, bands);
   if (!band) {
     logDetail(`${cardName}: total ${total} matched no band — no effect`);

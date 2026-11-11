@@ -43,7 +43,7 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, Phase,
   attachHazardToChar, addCardInPlay, movementDestinationDefIds, viableActions,
-  makeMHState, findCharInstanceId, dispatch, resolveChain,
+  makeMHState, findCharInstanceId, dispatch, resolveChain, resolveChainWithEffects,
   expectInDiscardPile,
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER,
   LEGOLAS, RIVENDELL, BREE, LORIEN,
@@ -165,6 +165,21 @@ describe('Cast from the Order (wh-15)', () => {
       .some(h => h.definitionId === CAST_FROM_THE_ORDER)).toBe(true);
     expect(after.players[HAZARD_PLAYER].discardPile
       .some(c => c.definitionId === CAST_FROM_THE_ORDER)).toBe(false);
+  });
+
+  test('the roll is visible: a dice-roll effect is emitted and recorded as the hazard player\'s last roll', () => {
+    // Bug report (game mwbn88dm-czp7vq): the roll was made silently — no
+    // dice were shown, so players could not tell whether the card took effect.
+    const state = baseState({ stagePoints: 6 });
+    const ready = { ...state, phaseState: makeMHState({ activeCompanyIndex: 0 }), cheatRollTotal: 10 };
+    const play = viableActions(ready, PLAYER_2, 'play-hazard')[0].action;
+    const { state: after, effects } = resolveChainWithEffects(dispatch(ready, play));
+
+    const roll = effects.find(e => e.effect === 'dice-roll');
+    expect(roll).toBeDefined();
+    expect(roll?.effect === 'dice-roll' && roll.die1 + roll.die2).toBe(10);
+    const last = after.players[HAZARD_PLAYER].lastDiceRoll;
+    expect(last && last.die1 + last.die2).toBe(10);
   });
 
   test('stage points are the deciding modifier: same dice roll, different stage points', () => {

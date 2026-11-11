@@ -2798,8 +2798,16 @@ function resolveUnEliminateCreature(
  * Resolves a permanent-event chain entry: moves the card from the chain
  * into the declaring player's `cardsInPlay` and executes `self-enters-play`
  * effects (e.g. Gates of Morning discarding hazard environments).
+ *
+ * Client-visible effects produced while entering play (e.g. the dice roll of
+ * a `win-condition-roll` such as Cast from the Order wh-15) are appended to
+ * `effects` so the caller can surface them to both players.
  */
-function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
+function resolvePermanentEvent(
+  state: GameState,
+  entry: ChainEntry,
+  effects: import('../index.js').GameEffect[] = [],
+): GameState {
   const card = entry.card!;
   const def = defById(state, card.definitionId);
   const playerIndex = getPlayerIndex(state, entry.declaredBy);
@@ -3433,6 +3441,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
             apply: effect.apply,
           });
           newState = rollResult.state;
+          if (rollResult.effects) effects.push(...rollResult.effects);
         } else {
           logDetail(`"${def?.name ?? '?'}" win-condition-roll: no avatar target — fizzle`);
         }
@@ -7238,7 +7247,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
       current = result.state;
       resolveEffects.push(result.effect);
     } else {
-      current = resolvePermanentEvent(current, entry);
+      current = resolvePermanentEvent(current, entry, resolveEffects);
       current = sweepAutoDiscardResourceEvents(current);
     }
   }
