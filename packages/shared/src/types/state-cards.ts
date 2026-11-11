@@ -619,6 +619,14 @@ export interface Company {
    */
   readonly siteOfOrigin: CardInstanceId | null;
   /**
+   * The site this company left when its movement completed (M/H Step 8),
+   * with the status it had on departure. Recorded only so CoE rule 2.IV.6.1
+   * can send the company back to its site of origin when the forced
+   * end-of-movement/hazard join would break a company composition rule
+   * (e.g. more than seven characters). Cleared at the M/H→Site transition.
+   */
+  readonly arrivedFrom?: SiteInPlay | undefined;
+  /**
    * On-guard cards placed face-down at this company's site by the hazard
    * player during M/H phases. Each company's own M/H phase allows at most
    * one on-guard placement, but if multiple companies move to the same site

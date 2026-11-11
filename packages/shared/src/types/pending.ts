@@ -1039,6 +1039,26 @@ export interface PendingResolution {
       }
     | {
         /**
+         * CoE rule 2.IV.6.1: the resource player's companies at one non-haven
+         * site could not be joined at the end of the movement/hazard phases
+         * without breaking a company composition rule (e.g. more than seven
+         * characters), so "only one company of the hazard player's choice
+         * remains and the other(s) must immediately return to their site(s) of
+         * origin". The hazard player (the actor) picks the surviving company
+         * with a `select-company` action naming one of `candidateCompanyIds`.
+         * Enqueued at the M/H→Site transition (`finalizeCompanyMH`) only when
+         * more than one company could legally remain.
+         */
+        readonly type: 'forced-join-keep-company';
+        /** The resource player owning the companies. */
+        readonly ownerId: PlayerId;
+        /** Every company of the owner involved in the failed join. */
+        readonly companyIds: readonly CompanyId[];
+        /** The companies the hazard player may choose to keep at the site. */
+        readonly candidateCompanyIds: readonly CompanyId[];
+      }
+    | {
+        /**
          * Enduring Tales (dm-125): "When any player discards a card from his
          * hand, he may discard it to the top of his play deck (and always
          * face down) instead of to his discard pile." A game-wide

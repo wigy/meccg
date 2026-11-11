@@ -11,6 +11,7 @@
 import { autoMergeNonHavenCompanies as _autoMergeNonHavenCompanies } from '../engine/reducer-utils.js';
 import { discardNonRingwraithCompaniesAtSharedSite as _discardNonRingwraithCompaniesAtSharedSite } from '../engine/mh-hazard-play.js';
 import { eliminateCharacter as _eliminateCharacter } from '../engine/pending-reducers.js';
+import { resolveForcedJoinConflicts as _resolveForcedJoinConflicts } from '../engine/forced-join.js';
 
 export * from './test-helpers-constants.js';
 export * from './test-helpers-queries.js';
@@ -34,6 +35,14 @@ export const autoMergeNonHavenCompanies = _autoMergeNonHavenCompanies;
  * tests for that transition can invoke it directly.
  */
 export const discardNonRingwraithCompaniesAtSharedSite = _discardNonRingwraithCompaniesAtSharedSite;
+
+/**
+ * Rule 2.IV.6.1 primitive: where the forced end-of-M/H join would break a
+ * company composition rule, keep one company at the site and return the others
+ * to their sites of origin (or ask the hazard player to choose). Runs
+ * immediately before {@link autoMergeNonHavenCompanies}.
+ */
+export const resolveForcedJoinConflicts = _resolveForcedJoinConflicts;
 
 /**
  * CoE 7.1 primitive: eliminate a character mid-state (out-of-play pile,

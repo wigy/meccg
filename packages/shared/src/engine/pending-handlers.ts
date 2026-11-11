@@ -26,6 +26,7 @@ import { storeItemPlayOfferActions, applyStoreItemPlayOfferResolution } from './
 import { allyPlacementOfferActions, applyAllyPlacementOfferResolution } from './roll-play-ally.js';
 import type { GameState, GameAction, PlayerId, EvaluatedAction, PendingResolution } from '../index.js';
 import type { ReducerResult } from './reducer-utils.js';
+import { forcedJoinKeepCompanyActions, applyForcedJoinKeepCompanyResolution } from './forced-join.js';
 import {
   applyCorruptionCheckResolution,
   applyOrderEffectsResolution,
@@ -200,6 +201,7 @@ export const PENDING_HANDLERS: { readonly [K in PendingKindType]: PendingHandler
   'haven-restore-character': { legalActions: havenRestoreCharacterActions, apply: applyHavenRestoreCharacterResolution },
   'untap-company-characters': { legalActions: untapCompanyCharactersActions, apply: applyUntapCompanyCharactersResolution },
   'left-behind-rejoin': { legalActions: leftBehindRejoinActions, apply: applyLeftBehindRejoinResolution },
+  'forced-join-keep-company': { legalActions: forcedJoinKeepCompanyActions, apply: applyForcedJoinKeepCompanyResolution },
   'hand-discard-recycle-offer': { legalActions: handDiscardRecycleOfferActions, apply: applyHandDiscardRecycleOfferResolution },
   'arrange-deck-top': { legalActions: arrangeDeckTopActions, apply: applyArrangeDeckTopResolution },
   'rearrange-defender-deck': { legalActions: rearrangeDefenderDeckActions, apply: applyRearrangeDefenderDeckResolution },

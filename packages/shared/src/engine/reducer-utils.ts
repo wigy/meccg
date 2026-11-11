@@ -5601,6 +5601,21 @@ export function handleExchangeSideboard(state: GameState, action: GameAction): R
 }
 
 /**
+ * Ids of companies still waiting for the hazard player's
+ * `forced-join-keep-company` choice (CoE rule 2.IV.6.1). Such companies share
+ * a site but must not be joined: one stays, the rest return to their sites of
+ * origin once the choice is made (see `forced-join.ts`).
+ */
+export function companiesAwaitingForcedJoinChoice(state: GameState): Set<string> {
+  const ids = new Set<string>();
+  for (const r of state.pendingResolutions) {
+    if (r.kind.type !== 'forced-join-keep-company') continue;
+    for (const id of r.kind.companyIds) ids.add(id as string);
+  }
+  return ids;
+}
+
+/**
  * Auto-joins the active player's companies that end up at the same
  * non-haven site at the end of all movement/hazard phases (CoE rule
  * 2.IV.6: "The resource player must immediately join any companies at
@@ -5618,11 +5633,16 @@ export function autoMergeNonHavenCompanies(state: GameState, playerIndex: number
   const player = state.players[playerIndex];
   if (player.companies.length < 2) return state;
 
+  // Rule 2.IV.6.1: companies whose join would break a composition rule and
+  // that still await the hazard player's choice of survivor are never joined.
+  const awaitingChoice = companiesAwaitingForcedJoinChoice(state);
+
   // Group companies by site instance id, preserving encounter order.
   const groups = new Map<string, number[]>();
   for (let i = 0; i < player.companies.length; i++) {
     const c = player.companies[i];
     if (!c.currentSite) continue;
+    if (awaitingChoice.has(c.id as string)) continue;
     // Left Behind (td-41): a "left behind" company only rejoins its original
     // company by explicit choice ("may rejoin"), so it is exempt from the
     // automatic same-site merge (rule 2.IV.6). The optional rejoin is offered

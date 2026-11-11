@@ -36,12 +36,13 @@ import { resolveHandSize } from './effects/index.js';
 import { getEffectiveSkills } from './effects/resolver.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { logDetail } from './legal-actions/log.js';
+import { resolveForcedJoinConflicts } from './forced-join.js';
 import { initiateChain, initiateOrPushChain } from './chain-reducer.js';
 import { currentHazardLimit, chargeHazardLimit } from './hazard-limit.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { autoMergeNonHavenCompanies, companyHasRingwraith, cardKeepsBoundSitePermanent, companyMovesUnderDeeps, isNazgulPermanentEvent, cleanupEmptyCompanies, clonePlayers, companyById, companySiteDef, defById, deriveFacedRaces, matchesFollowsAttackKeyedTo, findById, getCardEffects, getOnEventEffects, hasSiteFlag, isDarkhavenSiteDef, isHavenForPlayer, characterHasCannotUntapConstraint, isSelfDiscardMove, matchesDefinition, moveSideboardCard, startDeckExhaust, playerById, playerHasExtraUnderDeepsMH, regionTypeCounts, regionTypesMatch, removeById, siteNeverUntapsForOwner, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType, hazardPlayer as hazardPlayerOf, hasCardEffect, findCardEffect } from './reducer-utils.js';
+import { autoMergeNonHavenCompanies, companiesAwaitingForcedJoinChoice, companyHasRingwraith, cardKeepsBoundSitePermanent, companyMovesUnderDeeps, isNazgulPermanentEvent, cleanupEmptyCompanies, clonePlayers, companyById, companySiteDef, defById, deriveFacedRaces, matchesFollowsAttackKeyedTo, findById, getCardEffects, getOnEventEffects, hasSiteFlag, isDarkhavenSiteDef, isHavenForPlayer, characterHasCannotUntapConstraint, isSelfDiscardMove, matchesDefinition, moveSideboardCard, startDeckExhaust, playerById, playerHasExtraUnderDeepsMH, regionTypeCounts, regionTypesMatch, removeById, siteNeverUntapsForOwner, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType, hazardPlayer as hazardPlayerOf, hasCardEffect, findCardEffect } from './reducer-utils.js';
 import { buildCompanyCompositionContext } from './company-composition.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent, handlePlayPermanentEvent } from './reducer-events.js';
 import { handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
@@ -1817,6 +1818,9 @@ export function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState
       destinationSite: null,
       moved: true,
       siteOfOrigin: null,
+      // Rule 2.IV.6.1: remember where the company came from in case the
+      // end-of-M/H forced join must send it back.
+      arrivedFrom: originSite ?? undefined,
       siteCardOwned: sharedDestinationOwner ? false : true,
       virtualSiteRegionName: arrivalVirtualSiteRegionName,
     };
@@ -3111,6 +3115,13 @@ export function finalizeCompanyMH(state: GameState, mhState: MovementHazardPhase
     // a Ringwraith's company at a non-Darkhaven site is discarded instead.
     // Also before auto-merge, for the same reason.
     state = discardNonRingwraithCompaniesAtSharedSite(state, activeIndex);
+    // Rule 2.IV.6.1: where joining the companies at a shared non-haven site
+    // would break a composition rule (e.g. more than seven characters), only
+    // one remains and the others return to their sites of origin — the hazard
+    // player chooses when more than one could remain. Before auto-merge, so
+    // that only legal joins are performed.
+    state = resolveForcedJoinConflicts(state, activeIndex);
+    const awaitingJoinChoice = companiesAwaitingForcedJoinChoice(state);
     // Rule 2.IV.6: auto-merge any of the resource player's companies that
     // ended up at the same non-haven site. Run before resetting moved flags
     // so the merge sees the post-movement company layout.
@@ -3133,7 +3144,14 @@ export function finalizeCompanyMH(state: GameState, mhState: MovementHazardPhase
     const cleanedState = cleanupEmptyCompanies({
       ...updatePlayer(withAgentReset, activeIndex, p => ({
         ...p,
-        companies: p.companies.map(c => ({ ...c, moved: false, extraRegionDistance: undefined })),
+        // `arrivedFrom` is only needed by rule 2.IV.6.1 — keep it for
+        // companies still awaiting the hazard player's choice of survivor.
+        companies: p.companies.map(c => ({
+          ...c,
+          moved: false,
+          extraRegionDistance: undefined,
+          arrivedFrom: awaitingJoinChoice.has(c.id as string) ? c.arrivedFrom : undefined,
+        })),
       })),
       phaseState: {
         phase: Phase.Site,
