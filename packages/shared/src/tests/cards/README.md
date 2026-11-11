@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1435 | 1435 | 0 | 100.0% |
+| 1436 | 1436 | 0 | 100.0% |
 
 ## Category Breakdown
 
@@ -16,7 +16,7 @@
 | BA | 101 | 101 | 100.0% |
 | DM | 161 | 161 | 100.0% |
 | LE | 349 | 349 | 100.0% |
-| TD | 155 | 155 | 100.0% |
+| TD | 156 | 156 | 100.0% |
 | TW | 430 | 430 | 100.0% |
 | WH | 105 | 105 | 100.0% |
 
@@ -872,6 +872,7 @@
 | td-124 | Hey! come merry dol! | — | 10 | ☑ |
 | td-125 | Houses of Healing | — | 10 | ☑ |
 | td-126 | King under the Mountain | — | 13 | ☑ |
+| td-127 | Legendary Hoard | — | 13 | ☑ |
 | td-128 | Look More Closely Later | — | 18 | ☑ |
 | td-129 | Lore of the Ages | — | 11 | ☑ |
 | td-130 | Magical Harp | — | 14 | ☑ |

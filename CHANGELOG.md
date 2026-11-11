@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.234.0 — 2026-11-11
+
+Legendary Hoard Certified, Siege and Armory Choices in the Hand
+
+### Cards
+
+- Legendary Hoard (td-127) is certified: played on an at-home Dragon permanent-event (either player's), its augmented attack cannot be canceled; it rotates each time a manifestation of that Dragon is played; at the untapped lair 1/2/3 items per turn (by rotation) can be played without tapping the site, and an item that taps the lair discards the hoard; a hoarded at-home Dragon that would leave play is held inverted with the hoard and counts as defeated until the hoard leaves play (#3519)
+
+### Engine
+
+- New `dragon-hoard` effect, `permanent-event` play target (bound via `attachedTo`) and `target` scope for `duplication-limit` (#3519)
+
+### Web Client
+
+- Long Grievous Siege (ba-40) lets the player choose the faction and Border-hold to besiege instead of silently picking the first option (#3517)
+- Minor items in hand can be placed under an Armory (dm-116) during organization via a "Place under Armory" menu; they no longer render as unplayable (#3518)
+- Legendary Hoard uses the click-card-then-target flow to pick its Dragon (#3519)
+
 ## 0.233.0 — 2026-11-10
 
 Mithril and Gems of Arda Certified
