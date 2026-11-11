@@ -1900,6 +1900,55 @@ export function wouldViolateLeaderRestriction(
   return true;
 }
 
+/**
+ * Check whether folding `sources` into `target` (all at the same site) would
+ * break a company composition rule, returning a human-readable reason or
+ * `null` when the join is legal.
+ *
+ * Shared by the voluntary `merge-companies` action (rule 2.II.3.5) and the
+ * forced end-of-movement/hazard join (rule 2.IV.6 / 2.IV.6.1), so both apply
+ * exactly the same composition rules:
+ * - size max of seven outside a haven (rules 2.II.3.1 / 3.24), lifted by a
+ *   `company-size-unlimited` marker on the surviving target company;
+ * - race mixing outside a haven (rule 3.25);
+ * - one leader outside a haven (rule 3.26);
+ * - Ringwraith-only companies away from a Darkhaven (rule 3.07).
+ */
+export function joinCompositionViolation(
+  state: GameState,
+  player: PlayerState,
+  target: Company,
+  sources: readonly Company[],
+): string | null {
+  const atHaven = companyAtHaven(state, target, player.alignment, player.id);
+  const mergedCharIds = [...target.characters, ...sources.flatMap(c => c.characters)];
+
+  // Rules 3.24–3.26 apply only at non-haven sites.
+  if (!atHaven) {
+    const extraLeaderSlots = countSizeCapExemptLeaderSlots(state, target.id)
+      + sources.reduce((n, c) => n + countSizeCapExemptLeaderSlots(state, c.id), 0);
+    const mergedSize = companyEffectiveSizeExemptingLeaders(state, mergedCharIds, extraLeaderSlots);
+    // An Unexpected Party (dm-114): the surviving company is the *target*,
+    // so only its `company-size-unlimited` marker can lift the cap.
+    if (mergedSize > 7 && !companyHasUnlimitedSize(state, target.id)) {
+      return `would exceed size limit (${mergedSize} > 7)`;
+    }
+    if (wouldViolateRaceMixing(state, mergedCharIds)) {
+      return 'race-mixing restriction (rule 3.25)';
+    }
+    if (wouldViolateLeaderRestriction(state, mergedCharIds, target.id)) {
+      return 'leader restriction (rule 3.26)';
+    }
+  }
+
+  // Rule 3.07 is lifted only at a **Darkhaven**, not at any haven, so it is
+  // gated separately from rules 3.24–3.26 above.
+  if (!companyAtDarkhaven(state, target) && wouldViolateRingwraithComposition(state, mergedCharIds)) {
+    return "a Ringwraith's company may only hold other Ringwraiths away from a Darkhaven (rule 3.07)";
+  }
+  return null;
+}
+
 export function mergeCompaniesActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const player = playerById(state, playerId)!;
   const actions: EvaluatedAction[] = [];
@@ -1928,35 +1977,9 @@ export function mergeCompaniesActions(state: GameState, playerId: PlayerId): Eva
         }
       }
 
-      const atHaven = companyAtHaven(state, targetCompany, player.alignment, player.id);
-      const mergedCharIds = [...targetCompany.characters, ...company.characters];
-
-      // Rules 3.24–3.26 apply only at non-haven sites.
-      if (!atHaven) {
-        const extraLeaderSlots = countSizeCapExemptLeaderSlots(state, targetCompany.id)
-          + countSizeCapExemptLeaderSlots(state, company.id);
-        const mergedSize = companyEffectiveSizeExemptingLeaders(state, mergedCharIds, extraLeaderSlots);
-        // An Unexpected Party (dm-114): the surviving company is the *target*,
-        // so only its `company-size-unlimited` marker can lift the cap.
-        if (mergedSize > 7 && !companyHasUnlimitedSize(state, targetCompany.id)) {
-          logDetail(`  → skip: merge ${company.id as string} into ${targetCompany.id as string} — would exceed size limit (${mergedSize} > 7)`);
-          continue;
-        }
-        if (wouldViolateRaceMixing(state, mergedCharIds)) {
-          logDetail(`  → skip: merge ${company.id as string} into ${targetCompany.id as string} — race-mixing restriction (rule 3.25)`);
-          continue;
-        }
-        if (wouldViolateLeaderRestriction(state, mergedCharIds, targetCompany.id)) {
-          logDetail(`  → skip: merge ${company.id as string} into ${targetCompany.id as string} — leader restriction (rule 3.26)`);
-          continue;
-        }
-      }
-
-      // Rule 3.07 is lifted only at a **Darkhaven**, not at any haven, so it is
-      // gated separately from rules 3.24–3.26 above.
-      if (!companyAtDarkhaven(state, targetCompany)
-        && wouldViolateRingwraithComposition(state, mergedCharIds)) {
-        logDetail(`  → skip: merge ${company.id as string} into ${targetCompany.id as string} — a Ringwraith's company may only hold other Ringwraiths away from a Darkhaven (rule 3.07)`);
+      const violation = joinCompositionViolation(state, player, targetCompany, [company]);
+      if (violation) {
+        logDetail(`  → skip: merge ${company.id as string} into ${targetCompany.id as string} — ${violation}`);
         continue;
       }
 
