@@ -139,6 +139,7 @@
     ],
     "resourceDraws": 2,
     "hazardDraws": 2,
+    "lairOf": "tw-26",
     "text": "Nearest Darkhaven: Dol Guldur Playable: Items (minor, major, greater, gold ring) Automatic-attacks: Dragon — 2 strikes with 11 prowess",
     "keywords": [
       "hoard"
@@ -176,6 +177,7 @@
     ],
     "resourceDraws": 2,
     "hazardDraws": 2,
+    "lairOf": "td-36",
     "text": "Nearest Darkhaven: Dol Guldur Playable: Items (minor, major, greater, gold ring) Automatic-attacks: Dragon — 1 strike with 15 prowess",
     "keywords": [
       "hoard"
@@ -262,6 +264,7 @@
         }
       }
     ],
+    "lairOf": "td-20",
     "text": "Nearest Darkhaven: Geann a-Lisch Playable: Information, Items (minor, major) Automatic-attacks: Dragon — 1 strike with 14 prowess Special: An overt company must tap an untapped character (if available) if this site is revealed as its new site.",
     "keywords": [
       "hoard"

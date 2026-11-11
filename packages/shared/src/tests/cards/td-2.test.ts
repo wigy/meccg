@@ -38,6 +38,7 @@ import type { CardDefinitionId, GameState, MovementHazardPhaseState, SiteCard } 
 const AGBURANAR_AT_HOME = 'td-2' as CardDefinitionId;
 const AGBURANAR_AHUNT = 'td-1' as CardDefinitionId;
 const CAVES_OF_ULUND = 'tw-381' as CardDefinitionId; // Agburanar's lair (lairOf tw-3)
+const CAVES_OF_ULUND_MINION = 'le-360' as CardDefinitionId; // minion version of the same lair
 const DANCING_SPIRE = 'tw-383' as CardDefinitionId; // Daelomin's lair — a different Dragon
 const DAELOMIN = 'tw-26' as CardDefinitionId; // unique Dragon manifestation, keyed to Dancing Spire
 
@@ -93,6 +94,16 @@ describe('Agburanar at Home (td-2)', () => {
     const attacks = getActiveAutoAttacks(state, state.cardPool[CAVES_OF_ULUND] as SiteCard);
     expect(attacks).toHaveLength(2);
     expect(attacks[0]).toMatchObject({ strikes: 1, prowess: 13 });
+    expect(attacks[1]).toMatchObject({ creatureType: 'Dragon', strikes: 2, prowess: 16, body: 9 });
+  });
+
+  test('the minion Caves of Ûlund (le-360) also gets the additional attack', () => {
+    // Regression (game mwbqjx05-5yd6ta): a minion company entered le-360 with
+    // Agburanar at Home in play and faced only the printed 13-prowess attack,
+    // because le-360 lacked its `lairOf` tag.
+    const state = buildMHState([AGBURANAR_AT_HOME], []);
+    const attacks = getActiveAutoAttacks(state, state.cardPool[CAVES_OF_ULUND_MINION] as SiteCard);
+    expect(attacks).toHaveLength(2);
     expect(attacks[1]).toMatchObject({ creatureType: 'Dragon', strikes: 2, prowess: 16, body: 9 });
   });
 
