@@ -50,7 +50,7 @@ import type {
 } from '@meccg/shared';
 import { cardImageProxyPath, isAttachedToPresentSite, cardsAttachedToCompany, isAttachedToPresentCompany, isAttachedToPresentCharacter, Phase, CardStatus, viableActions, getTitleCharacter } from '@meccg/shared';
 import type { CardDefinitionId } from '@meccg/shared';
-import { createCardImage, createCardImageFromDefId, inPlayCardDefs, storedCardDefs, actionsOfTypeFor } from './render-utils.js';
+import { createCardImage, createCardImageFromDefId, inPlayCardDefs, storedCardDefs, actionsOfTypeFor, permanentEventCardTargetId } from './render-utils.js';
 import { getSelectedFactionForInfluence, clearFactionInfluenceSelection, getSelectedResourceForPlay, clearResourcePlaySelection, getSelectedAllyForPlay, clearAllyPlaySelection, getSelectedHazardForPlay, clearHazardPlaySelection, getSelectedInfluencerForOpponent, setSelectedInfluencerForOpponent, clearOpponentInfluenceSelection, getSelectedShortEvent, clearShortEventSelection, setTargetingInstruction, getSelectedPermanentEventForPlay, clearPermanentEventPlaySelection, getSelectedPermanentEventForLongEventTarget, clearPermanentEventLongEventTargetSelection, getSelectedTapAltPermanentEvent, setSelectedTapAltPermanentEvent, clearTapAltPermanentEventSelection } from './render.js';
 import {
   getCachedInstanceLookup,
@@ -1766,7 +1766,7 @@ export function renderInPlayCardImage(
     const targetAction = viableActions(view.legalActions).find(
       (a): a is PlayPermanentEventAction => a.type === 'play-permanent-event'
         && a.cardInstanceId === selectedHandCard
-        && a.targetLongEventInstanceId === card.instanceId,
+        && permanentEventCardTargetId(a) === card.instanceId,
     );
     if (targetAction) {
       img.classList.add('company-card--influence-target');

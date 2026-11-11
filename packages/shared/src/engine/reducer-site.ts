@@ -6,6 +6,7 @@
  * influence attempts, and site phase advancement.
  */
 
+import { hoardFreeItemAtSite, applyHoardItemPlay } from './legendary-hoard.js';
 import type { GameState, PlayerState, CardDefinition, CardInstanceId, CardDefinitionId, CompanyId, CharacterInPlay, CardInstance, SitePhaseState, CombatState, OnGuardCard, GameAction, GameEffect, PlayerId, Company, AutomaticAttack, TwoDiceSix } from '../index.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { formatSignedNumber } from '../format-helpers.js';
@@ -3410,10 +3411,20 @@ export function handleSitePlayHeroResource(
     logDetail(`Site: ${def.name} is the first minor item played at the site (Framsburg) — leaving site untapped`);
   }
 
+  // Legendary Hoard (td-127): "If the site receiving the Dragon's
+  // automatic-attack is untapped, a number of items played there do not tap
+  // the site" — consulted only when nothing else already keeps the site
+  // untapped, so the hoard's per-turn allowance is not spent needlessly.
+  const otherItemNoTap = neverTaps || usingThoroughSearch || itemDoesNotTapSite || usingTechnologyBonus || usingWarForgesBonus || usingStolenBonus || noTapOnPlay || usingFirstItemNoTap || usingFirstMinorItemNoTap;
+  const hoardFreeItemId = isItem && !otherItemNoTap
+    ? hoardFreeItemAtSite(state, siteInPlay.definitionId, !siteWasTapped)
+    : undefined;
+  const usingHoardFreeItem = hoardFreeItemId !== undefined;
+
   // Thorough Search (and the Saruman's Machinery Technology bonus, and a
   // no-tap-on-play ally) prevent site tap and do not count as the "first
   // resource played" (so the opening minor-item bonus does not fire for them).
-  const openingBonusActual = !siteState.resourcePlayed && !neverTaps && !usingThoroughSearch && !itemDoesNotTapSite && !allyDoesNotTapSite && !usingTechnologyBonus && !usingWarForgesBonus && !usingStolenBonus && !noTapOnPlay && !usingFirstItemNoTap && !usingFirstMinorItemNoTap;
+  const openingBonusActual = !siteState.resourcePlayed && !neverTaps && !usingThoroughSearch && !itemDoesNotTapSite && !allyDoesNotTapSite && !usingTechnologyBonus && !usingWarForgesBonus && !usingStolenBonus && !noTapOnPlay && !usingFirstItemNoTap && !usingFirstMinorItemNoTap && !usingHoardFreeItem;
   const nextMinorItemAvailableActual = openingBonusActual
     ? true
     : consumingBonus
@@ -3436,7 +3447,7 @@ export function handleSitePlayHeroResource(
     logDetail(`Site: ${def.name} played via Dragon-lore's tapped-site allowance — allowance consumed`);
   }
 
-  const leavesSiteUntapped = neverTaps || usingThoroughSearch || itemDoesNotTapSite || allyDoesNotTapSite || usingTechnologyBonus || usingWarForgesBonus || usingStolenBonus || noTapOnPlay || usingFirstItemNoTap || usingFirstMinorItemNoTap;
+  const leavesSiteUntapped = neverTaps || usingThoroughSearch || itemDoesNotTapSite || allyDoesNotTapSite || usingTechnologyBonus || usingWarForgesBonus || usingStolenBonus || noTapOnPlay || usingFirstItemNoTap || usingFirstMinorItemNoTap || usingHoardFreeItem;
   const newCompaniesActual = [...player.companies];
   newCompaniesActual[siteState.activeCompanyIndex] = {
     ...company,
@@ -3455,7 +3466,7 @@ export function handleSitePlayHeroResource(
     })),
     phaseState: {
       ...siteState,
-      resourcePlayed: (usingThoroughSearch || usingTechnologyBonus || usingWarForgesBonus || usingStolenBonus || noTapOnPlay || allyDoesNotTapSite || usingFirstItemNoTap || usingFirstMinorItemNoTap) ? siteState.resourcePlayed : true,
+      resourcePlayed: (usingThoroughSearch || usingTechnologyBonus || usingWarForgesBonus || usingStolenBonus || noTapOnPlay || allyDoesNotTapSite || usingFirstItemNoTap || usingFirstMinorItemNoTap || usingHoardFreeItem) ? siteState.resourcePlayed : true,
       minorItemAvailable: nextMinorItemAvailableActual,
       hoardBountyAvailable: nextHoardBountyAvailable,
       thoroughSearchAvailable: nextThoroughSearchAvailable,
@@ -3477,6 +3488,14 @@ export function handleSitePlayHeroResource(
   // company's site, discard any attached event on a company character that
   // self-discards "when you play a resource that taps or requires the site".
   afterAttach = fireResourceTapsSiteDiscards(afterAttach, playerIndex, siteState.activeCompanyIndex, !leavesSiteUntapped);
+
+  // Legendary Hoard (td-127): count a free item against the hoard's
+  // allowance, or — when an item tapped the lair — discard the hoard
+  // ("Discard this card when any item is played at target Dragon's lair that
+  // taps the site").
+  if (isItem) {
+    afterAttach = applyHoardItemPlay(afterAttach, siteInPlay.definitionId, hoardFreeItemId, !siteWasTapped && !leavesSiteUntapped);
+  }
 
   // Apply ward-bearer effects declared by the incoming card: any hazard
   // on the bearer that matches the ward filter is immediately discarded

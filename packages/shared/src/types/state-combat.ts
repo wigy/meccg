@@ -1595,6 +1595,13 @@ export type ChainEntryPayload =
        */
       readonly targetLongEventInstanceId?: CardInstanceId;
       /**
+       * For a `play-target: "permanent-event"` resource permanent-event
+       * (Legendary Hoard td-127), the target in-play permanent-event instance
+       * (either player's). On resolution the card is bound to it via
+       * `CardInPlay.attachedTo`.
+       */
+      readonly targetPermanentEventInstanceId?: CardInstanceId;
+      /**
        * For a `faction-siege` permanent-event (Long Grievous Siege ba-40), the
        * site card instance in the controller's location deck chosen at play
        * time. On resolution the chain reducer moves it from the `siteDeck`

@@ -37,7 +37,7 @@ import {
   permanentEventLongEventTargetRenderCache,
 } from './render-selection-state.js';
 import { findSelfIndex } from './render-debug-panels.js';
-import { actionsOfTypeFor } from './render-utils.js';
+import { actionsOfTypeFor, permanentEventCardTargetId } from './render-utils.js';
 import { combatButtonLabel } from './combat-button-label.js';
 import { cancelAttackTargetNoun } from './cancel-attack-targets.js';
 import { showCursorTooltipMenu, type TooltipMenuItem } from './tooltip-menu.js';
@@ -197,8 +197,9 @@ export function findPermanentEventLongEventTargetActions(
 ): GameAction[] {
   if (!instanceId) return [];
   return actionsOfTypeFor(legalActions, 'play-permanent-event', instanceId)
-    .filter(a => 'targetLongEventInstanceId' in a && !!a.targetLongEventInstanceId);
+    .filter(a => permanentEventCardTargetId(a) !== undefined);
 }
+
 
 /**
  * Find all play-permanent-event actions with a faction target for a given
@@ -1345,7 +1346,7 @@ export function renderHand(
   // e1b9f49abb624834 — a second Echo silently attached to the same already-
   // protected long-event, leaving a sibling copy undefended and discarded).
   const hasLongEventTargetPermanentEventActions = viable.some(
-    a => a.type === 'play-permanent-event' && 'targetLongEventInstanceId' in a && a.targetLongEventInstanceId,
+    a => permanentEventCardTargetId(a) !== undefined,
   );
   if (onAction && hasLongEventTargetPermanentEventActions) {
     permanentEventLongEventTargetRenderCache.set({ view, cardPool, onAction });
@@ -1354,7 +1355,7 @@ export function renderHand(
       const stillViable = viable.some(
         a => a.type === 'play-permanent-event'
           && a.cardInstanceId === selectedLongEventTargetId
-          && 'targetLongEventInstanceId' in a && a.targetLongEventInstanceId,
+          && permanentEventCardTargetId(a) !== undefined,
       );
       if (!stillViable) {
         setSelectedPermanentEventForLongEventTarget(null);
@@ -2033,7 +2034,7 @@ export function renderHand(
         img.addEventListener('click', () => {
           setSelectedPermanentEventForLongEventTarget(isLongEventTargetSelected ? null : instId);
           setTargetingInstruction(
-            getSelectedPermanentEventForLongEventTarget() ? `Click a highlighted long-event to attach ${def.name}` : null,
+            getSelectedPermanentEventForLongEventTarget() ? `Click a highlighted card in play to attach ${def.name}` : null,
           );
           reRenderFromCache(permanentEventLongEventTargetRenderCache);
         });

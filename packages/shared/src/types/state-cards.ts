@@ -13,7 +13,7 @@ import {
   CardStatus,
   Race,
 } from './common.js';
-import type { ViewCard, RegionType } from './common.js';
+import type { ViewCard, RegionType, PlayerId } from './common.js';
 
 // ---- Card Instances (runtime, in-game) ----
 
@@ -410,6 +410,31 @@ export interface CardInPlay {
    * (`move-to-mp-pile` keep) and the card is gone if instead discarded.
    */
   readonly pendingTriggerAttack?: boolean;
+  /**
+   * Legendary Hoard (td-127, `dragon-hoard`): how many times this card has
+   * been rotated 90° — once per manifestation of its target Dragon played.
+   * Absent = never rotated.
+   */
+  readonly rotations?: number;
+  /**
+   * Legendary Hoard (td-127): items played this turn at the target Dragon's
+   * lair that did not tap the site thanks to this card. A record from an
+   * earlier turn counts as zero.
+   */
+  readonly hoardFreeItems?: { readonly turnNumber: number; readonly count: number };
+  /**
+   * Legendary Hoard (td-127): "If target Dragon is required to be discarded
+   * or removed from play, invert Dragon on table until this card is
+   * discarded." The target at-home card lives only here while inverted
+   * (reachable via `resolveInstanceId`); its effects are inactive and its
+   * Dragon counts as defeated. `pile`/`pileOwner` record where the card was
+   * headed — it goes there once this card leaves play.
+   */
+  readonly invertedDragon?: {
+    readonly card: CardInstance;
+    readonly pile: 'discardPile' | 'killPile' | 'outOfPlayPile';
+    readonly pileOwner: PlayerId;
+  };
 }
 
 /**

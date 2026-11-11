@@ -421,6 +421,8 @@ export function resolveInstanceId(state: GameState, instanceId: CardInstanceId):
     // General cards in play
     for (const card of player.cardsInPlay) {
       if (card.instanceId === instanceId) return card.definitionId;
+      // A Dragon held inverted with Legendary Hoard (td-127) lives only here.
+      if (card.invertedDragon?.card.instanceId === instanceId) return card.invertedDragon.card.definitionId;
     }
 
     // Agent characters and their site stacks

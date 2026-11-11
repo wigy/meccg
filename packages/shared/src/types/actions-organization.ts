@@ -401,6 +401,8 @@ export interface PlayPermanentEventAction {
   readonly targetFactionInstanceId?: CardInstanceId;
   /** For long-event-targeting permanent events (Echo of All Joy td-110), the target in-play resource long-event instance. */
   readonly targetLongEventInstanceId?: CardInstanceId;
+  /** For `play-target: "permanent-event"` cards (Legendary Hoard td-127), the target in-play permanent-event instance (either player's). */
+  readonly targetPermanentEventInstanceId?: CardInstanceId;
   /**
    * For a `faction-siege` permanent event (Long Grievous Siege ba-40), the site
    * card instance in the player's location deck chosen to be besieged — moved

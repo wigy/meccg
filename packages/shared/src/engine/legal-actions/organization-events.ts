@@ -38,6 +38,7 @@ import { buildPlayerStateContext, playerStateGateMet } from './organization.js';
 import { buildFactionPlayableRegions } from '../recompute-derived.js';
 import { isSetAsideCard, cardTargetsSetAside } from '../set-aside.js';
 import { findEnvironmentTargets } from '../environment-targets.js';
+import { isAtHomeDef } from '../legendary-hoard.js';
 
 /**
  * The combined count of a player's supporters for Girdle of Radagast (wh-110):
@@ -1313,6 +1314,55 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       if (!anyTarget) {
         logDetail(`Permanent event ${def.name}: no valid long-event target`);
         actions.push(notPlayable(playerId, cardInstanceId, `${def.name} has no valid long-event target`));
+      }
+      continue;
+    }
+
+    // play-target DSL: permanent-event-targeting resource permanent events
+    // (Legendary Hoard td-127: "Playable on an at home Dragon
+    // manifestation") get one action per qualifying in-play permanent-event
+    // of *either* player. "Cannot be duplicated on a given Dragon" — a
+    // `duplication-limit` scope "target" skips a target that already carries
+    // a copy (in play or still declared on the chain).
+    if (playTarget?.target === 'permanent-event') {
+      const targetDupLimit = findDuplicationLimitEffect(def, 'target');
+      let anyTarget = false;
+      for (const owner of state.players) {
+        for (const cip of owner.cardsInPlay) {
+          if (isSetAsideCard(cip)) continue;
+          const targetDef = defById(state, cip.definitionId);
+          if (!targetDef || !('eventType' in targetDef) || targetDef.eventType !== 'permanent') continue;
+          const ctx = {
+            target: {
+              name: targetDef.name,
+              keywords: (targetDef as { keywords?: readonly string[] }).keywords ?? [],
+              atHome: isAtHomeDef(targetDef),
+              manifestId: (targetDef as { manifestId?: string }).manifestId,
+            },
+          };
+          if (playTarget.filter && !matchesCondition(playTarget.filter, ctx)) continue;
+          if (targetDupLimit) {
+            const onTarget = state.players
+              .flatMap(p => p.cardsInPlay)
+              .filter(c => c.attachedTo === cip.instanceId && c.definitionId === handCard.definitionId).length
+              + (state.chain?.entries ?? []).filter(e => !e.resolved && !e.negated && e.card?.definitionId === handCard.definitionId
+                && e.payload.type === 'permanent-event' && e.payload.targetPermanentEventInstanceId === cip.instanceId).length;
+            if (onTarget >= targetDupLimit.max) {
+              logDetail(`Permanent event ${def.name}: ${targetDef.name} already carries ${onTarget} cop(ies) — cannot be duplicated on it`);
+              continue;
+            }
+          }
+          anyTarget = true;
+          logDetail(`Permanent event ${def.name}: playable on ${owner.id as string}'s ${targetDef.name}`);
+          actions.push({
+            action: { type: 'play-permanent-event', player: playerId, cardInstanceId, targetPermanentEventInstanceId: cip.instanceId },
+            viable: true,
+          });
+        }
+      }
+      if (!anyTarget) {
+        logDetail(`Permanent event ${def.name}: no valid permanent-event target`);
+        actions.push(notPlayable(playerId, cardInstanceId, `${def.name} has no valid target`));
       }
       continue;
     }

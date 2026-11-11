@@ -65,7 +65,13 @@ function postReduce(state: GameState, prevState?: GameState): GameState {
   // Black Horse (as-72): return the controller to hand when such an ally just
   // left play. Prev/next diff for the same reason as the sweep above.
   const afterLeaves = prevState ? applyReturnControllerOnLeave(prevState, afterDiscardOnLeaves) : afterDiscardOnLeaves;
-  const swept = sweepTapAtSiteItems(sweepKeywordReplaced(sweepProhibitedCompanyEvents(sweepDiscardSelfWhenCompany(sweepReturnSelfToHandWhen(sweepDiscardSelfWhen(sweepGreatHuntDiscards(sweepFallenWizardSpecific(sweepNoBetterUseCaptures(sweepPressGang(sweepSetAside(discardOrphanedLongEventAttachedEvents(discardOrphanedFactionAttachedEvents(discardOrphanedStoredAttachedEvents(discardOrphanedItemAttachedEvents(discardOrphanedConvertedAllyEvents(discardOrphanedAgentAttachedEvents(discardOrphanedSiteAttachedEvents(discardOrphanedControlledFactions(applyManifestationCascade(afterLeaves))))))))))))))))))));
+  // Legendary Hoard (td-127): a hoarded at-home Dragon that just left play by
+  // any path (combat defeat, the manifestation cascade below, a discard) is
+  // pulled back and held inverted with the hoard. Runs right after the
+  // cascade so a cascade-swept at-home is caught too.
+  const afterCascade = applyManifestationCascade(afterLeaves);
+  const afterHoardInversion = prevState ? invertHoardedDragons(prevState, afterCascade) : afterCascade;
+  const swept = sweepTapAtSiteItems(sweepKeywordReplaced(sweepProhibitedCompanyEvents(sweepDiscardSelfWhenCompany(sweepReturnSelfToHandWhen(sweepDiscardSelfWhen(sweepGreatHuntDiscards(sweepFallenWizardSpecific(sweepNoBetterUseCaptures(sweepPressGang(sweepSetAside(discardOrphanedLongEventAttachedEvents(discardOrphanedFactionAttachedEvents(discardOrphanedStoredAttachedEvents(discardOrphanedItemAttachedEvents(discardOrphanedConvertedAllyEvents(discardOrphanedAgentAttachedEvents(discardOrphanedSiteAttachedEvents(discardOrphanedControlledFactions(discardOrphanedHoards(afterHoardInversion))))))))))))))))))));
   // The Will of Sauron (tw-100): when the card retaining hazard long-events left
   // play this step, every hazard long-event goes with it. Runs *after* the
   // single-state sweeps so a retainer discarded by its own `discard-self-when`
@@ -129,7 +135,10 @@ function postReduce(state: GameState, prevState?: GameState): GameState {
   // constraints out of play for affected companies (and restore them once
   // the suspension lapses) — see `short-event-suspension.ts`.
   const afterSuspension = sweepSuspendedShortEventConstraints(afterNeverUntaps);
-  return accrueRevealedInstances(recomputeDerived(afterSuspension));
+  // Legendary Hoard (td-127): a hoard that left play by a path unaware of its
+  // held inverted Dragon releases the Dragon to the pile it was headed for.
+  const afterHoardRelease = releaseInvertedDragons(prevState ? [prevState, afterHoardInversion] : [afterHoardInversion], afterSuspension);
+  return accrueRevealedInstances(recomputeDerived(afterHoardRelease));
 }
 
 export type { ReducerResult } from './reducer-utils.js';
@@ -138,6 +147,7 @@ import { handleFetchFromPile, resolvePendingEffect, discardOrphanedControlledFac
 import { applyTapDiscardInPlay } from './short-event-discard.js';
 import { applyTapTakeItem } from './tap-take-item.js';
 import { recordCardPlayed } from './card-play-prohibition.js';
+import { rotateHoardsOnManifestationPlay, invertHoardedDragons, discardOrphanedHoards, releaseInvertedDragons } from './legendary-hoard.js';
 import { topResolutionFor } from './pending.js';
 import { applyEvilHourTaps } from './evil-hour.js';
 import { applyDiscardOnCardLeaves, clearOrphanedContainedBy } from './discard-on-card-leaves.js';
@@ -179,7 +189,7 @@ import { handleWithdrawSupport, updateWithdrawableSupport } from './withdraw-sup
 export function reduce(state: GameState, action: GameAction): ReducerResult {
   const result = reduceAction(state, action);
   if (result.error) return result;
-  const next = updateWithdrawableSupport(state, recordCardPlayed(state, result.state, action), action);
+  const next = updateWithdrawableSupport(state, rotateHoardsOnManifestationPlay(state, recordCardPlayed(state, result.state, action), action), action);
   return annotateAttackLog(state, { ...result, state: next });
 }
 
