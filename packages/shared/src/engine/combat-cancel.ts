@@ -25,7 +25,7 @@ import { CardStatus } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { findAllyInCompany, findItemInCompany } from './legal-actions/combat.js';
-import { attackSourceCreatureInstanceId, cardName, clonePlayers, companyById, companySiteDef, companySubphaseScope, defById, discardOrRecyclePlayedEvent, findById, getCardEffects, removeById, toCardInstance, updateCharacter, updatePlayer, wrongActionType, findCardEffect } from './reducer-utils.js';
+import { attackSourceCreatureInstanceId, cardName, clonePlayers, companyById, companySiteDef, companySubphaseScope, defById, discardOrRecyclePlayedEvent, findById, getCardEffects, removeById, toCardInstance, updateCharacter, updatePlayer, wrongActionType, findCardEffect, unpairedResourcePairingCards } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { enqueueCorruptionCheck, addConstraint, removeConstraint, enqueueResolution, sweepExpired } from './pending.js';
@@ -687,6 +687,23 @@ export function handleCancelAttack(state: GameState, action: GameAction, combat:
     hand: removeById(p.hand, handCard.instanceId),
   }));
   resultState = discardOrRecyclePlayedEvent(resultState, defPlayerIndex, toCardInstance(handCard));
+
+  // Played "with" Crown of Flowers (dm-121): the short event is discarded on
+  // play, and "Discard Crown of Flowers when the resource is discarded" — so
+  // the Crown leaves play together with it.
+  if (action.cofInstanceId) {
+    const cofId = action.cofInstanceId;
+    if (!unpairedResourcePairingCards(state, defPlayer).some(c => c.instanceId === cofId)) {
+      return { state, error: `Crown of Flowers ${cofId as string} is not an unpaired card in play` };
+    }
+    const cofCard = defPlayer.cardsInPlay.find(c => c.instanceId === cofId)!;
+    logDetail(`Cancel-attack ${cardDef?.name ?? handCard.definitionId as string}: played with ${cardName(state, cofCard.definitionId)} (${cofId as string}) — discarding it with the short event`);
+    resultState = updatePlayer(resultState, defPlayerIndex, p => ({
+      ...p,
+      cardsInPlay: removeById(p.cardsInPlay, cofId),
+      discardPile: [...p.discardPile, toCardInstance(cofCard)],
+    }));
+  }
 
   // Attack-scoped duplication limit: record this play as a constraint so the
   // legal-action scanner can block a second copy on the same attack. Applies

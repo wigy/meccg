@@ -523,6 +523,15 @@ export interface CancelAttackAction {
    * site card for this one before the attack is canceled.
    */
   readonly replacementSiteInstanceId?: CardInstanceId;
+  /**
+   * An in-play, unpaired Crown of Flowers (dm-121) the hand card is played
+   * "with". Set only when the card's `when` gate is satisfied solely under the
+   * Crown's reinterpretation ("as though Gates of Morning were in play and
+   * Doors of Night were not") — e.g. Fifteen Birds in Five Firtrees (dm-129).
+   * The short event is discarded on play, so the Crown is discarded with it
+   * ("Discard Crown of Flowers when the resource is discarded").
+   */
+  readonly cofInstanceId?: CardInstanceId;
 }
 
 /**
