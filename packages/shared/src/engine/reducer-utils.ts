@@ -1167,6 +1167,48 @@ export function getOnEventEffects(
 }
 
 /**
+ * An in-play, not-yet-paired resource-pairing card (Crown of Flowers dm-121)
+ * together with the environment reinterpretation it grants the one resource
+ * played "with it".
+ */
+export interface UnpairedResourcePairingCard {
+  /** Instance ID of the pairing card in the player's `cardsInPlay`. */
+  readonly instanceId: CardInstanceId;
+  /** Card names considered in play for the paired resource (e.g. Gates of Morning). */
+  readonly assumeInPlay: readonly string[];
+  /** Card names considered NOT in play for the paired resource (e.g. Doors of Night). */
+  readonly assumeNotInPlay: readonly string[];
+}
+
+/**
+ * The player's in-play cards carrying an `on-event: self-enters-play →
+ * offer-resource-play` effect that have not yet had a resource played with
+ * them (no `linkedInstanceId`). Crown of Flowers (dm-121): "has no effect until
+ * you play a resource with it. You can play one resource from your hand with
+ * this card. The resource is considered to be played … as though Gates of
+ * Morning were in play and Doors of Night were not."
+ */
+export function unpairedResourcePairingCards(
+  state: GameState,
+  player: PlayerState,
+): UnpairedResourcePairingCard[] {
+  const result: UnpairedResourcePairingCard[] = [];
+  for (const card of player.cardsInPlay) {
+    if (card.linkedInstanceId !== undefined) continue;
+    const offer = getOnEventEffects(defById(state, card.definitionId), 'self-enters-play')
+      .map(e => e.apply)
+      .find((a): a is Extract<typeof a, { type: 'offer-resource-play' }> => a.type === 'offer-resource-play');
+    if (!offer) continue;
+    result.push({
+      instanceId: card.instanceId,
+      assumeInPlay: offer.assumeInPlay ?? [],
+      assumeNotInPlay: offer.assumeNotInPlay ?? [],
+    });
+  }
+  return result;
+}
+
+/**
  * True for a `short` hazard-event whose `self-enters-play-combat` on-event
  * declares one of the combat-reactive applies that resolve and discard
  * immediately during a combat play window instead of attaching to a

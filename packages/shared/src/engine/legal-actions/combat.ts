@@ -30,7 +30,7 @@ import { resolveDef, enemyRaceContext, getEffectiveSkills } from '../effects/ind
 import { canPayCost } from '../cost-evaluator.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { buildPlayOptionContext, getPlayTargetEffect, grantedActionActivations, playerStateGateMet } from './organization.js';
-import { attackSourceCreatureInstanceId, findCharacterCompany, playerById, getCardEffects, getOnEventEffects, companyById, defById, defNamesOf, itemKeywordsOf, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, inPlayNamesForPlayerDeep, isCardNameInPlayForPlayer, isCardNameInPlayOrCharacters, isCombatReactiveShortEvent, untappedAltPermanentEvents, countCopiesInPlay, companyShadowMagicUsers, resolveCreatureBodyForCheck, findCardEffect, hasCardEffect, characterHasRequiredRace } from '../reducer-utils.js';
+import { attackSourceCreatureInstanceId, findCharacterCompany, playerById, getCardEffects, getOnEventEffects, companyById, defById, defNamesOf, itemKeywordsOf, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, inPlayNamesForPlayerDeep, isCardNameInPlayForPlayer, isCardNameInPlayOrCharacters, isCombatReactiveShortEvent, untappedAltPermanentEvents, countCopiesInPlay, companyShadowMagicUsers, resolveCreatureBodyForCheck, findCardEffect, hasCardEffect, characterHasRequiredRace, unpairedResourcePairingCards } from '../reducer-utils.js';
 import { holdableAttackCreatureInstanceId } from '../held-creature.js';
 import { countConstraintsFromDefinition, constraintsOnCompany, multiStrikeAllowance } from '../pending.js';
 import { allyEffectiveBody } from '../ally-stats.js';
@@ -3129,6 +3129,24 @@ function cancelAttackActions(
     });
   }
 
+  // Hand cancel-attack cards playable only "with" an unpaired Crown of
+  // Flowers (dm-121): hand instance → Crown instance. Stamped onto the
+  // emitted actions after the loop as `cofInstanceId`.
+  const viaPairingCard = new Map<CardInstanceId, CardInstanceId>();
+  const pairingCards = unpairedResourcePairingCards(state, player);
+  const resourcePairingCardSatisfyingWhen = (when: NonNullable<CancelAttackEffect['when']>): CardInstanceId | undefined => {
+    for (const pairing of pairingCards) {
+      const ctx = whenContext();
+      const defender = ctx['defender'] as { inPlay: readonly string[] } & Record<string, unknown>;
+      const inPlay = defender.inPlay.filter(n => !pairing.assumeNotInPlay.includes(n));
+      for (const n of pairing.assumeInPlay) if (!inPlay.includes(n)) inPlay.push(n);
+      ctx['defender'] = { ...defender, inPlay };
+      if (matchesCondition(when, ctx)) return pairing.instanceId;
+    }
+    return undefined;
+  };
+  const handCancelStart = actions.length;
+
   for (const handCard of player.hand) {
     const cardDef = defById(state, handCard.definitionId);
     const cancelEffect = findCardEffect(cardDef, 'cancel-attack');
@@ -3182,8 +3200,19 @@ function cancelAttackActions(
 
     // Check `when` condition against full combat context (enemy.race, attack.source, attack.siteKeyed, etc.)
     if (cancelEffect.when && !matchesCondition(cancelEffect.when, whenContext())) {
-      logDetail(`Cancel-attack ${handCard.definitionId as string}: when condition not met (creature race: ${combat.creatureRace ?? 'none'})`);
-      continue;
+      // Crown of Flowers (dm-121): "You can play one resource from your hand
+      // with this card. The resource is considered to be played … as though
+      // Gates of Morning were in play and Doors of Night were not." A hand
+      // resource whose gate fails as-is may still be played with an unpaired
+      // Crown if the gate holds under the Crown's reinterpretation of
+      // `defender.inPlay` (Fifteen Birds in Five Firtrees dm-129).
+      const cofId = resourcePairingCardSatisfyingWhen(cancelEffect.when);
+      if (!cofId) {
+        logDetail(`Cancel-attack ${handCard.definitionId as string}: when condition not met (creature race: ${combat.creatureRace ?? 'none'})`);
+        continue;
+      }
+      logDetail(`Cancel-attack ${handCard.definitionId as string}: when condition met only when played with Crown of Flowers ${cofId as string}`);
+      viaPairingCard.set(handCard.instanceId, cofId);
     }
 
     // Cards with set-character-status { status: "inverted", target: "target-character" }
@@ -3351,6 +3380,15 @@ function cancelAttackActions(
           viable: true,
         });
       }
+    }
+  }
+
+  if (viaPairingCard.size > 0) {
+    for (let i = handCancelStart; i < actions.length; i++) {
+      const a = actions[i].action;
+      if (a.type !== 'cancel-attack') continue;
+      const cofId = viaPairingCard.get(a.cardInstanceId);
+      if (cofId) actions[i] = { ...actions[i], action: { ...a, cofInstanceId: cofId } };
     }
   }
 

@@ -66,6 +66,7 @@ import type { CancelAttackAction, ActivateGrantedAction } from '../../index.js';
 import { RegionType, SiteType } from '../../index.js';
 import type { CardInPlay, CardDefinitionId, CardInstanceId, GameState } from '../../index.js';
 import { addConstraint } from '../../engine/pending.js';
+import { CROWN_OF_FLOWERS } from '../../card-ids.js';
 
 const FIFTEEN_BIRDS = 'dm-129' as CardDefinitionId;
 const STIRRING_BONES = 'dm-111' as CardDefinitionId; // Undead, non-unique, 2 strikes; keyed incl. 2x wilderness -> ruins-and-lairs
@@ -367,5 +368,32 @@ describe('company-site-phase-do-nothing: unless it contains a Wizard, or you dis
     const escapeActions = viableActions(after, PLAYER_1, 'activate-granted-action')
       .filter(ea => (ea.action as ActivateGrantedAction).actionId === 'discard-eagle-mounts-for-site-phase');
     expect(escapeActions).toHaveLength(0);
+  });
+
+  // Regression (Bug Report: Crown of flowers, game mwbqjx05-5yd6ta seq 524):
+  // with an unpaired Crown of Flowers (dm-121) in play and no Gates of
+  // Morning, Fifteen Birds could not be played "with" the Crown against a
+  // non-unique creature. Crown: "The resource is considered to be played … as
+  // though Gates of Morning were in play"; the short event is discarded on
+  // play, so the Crown is discarded with it.
+  test('playable with an unpaired Crown of Flowers instead of Gates of Morning; Crown is discarded with it', () => {
+    const cofInPlay: CardInPlay = {
+      instanceId: 'cof-1' as CardInstanceId,
+      definitionId: CROWN_OF_FLOWERS,
+      status: CardStatus.Untapped,
+    };
+    const state = faceCreature(addP1CardsInPlay(baseState([STIRRING_BONES]), [cofInPlay]), STIRRING_BONES);
+    expect(state.combat).toBeDefined();
+
+    const cancelActions = viableActions(state, PLAYER_1, 'cancel-attack');
+    expect(cancelActions).toHaveLength(1);
+    const cancelAction = cancelActions[0].action as CancelAttackAction;
+    expect(cancelAction.cofInstanceId).toBe('cof-1');
+
+    const after = resolveChain(dispatch(state, cancelAction));
+    expect(after.combat).toBeNull();
+    expectInDiscardPile(after, RESOURCE_PLAYER, FIFTEEN_BIRDS);
+    expectInDiscardPile(after, RESOURCE_PLAYER, CROWN_OF_FLOWERS);
+    expect(after.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.instanceId === 'cof-1')).toBe(false);
   });
 });
