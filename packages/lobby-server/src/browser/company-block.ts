@@ -71,6 +71,8 @@ import { showTooltipMenu, type TooltipMenuItem } from './tooltip-menu.js';
 import { resolveItemClick, isSelfDiscardGrantedAction, type BlockedMoveToInfluence } from './company-actions.js';
 import { switchToAllCompanies } from './company-view.js';
 import { showConfirm } from './dialog.js';
+import { setSelectedResourceForPlay } from './render-selection-state.js';
+import { findSetAsideItemPlayActions } from './set-aside-item-play.js';
 
 /**
  * All viable influence-attempt actions for a given (faction, character) pair.
@@ -1826,7 +1828,34 @@ export function renderInPlayCardImage(
     // Without this neither action had a board affordance (bug report
     // 1d452f3f0db6495d).
     const summonsActs = findSummonsFromLongSleepActions(viableActions(view.legalActions), card.instanceId);
-    if (tapAltActions.length > 0 && sideboardWithNazgulActs.length > 0) {
+    // Items stored under an Armory (dm-116): the engine offers them as
+    // `play-hero-resource` with `fromSetAside: true`, but the item sits in
+    // cardsInPlay rather than in hand, so without this the stored card had no
+    // board affordance and could not be played (bug report 9742326039defd14).
+    // A single bearer plays directly; several enter the ordinary two-step
+    // resource-play character targeting.
+    const setAsideItemActs = findSetAsideItemPlayActions(viableActions(view.legalActions), card.instanceId);
+    if (setAsideItemActs.length > 0) {
+      const isSelected = getSelectedResourceForPlay() === card.instanceId;
+      img.classList.add('company-card--movable');
+      if (isSelected) img.classList.add('company-card--influence-source');
+      img.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (setAsideItemActs.length === 1) {
+          clearResourcePlaySelection();
+          onAction(setAsideItemActs[0]);
+          return;
+        }
+        if (isSelected) {
+          clearResourcePlaySelection();
+        } else {
+          setSelectedResourceForPlay(card.instanceId);
+          const itemName = cardPool[card.definitionId as string]?.name ?? 'the item';
+          setTargetingInstruction(`Click an untapped character to bear ${itemName}`);
+        }
+        rerender();
+      });
+    } else if (tapAltActions.length > 0 && sideboardWithNazgulActs.length > 0) {
       // A Nazgûl with both its own tap ability and sideboard access (rule
       // 2.IV.vii.5): the click must offer both, or the tap ability shadows
       // the fetch and the player can't pick which Nazgûl to discard.
