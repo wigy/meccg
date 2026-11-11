@@ -201,6 +201,38 @@ export function findPermanentEventLongEventTargetActions(
 }
 
 /**
+ * Find all play-permanent-event actions with a faction target for a given
+ * instance. Faction-targeting permanent events (Long Grievous Siege ba-40)
+ * produce one action per eligible (own faction × location-deck Border-hold)
+ * pair; the player — not the UI — must choose both the faction and the
+ * Border-hold placed "off to the side" (bug da623bb875f5f7a6).
+ */
+export function findPermanentEventFactionTargetActions(
+  instanceId: CardInstanceId | null,
+  legalActions: readonly GameAction[],
+): GameAction[] {
+  if (!instanceId) return [];
+  return actionsOfTypeFor(legalActions, 'play-permanent-event', instanceId)
+    .filter(a => 'targetFactionInstanceId' in a && !!a.targetFactionInstanceId);
+}
+
+/**
+ * Menu label for a faction-targeting permanent-event choice: names the target
+ * faction and, for a siege, the besieged Border-hold (e.g. "Orcs of Angmar —
+ * besiege Bree").
+ */
+export function factionTargetChoiceLabel(
+  action: GameAction,
+  nameOf: (id: CardInstanceId) => string,
+): string {
+  if (action.type !== 'play-permanent-event' || !action.targetFactionInstanceId) return 'Play';
+  const faction = nameOf(action.targetFactionInstanceId);
+  return action.besiegedSiteInstanceId
+    ? `${faction} \u2014 besiege ${nameOf(action.besiegedSiteInstanceId)}`
+    : faction;
+}
+
+/**
  * Find all influence-attempt actions for a given faction card instance.
  * One action per eligible untapped character.
  */
@@ -1473,6 +1505,8 @@ export function renderHand(
     const isPermanentEventWithCharTarget = permanentEventCharTargetActions.length > 1;
     const permanentEventLongEventTargetActions = findPermanentEventLongEventTargetActions(cardInstanceId, viable);
     const isPermanentEventWithLongEventTarget = permanentEventLongEventTargetActions.length > 1;
+    const permanentEventFactionTargetActions = findPermanentEventFactionTargetActions(cardInstanceId, viable);
+    const isPermanentEventWithFactionTarget = permanentEventFactionTargetActions.length > 1;
     const influenceActions = findInfluenceActions(cardInstanceId, viable);
     const isInfluence = influenceActions.length > 0;
     const cancelAttackActions = findCancelAttackActions(cardInstanceId, viable);
@@ -1508,7 +1542,7 @@ export function renderHand(
     const balrogSwapActions = findBalrogSwapActions(cardInstanceId, viable);
     const startingCompanyEventActions = findStartingCompanyEventActions(cardDefId, viable);
     const isStartingCompanyEvent = startingCompanyEventActions.length > 0;
-    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isAgentHazard && !isAlly && !isResource && !isPermanentEventWithCharTarget && !isPermanentEventWithLongEventTarget && !isInfluence && !isCancelAttack && !isModifyAttack && !isStrikeEvent && !isRingAfterTest && !isPlacementOffer && !isDragonAmbushOffer && !isSiteAutoAttack && !isConvertCreatureToAlly && !isSacrificeOfForm && !isRevealedCardPlay && !isDeclareBurglary && !isItemCacheStore && !discardAction && !onGuardAction && !isStartingCompanyEvent && !reshuffleAction
+    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isAgentHazard && !isAlly && !isResource && !isPermanentEventWithCharTarget && !isPermanentEventWithLongEventTarget && !isPermanentEventWithFactionTarget && !isInfluence && !isCancelAttack && !isModifyAttack && !isStrikeEvent && !isRingAfterTest && !isPlacementOffer && !isDragonAmbushOffer && !isSiteAutoAttack && !isConvertCreatureToAlly && !isSacrificeOfForm && !isRevealedCardPlay && !isDeclareBurglary && !isItemCacheStore && !discardAction && !onGuardAction && !isStartingCompanyEvent && !reshuffleAction
       ? findNonViableReason(cardDefId, view.legalActions, cachedInstanceLookup)
       : undefined;
     const selectedItemDefId = getSelectedItemDefId();
@@ -2002,6 +2036,24 @@ export function renderHand(
             getSelectedPermanentEventForLongEventTarget() ? `Click a highlighted long-event to attach ${def.name}` : null,
           );
           reRenderFromCache(permanentEventLongEventTargetRenderCache);
+        });
+      }
+    } else if (isPermanentEventWithFactionTarget) {
+      // Faction-targeting permanent events (Long Grievous Siege ba-40): one
+      // action per faction × Border-hold — let the player pick instead of
+      // firing the first (bug da623bb875f5f7a6).
+      img.className = 'hand-card hand-card-playable';
+      if (onAction) {
+        img.addEventListener('click', (e) => {
+          const nameOf = (id: CardInstanceId): string => {
+            const targetDefId = cachedInstanceLookup(id);
+            return (targetDefId ? cardPool[targetDefId as string]?.name : undefined) ?? (id as string);
+          };
+          const items: TooltipMenuItem[] = permanentEventFactionTargetActions.map(a => ({
+            label: factionTargetChoiceLabel(a, nameOf),
+            onClick: () => onAction(a),
+          }));
+          showCursorTooltipMenu(e, items);
         });
       }
     } else if (isStrikeEvent) {
