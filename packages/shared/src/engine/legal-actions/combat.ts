@@ -2264,11 +2264,18 @@ function bodyCheckActions(
   // roll on this same strike (see `pendingAdditionalBodyChecks` in
   // combat-actions.ts) — applies exactly like `attackBodyCheckModifier`.
   const additionalCheckMod = combat.bodyCheckTarget === 'character' ? (combat.pendingAdditionalBodyChecks?.[0] ?? 0) : 0;
-  const bcNeed = body + 1 - woundedBonus - attackBodyCheckModifier - additionalCheckMod;
+  // Forced-defeat attacks (Sacrifice of Form tw-321 +3, Liquid Fire wh-52 -2):
+  // the reducer's handleBodyCheckRoll adds `forcedDefeatBodyCheckModifier` to
+  // every creature body check the attack produces, so the quoted `need` must
+  // reflect it too — otherwise the player is told the creature is safer (or
+  // more vulnerable) than it really is.
+  const forcedDefeatMod = combat.bodyCheckTarget === 'creature' ? (combat.forcedDefeatBodyCheckModifier ?? 0) : 0;
+  const bcNeed = body + 1 - woundedBonus - attackBodyCheckModifier - additionalCheckMod - forcedDefeatMod;
   const bcParts = [`${targetLabel} body ${body}`];
   if (woundedBonus) bcParts.push('+1 wounded');
   if (attackBodyCheckModifier) bcParts.push(`${formatSignedNumber(attackBodyCheckModifier)} attack`);
   if (additionalCheckMod) bcParts.push(`${formatSignedNumber(additionalCheckMod)} additional check`);
+  if (forcedDefeatMod) bcParts.push(`${formatSignedNumber(forcedDefeatMod)} forced defeat`);
 
   logDetail(`${roller === combat.attackingPlayerId ? 'Attacker' : 'Defender'} rolls body check vs ${targetLabel} (body ${body}${isWounded ? ', wounded +1' : ''})`);
   return [{
