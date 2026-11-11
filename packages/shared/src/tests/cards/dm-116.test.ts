@@ -302,6 +302,34 @@ describe('Armory (dm-116)', () => {
     assertEveryInstanceReachable(played);
   });
 
+  test('a unique item stored under Armory (Thrór\'s Map) does not block itself as "already in play"', () => {
+    const throrsMap = 'td-158' as CardDefinitionId;
+    const itemId = 'cached-map' as CardInstanceId;
+    const hostAndChild: CardInPlay[] = [
+      { instanceId: ARMORY_INSTANCE, definitionId: ARMORY, status: CardStatus.Untapped, setAside: [itemId] },
+      { instanceId: itemId, definitionId: throrsMap, status: CardStatus.Untapped, setAsideHost: ARMORY_INSTANCE, setAsideNoMp: true },
+    ];
+
+    const base = buildSitePhaseState({ site: RHOSGOBEL, characters: [ARAGORN], hand: [] });
+    const state: GameState = {
+      ...base,
+      players: [
+        { ...base.players[0], cardsInPlay: hostAndChild },
+        base.players[1],
+      ] as typeof base.players,
+    };
+
+    const plays = viableActions(state, PLAYER_1, 'play-hero-resource')
+      .filter(a => (a.action as PlayHeroResourceAction).cardInstanceId === itemId);
+    expect(plays).toHaveLength(1);
+    expect((plays[0].action as PlayHeroResourceAction).fromSetAside).toBe(true);
+
+    const played = dispatch(state, plays[0].action);
+    const aragornId = played.players[RESOURCE_PLAYER].companies[0].characters[0];
+    expect(played.players[RESOURCE_PLAYER].characters[aragornId].items.some(i => i.instanceId === itemId)).toBe(true);
+    assertEveryInstanceReachable(played);
+  });
+
   test('control: an item stored under Armory is NOT offered as though in hand at Moria (shadow-hold)', () => {
     const itemId = 'cached-item' as CardInstanceId;
     const hostAndChild: CardInPlay[] = [

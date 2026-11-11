@@ -2321,7 +2321,15 @@ export function playResourcesActions(
       // so a hand-rolled scan of `ch.items` alone (the previous approach here)
       // missed that case and let a second unique item (e.g. Orcrist tw-295)
       // be played while the opponent's copy sat unattached in `cardsInPlay`.
-      if (itemDef.unique && countCopiesInPlay(state, itemDef.name) > 0) {
+      //
+      // A set-aside candidate (an item under Armory dm-116, or a Great
+      // Secrets item at an Under-deeps site) is itself registered in
+      // `cardsInPlay` (MEAS §1), so `countCopiesInPlay` counts it. Playing it
+      // only moves that same copy onto a character, so exclude it from the
+      // tally — otherwise a unique item such as Thrór's Map (td-158) blocks
+      // itself from ever leaving Armory.
+      const selfCopy = setAsideInstanceIds.has(cardInstanceId as string) ? 1 : 0;
+      if (itemDef.unique && countCopiesInPlay(state, itemDef.name) - selfCopy > 0) {
         logDetail(`Item ${itemDef.name}: unique and already in play`);
         actions.push(notPlayable(playerId, cardInstanceId, `${itemDef.name} is unique and already in play`));
         continue;
