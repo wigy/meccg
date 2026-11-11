@@ -1019,7 +1019,7 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
     const forcedMod = combat.forcedDefeatBodyCheckModifier ?? 0;
     const effectiveRoll = rollTotal + woundedBonus + bearerMod + forcedMod;
     const entityLabel = isAgent ? 'agent' : 'creature';
-    logDetail(`Body check vs ${entityLabel}: roll ${rollTotal}${woundedBonus ? '+1(wounded)' : ''}${bearerMod ? `${formatSignedNumber(bearerMod)}(bearer)` : ''}${forcedMod ? `${formatSignedNumber(forcedMod)}(Liquid Fire)` : ''} = ${effectiveRoll} vs body ${body}`);
+    logDetail(`Body check vs ${entityLabel}: roll ${rollTotal}${woundedBonus ? '+1(wounded)' : ''}${bearerMod ? `${formatSignedNumber(bearerMod)}(bearer)` : ''}${forcedMod ? `${formatSignedNumber(forcedMod)}(forced defeat)` : ''} = ${effectiveRoll} vs body ${body}`);
     effects[0] = withRollBreakdown(rollEffect, effectiveRoll, {
       character: nonZeroTerms([
         { label: 'wounded', value: woundedBonus },

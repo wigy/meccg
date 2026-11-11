@@ -304,6 +304,20 @@ describe('Sacrifice of Form (tw-321)', () => {
     expect(afterBodyCheck.combat!.strikeAssignments[0].resolved).toBe(true);
   });
 
+  test('the body-check roll quotes the +3 bonus in its need (bug: "need 9+ (creature body 8)")', () => {
+    // Game mwbqjx05-5yd6ta seq 553: creature body 8, the offered roll said
+    // need 9+ with no mention of Sacrifice of Form's +3 — it must be 6+.
+    const state = gandalfFacingAttack({ creatureBody: 8 });
+    const action = viableActions(state, PLAYER_1, 'play-sacrifice-of-form')[0].action;
+    const afterPlay = chooseStrike(dispatch(state, action), 0);
+    const afterStrike = executeAction(afterPlay, PLAYER_1, 'resolve-strike', 2, true);
+    expect(afterStrike.combat!.bodyCheckTarget).toBe('creature');
+
+    const roll = viableActions(afterStrike, PLAYER_1, 'body-check-roll')[0].action as { need: number; explanation: string };
+    expect(roll.need).toBe(6);
+    expect(roll.explanation).toContain('+3 forced defeat');
+  });
+
   test('a tie roll is still a forced defeat — recorded as success, not tie (bug regression)', () => {
     // Gandalf's combat prowess against an Orc is 9 (6 base + 3 from
     // Glamdring, capped at 9 vs Orcs), so with strike prowess 12 a roll of 3
