@@ -6428,8 +6428,15 @@ export interface PlayTargetEffect extends EffectBase {
    * riding on `targetStoredPermanentEventInstanceId`. Used by Which Might Be
    * Lies (dm-100): "Playable on a stored resource permanent-event that
    * required an information site to be played."
+   * Resource-side `permanent-event` scopes to **either** player's in-play
+   * permanent-events (filter context `{ target: { name, keywords, atHome,
+   * manifestId } }`, `atHome` true for a `dragon-at-home` card). One
+   * `play-permanent-event` action per candidate, riding on
+   * `targetPermanentEventInstanceId`; the resolved card is bound via
+   * `CardInPlay.attachedTo`. Used by Legendary Hoard (td-127): "Playable on
+   * an at home Dragon manifestation."
    */
-  readonly target: 'character' | 'company' | 'site' | 'faction' | 'ally' | 'stored-item' | 'item' | 'long-event' | 'agent' | 'nazgul-permanent-event' | 'stored-permanent-event';
+  readonly target: 'character' | 'company' | 'site' | 'faction' | 'ally' | 'stored-item' | 'item' | 'long-event' | 'agent' | 'nazgul-permanent-event' | 'stored-permanent-event' | 'permanent-event';
   /**
    * Per-mode phase gate: when set, the *targeted* play mode is only offered
    * while the current phase is one of these values (e.g. `["organization"]`).
@@ -9870,6 +9877,29 @@ export interface BalrogSurfaceRegionMovementEffect extends EffectBase {
 }
 
 /**
+ * A resource permanent-event bound (`CardInPlay.attachedTo`, via `play-target`
+ * `permanent-event`) to an in-play "<Dragon> at Home" manifestation — Legendary
+ * Hoard (td-127). Implemented in `engine/legendary-hoard.ts`:
+ *
+ * - the target's augmented lair automatic-attack gains `cannot-be-canceled`;
+ * - the card rotates (`CardInPlay.rotations`) each time a manifestation of the
+ *   target Dragon is played, by either player;
+ * - while the lair (any version, `lairOf` = the target's `manifestId`) is
+ *   untapped, the first `freeItemsByRotation[min(rotations, len - 1)]` items
+ *   played there each turn do not tap the site;
+ * - an item played at the lair that taps it discards this card;
+ * - when the target would be discarded or removed from play it is instead
+ *   held inverted with this card (`CardInPlay.invertedDragon`), its effects
+ *   inactive and the Dragon counted as defeated, until this card is
+ *   discarded — the Dragon then goes where it was originally headed.
+ */
+export interface DragonHoardEffect extends EffectBase {
+  readonly type: 'dragon-hoard';
+  /** Items per turn that do not tap the lair, indexed by rotation count (last entry = "or more"). */
+  readonly freeItemsByRotation: readonly number[];
+}
+
+/**
  * Augments a Dragon's lair with an additional automatic-attack while this
  * "At-Home" permanent-event is in play and the same Dragon's Ahunt
  * long-event is *not* in play.
@@ -11102,6 +11132,7 @@ export type CardEffect =
   | InfluenceModificationEffect
   | CancelManifestationAttacksEffect
   | DragonAtHomeEffect
+  | DragonHoardEffect
   | CallCouncilEffect
   | WardBearerEffect
   | MoveEffect

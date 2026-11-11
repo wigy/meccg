@@ -1200,8 +1200,26 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable on an at home Dragon manifestation. Target Dragon’s automatic-attack cannot be cancelled. Rotate this card 90˚ each time a manifestation of target Dragon is played. If the site receiving the Dragon’s automatic-attack is untapped, a number of items played there do not tap the site: not rotated: 1 item; rotated once: 2 items; rotated twice or more: 3 items. If target Dragon is required to be discarded or removed from play, invert Dragon on table until this card is discarded. Discard this card when any item is played at target Dragon’s lair that taps the site. Cannot be duplicated on a given Dragon."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "permanent-event",
+        "filter": {
+          "target.atHome": true
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "target",
+        "max": 1
+      },
+      {
+        "type": "dragon-hoard",
+        "freeItemsByRotation": [1, 2, 3]
+      }
+    ],
+    "text": "Playable on an at home Dragon manifestation. Target Dragon’s automatic-attack cannot be cancelled. Rotate this card 90˚ each time a manifestation of target Dragon is played. If the site receiving the Dragon’s automatic-attack is untapped, a number of items played there do not tap the site: not rotated: 1 item; rotated once: 2 items; rotated twice or more: 3 items. If target Dragon is required to be discarded or removed from play, invert Dragon on table until this card is discarded. Discard this card when any item is played at target Dragon’s lair that taps the site. Cannot be duplicated on a given Dragon.",
+    "certified": "2026-11-11"
   },
   {
     "cardType": "hero-resource-event",

@@ -2936,6 +2936,20 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
       }));
       logDetail(`"${def?.name ?? card.definitionId}" attached to long-event ${targetLongEventId as string}`);
     }
+
+    // Permanent-event-targeting resource permanent event (Legendary Hoard
+    // td-127): bind the host to the target in-play permanent-event instance —
+    // which may sit in either player's cardsInPlay — via `attachedTo`.
+    const targetPermEventId = entry.payload.type === 'permanent-event' ? entry.payload.targetPermanentEventInstanceId : undefined;
+    if (targetPermEventId) {
+      working = updatePlayer(working, playerIndex, p => ({
+        ...p,
+        cardsInPlay: p.cardsInPlay.map(c => c.instanceId === card.instanceId
+          ? { ...c, attachedTo: targetPermEventId }
+          : c),
+      }));
+      logDetail(`"${def?.name ?? card.definitionId}" attached to permanent-event ${targetPermEventId as string}`);
+    }
     if (besiegedSiteId) {
       const siteInst = working.players[playerIndex].siteDeck.find(s => s.instanceId === besiegedSiteId);
       const siteDef = siteInst ? defById(working, siteInst.definitionId) : undefined;

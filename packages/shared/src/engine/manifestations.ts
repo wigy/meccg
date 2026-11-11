@@ -43,6 +43,7 @@ import { cardName, defById, getCardEffects, matchesDefinition, toCardInstance } 
 import { isFactionCard } from '../types/cards.js';
 import { factionRaceToAttackType, normalizeCreatureRace } from './effects/index.js';
 import { resolveSiteInstanceTransform } from './effective.js';
+import { hoardHeldManifestIds, isAtHomeHoarded } from './legendary-hoard.js';
 
 /**
  * Extracts a card definition's {@link ManifestId} if it has one.
@@ -226,6 +227,9 @@ function chainCardInPile(state: GameState, m: ManifestId, pile: readonly CardIns
  * The scan is O(total terminal-pile size) with a tag check.
  */
 export function isManifestationDefeated(state: GameState, m: ManifestId): boolean {
+  // Legendary Hoard (td-127): a Dragon held inverted under a hoard is out of
+  // play pending the hoard's discard — its chain counts as defeated.
+  if (hoardHeldManifestIds(state).has(m as string)) return true;
   for (const player of state.players) {
     if (chainCardInPile(state, m, player.outOfPlayPile)) return true;
     if (chainCardInPile(state, m, player.killPile)) return true;
@@ -263,6 +267,7 @@ export function applyManifestationCascade(state: GameState): GameState {
       }
     }
   }
+  for (const m of hoardHeldManifestIds(state)) removed.add(m);
   if (removed.size === 0) return state;
 
   // Sweep in-play sister cards. Each gets routed to its owner's
@@ -710,6 +715,9 @@ function collectAtHomeAttacks(state: GameState, m: ManifestId): AutomaticAttack[
             // this instance's definition and checking for a `dragon-at-home`
             // effect — mirrors `collectPermanentEventAttacks`'s `sourceInstanceId`.
             sourceInstanceId: card.instanceId,
+            // Legendary Hoard (td-127): "Target Dragon's automatic-attack
+            // cannot be cancelled."
+            ...(isAtHomeHoarded(state, card.instanceId) ? { combatRules: ['cannot-be-canceled'] } : {}),
           });
         }
       }

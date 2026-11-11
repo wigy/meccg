@@ -155,6 +155,7 @@ export function handlePlayPermanentEvent(state: GameState, action: GameAction): 
     ...(action.targetItemInstanceId ? { targetItemInstanceId: action.targetItemInstanceId } : {}),
     ...(action.targetFactionInstanceId ? { targetFactionInstanceId: action.targetFactionInstanceId } : {}),
     ...(action.targetLongEventInstanceId ? { targetLongEventInstanceId: action.targetLongEventInstanceId } : {}),
+    ...(action.targetPermanentEventInstanceId ? { targetPermanentEventInstanceId: action.targetPermanentEventInstanceId } : {}),
     ...(action.besiegedSiteInstanceId ? { besiegedSiteInstanceId: action.besiegedSiteInstanceId } : {}),
     ...(action.companionCardInstanceId ? { companionCardInstanceId: action.companionCardInstanceId } : {}),
     ...(action.storeItemInstanceId ? { storeItemInstanceId: action.storeItemInstanceId } : {}),

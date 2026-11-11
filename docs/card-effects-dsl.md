@@ -21213,3 +21213,34 @@ Implementation: `reducer-organization.ts` `handleStoreItem`,
   "itemFilter": { "$not": { "subtype": "special" } },
   "matchOpponentStored": true, "playedItemNoStore": true }
 ```
+
+### 93. `dragon-hoard` + `play-target` `permanent-event` (Legendary Hoard)
+
+"Playable on an at home Dragon manifestation." A resource permanent-event
+carrying `play-target` with `target: "permanent-event"` is offered once per
+in-play permanent-event of **either** player matching `filter` (context
+`{ target: { name, keywords, atHome, manifestId } }`, `atHome` true for a
+card with a `dragon-at-home` effect), riding on
+`targetPermanentEventInstanceId`; on resolution it is bound to the target via
+`CardInPlay.attachedTo`. `duplication-limit` with `scope: "target"` stops a
+second copy on the same target ("Cannot be duplicated on a given Dragon").
+
+`dragon-hoard` covers the rest of the card (`engine/legendary-hoard.ts`):
+
+- the target's augmented lair automatic-attack gets `cannot-be-canceled`;
+- the card rotates (`CardInPlay.rotations`) whenever a manifestation of the
+  target Dragon is played (same `manifestId`, or the basic creature);
+- while the lair (every version, by `lairOf`) is untapped, the first
+  `freeItemsByRotation[min(rotations, len - 1)]` items played there each turn
+  do not tap it (`CardInPlay.hoardFreeItems`);
+- an item played at the lair that taps it discards the hoard;
+- when the target would be discarded or removed from play (any path), it is
+  held inverted in `CardInPlay.invertedDragon`. Its effects stop, and its
+  Dragon counts as defeated until the hoard is discarded. The Dragon then
+  goes to the pile it was headed for.
+
+```json
+{ "type": "play-target", "target": "permanent-event", "filter": { "target.atHome": true } },
+{ "type": "duplication-limit", "scope": "target", "max": 1 },
+{ "type": "dragon-hoard", "freeItemsByRotation": [1, 2, 3] }
+```

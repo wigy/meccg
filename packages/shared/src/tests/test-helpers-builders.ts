@@ -2148,6 +2148,7 @@ export function playPermanentEventAndResolve(
     storeItemInstanceId?: CardInstanceId;
     storeCharacterId?: CardInstanceId;
     opposedCharacterId?: CardInstanceId;
+    targetPermanentEventInstanceId?: CardInstanceId;
   },
 ): GameState {
   return playAndResolve(state, {

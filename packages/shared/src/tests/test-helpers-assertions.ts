@@ -198,6 +198,7 @@ export function assertEveryInstanceReachable(state: GameState): void {
       addAll(ch.trophies ?? [], 'trophy');
     }
     addAll(p.cardsInPlay, 'cardsInPlay');
+    for (const c of p.cardsInPlay) add(c.invertedDragon?.card, 'inverted-dragon');
     for (const co of p.companies) {
       add(co.currentSite, 'currentSite');
       add(co.destinationSite, 'destinationSite');

@@ -270,3 +270,15 @@ export function addJsonToggle(container: HTMLElement, action: GameAction): void 
   container.appendChild(toggle);
   container.appendChild(pre);
 }
+
+/**
+ * The in-play card a `play-permanent-event` action attaches to when the
+ * target is itself a card in play: a resource long-event (Echo of All Joy
+ * td-110, `targetLongEventInstanceId`) or a permanent-event of either player
+ * (Legendary Hoard td-127, `targetPermanentEventInstanceId`). Both share the
+ * same click-the-card-then-click-the-target flow.
+ */
+export function permanentEventCardTargetId(a: GameAction): CardInstanceId | undefined {
+  if (a.type !== 'play-permanent-event') return undefined;
+  return a.targetLongEventInstanceId ?? a.targetPermanentEventInstanceId;
+}
