@@ -6,7 +6,7 @@
 
 | Total Rules | Implemented | Remaining | Progress |
 |:-----------:|:-----------:|:---------:|:--------:|
-| 352 | 305 | 47 | 86.6% |
+| 353 | 306 | 47 | 86.7% |
 
 ## Section Breakdown
 
@@ -17,7 +17,7 @@
 | 02 | [Untap Phase](02-untap-phase/) | 13 | 13 | 100.0% |
 | 03 | [Organization Phase](03-organization-phase/) | 49 | 46 | 93.9% |
 | 04 | [Long-Event Phase](04-long-event-phase/) | 3 | 3 | 100.0% |
-| 05 | [Movement/Hazard Phase](05-movement-hazard-phase/) | 34 | 26 | 76.5% |
+| 05 | [Movement/Hazard Phase](05-movement-hazard-phase/) | 35 | 27 | 77.1% |
 | 06 | [Site Phase](06-site-phase/) | 21 | 17 | 81.0% |
 | 07 | [End-of-Turn Phase](07-end-of-turn-phase/) | 3 | 3 | 100.0% |
 | 08 | [Combat](08-combat/) | 43 | 35 | 81.4% |
@@ -210,6 +210,7 @@
 | 5.31 | Movement/Hazard Phase | [Returned To Origin](05-movement-hazard-phase/rule-5.31-returned-to-origin.test.ts) | ☑ |
 | 5.32 | Movement/Hazard Phase | [Company At Site](05-movement-hazard-phase/rule-5.32-company-at-site.test.ts) | ☑ |
 | 5.33 | Movement/Hazard Phase | [Joining After Mh](05-movement-hazard-phase/rule-5.33-joining-after-mh.test.ts) | ☑ |
+| 5.34 | Movement/Hazard Phase | [Join Violates Composition](05-movement-hazard-phase/rule-5.34-join-violates-composition.test.ts) | ☑ |
 | METD | Movement/Hazard Phase | [Hazard Limit Lock](05-movement-hazard-phase/rule-metd-hazard-limit-lock.test.ts) | ☑ |
 | 6.01 | Site Phase | [Site Phase Order](06-site-phase/rule-6.01-site-phase-order.test.ts) | ☑ |
 | 6.02 | Site Phase | [Revealing On Guard Attacks](06-site-phase/rule-6.02-revealing-on-guard-attacks.test.ts) | ☑ |

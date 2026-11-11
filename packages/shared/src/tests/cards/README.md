@@ -374,7 +374,7 @@
 | dm-124 | The Dwarves Are upon You! | — | 8 | ☑ |
 | dm-125 | Enduring Tales | — | 6 | ☑ |
 | dm-126 | Eyes of Mandos | — | 8 | ☑ |
-| dm-129 | Fifteen Birds in Five Firtrees | — | 15 | ☑ |
+| dm-129 | Fifteen Birds in Five Firtrees | — | 16 | ☑ |
 | dm-130 | Fireworks | — | 22 | ☑ |
 | dm-131 | First of the Order | — | 5 | ☑ |
 | dm-132 | Forewarned Is Forearmed | — | 18 | ☑ |
@@ -770,7 +770,7 @@
 | le-418 | The Arkenstone | — | 21 | ☑ |
 | le-pending-effects-parity | — | — | 3 | ☑ |
 | td-1 | Agburanar Ahunt | — | 13 | ☑ |
-| td-2 | Agburanar at Home | — | 11 | ☑ |
+| td-2 | Agburanar at Home | — | 12 | ☑ |
 | td-3 | Bairanax | — | 7 | ☑ |
 | td-4 | Bairanax Ahunt | — | 17 | ☑ |
 | td-5 | Bairanax at Home | — | 11 | ☑ |
@@ -1231,7 +1231,7 @@
 | tw-317 | Riders of Rohan | — | 4 | ☑ |
 | tw-319 | Risky Blow | — | 8 | ☑ |
 | tw-320 | Roäc the Raven | — | 7 | ☑ |
-| tw-321 | Sacrifice of Form | — | 20 | ☑ |
+| tw-321 | Sacrifice of Form | — | 21 | ☑ |
 | tw-322 | Sapling of the White Tree | — | 8 | ☑ |
 | tw-323 | Scroll of Isildur | — | 5 | ☑ |
 | tw-324 | Secret Entrance | — | 8 | ☑ |
@@ -1369,7 +1369,7 @@
 | wh-12 | Uglúk | — | 9 | ☑ |
 | wh-13 | Goblin-faces | — | 8 | ☑ |
 | wh-14 | Blind to the West | — | 5 | ☑ |
-| wh-15 | Cast from the Order | — | 10 | ☑ |
+| wh-15 | Cast from the Order | — | 11 | ☑ |
 | wh-16 | Cruel Claw Perceived | — | 9 | ☑ |
 | wh-17 | Echoes of the Song | — | 8 | ☑ |
 | wh-18 | Flotsam and Jetsam | — | 15 | ☑ |

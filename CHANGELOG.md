@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.235.0 — 2026-11-11
+
+Forced Joins Respect Company Size, Dragons at Home in Minion Lairs
+
+### Rules
+
+- Rule 2.IV.6.1: the forced end-of-movement/hazard join no longer folds companies together past composition limits; when a join would violate a composition rule, the hazard player chooses which company remains and the others return to their sites of origin (#3520)
+
+### Cards
+
+- Cast from the Order (wh-15) records its entry roll so both players see it; the fix also applies to Challenge the Power and A New Ringlord (#3521)
+- Fifteen Birds in Five Firtrees (dm-129) can be played in combat paired with an unpaired Crown of Flowers (dm-121), which is discarded with it (#3522)
+- Sacrifice of Form's +3 (and Liquid Fire's -2) is now quoted in the creature body-check need shown to the player (#3523)
+- Minion and balrog Dragon lairs (Caves of Ûlund, Dancing Spire, Gold Hill, Isle of the Ulond) are tagged with their Dragon, so At-Home automatic attacks such as Agburanar at Home apply there (#3524)
+
+### Web Client
+
+- Minor items stored under an Armory (dm-116) can be clicked and played from under the Armory at a Border-hold, Free-hold or Haven (#3525)
+
 ## 0.234.0 — 2026-11-11
 
 Legendary Hoard Certified, Siege and Armory Choices in the Hand
