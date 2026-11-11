@@ -16,7 +16,7 @@ import { expect } from 'vitest';
 import { reduce } from '../engine/reducer.js';
 import type { ReducerResult } from '../engine/reducer.js';
 import { Phase, computeLegalActions } from '../index.js';
-import type { PlayerId, GameState, CardInstanceId, GameAction, SitePhaseState, PendingResolution, PlayRingAfterTestAction } from '../index.js';
+import type { PlayerId, GameState, CardInstanceId, GameAction, GameEffect, SitePhaseState, PendingResolution, PlayRingAfterTestAction } from '../index.js';
 import { enqueueResolution } from '../engine/pending.js';
 import { viableActions } from './test-helpers-queries.js';
 
@@ -213,6 +213,26 @@ export function resolveChain(state: GameState): GameState {
     current = result.state;
   }
   return current;
+}
+
+/**
+ * Like {@link resolveChain}, but also collects every client-visible effect
+ * (dice rolls, notifications) emitted while the chain resolves.
+ */
+export function resolveChainWithEffects(state: GameState): { state: GameState; effects: GameEffect[] } {
+  let current = state;
+  const effects: GameEffect[] = [];
+  for (let i = 0; i < 20 && current.chain !== null; i++) {
+    const priorityPlayer = current.chain.priority;
+    const actions = computeLegalActions(current, priorityPlayer);
+    const pass = actions.find(ea => ea.viable && ea.action.type === 'pass-chain-priority');
+    if (!pass) break;
+    const result = reduce(current, pass.action);
+    if (result.error) break;
+    if (result.effects) effects.push(...result.effects);
+    current = result.state;
+  }
+  return { state: current, effects };
 }
 
 // ─── Opponent influence helpers ─────────────────────────────────────────────
