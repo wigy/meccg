@@ -7,7 +7,7 @@
  * tooltips for short-events and hazard keying, and resource/item target menus.
  */
 
-import type { PlayerView, CardDefinition, CardDefinitionId, CardInstanceId, CompanyId, GameAction, PlayHazardAction, CancelAttackAction, DeclareBurglaryAction, ConvertCreatureToAllyAction } from '@meccg/shared';
+import type { PlayerView, CardDefinition, CardDefinitionId, CardInstanceId, CompanyId, GameAction, PlayHazardAction, CancelAttackAction, DeclareBurglaryAction, ConvertCreatureToAllyAction, StoreItemInCacheAction } from '@meccg/shared';
 import { cardImageProxyPath, viableActions, Phase, buildInstanceLookup, describeArrivalMode } from '@meccg/shared';
 import { appState } from './app-state.js';
 import { getCachedInstanceLookup, setCachedInstanceLookup, findNonViableReason } from './render-text-format.js';
@@ -482,6 +482,53 @@ export function findConvertCreatureToAllyActions(
 ): ConvertCreatureToAllyAction[] {
   if (!instanceId) return [];
   return actionsOfTypeFor(legalActions, 'convert-creature-to-ally', instanceId);
+}
+
+/**
+ * Find all store-item-in-cache actions for a given hand item instance —
+ * one per in-play item cache (Armory dm-116: "You may place any minor items
+ * from your hand under Armory during your organization phase"). Without this
+ * finder the hand renderer never wired the action to a click, so minor items
+ * rendered dimmed as unplayable during organization even though the engine
+ * offered to store them (bug report 010267f5dffd059c, game mwbd6txx-er06z7).
+ */
+export function findItemCacheStoreActions(
+  instanceId: CardInstanceId | null,
+  legalActions: readonly GameAction[],
+): StoreItemInCacheAction[] {
+  if (!instanceId) return [];
+  return actionsOfTypeFor(legalActions, 'store-item-in-cache', instanceId, 'itemInstanceId');
+}
+
+/** A labelled menu entry for placing a hand item under an item cache. */
+export interface ItemCacheStoreChoice {
+  readonly label: string;
+  readonly action: StoreItemInCacheAction;
+}
+
+/**
+ * Build the click-menu entries for storing a hand item under an item cache.
+ * Each entry names its host card ("Place under Armory"); when several hosts
+ * share a name (two Armories in play) they are numbered so the player can
+ * tell them apart.
+ */
+export function itemCacheStoreChoices(
+  actions: readonly StoreItemInCacheAction[],
+  instanceLookup: (id: CardInstanceId) => CardDefinitionId | undefined,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): ItemCacheStoreChoice[] {
+  const names = actions.map(a => {
+    const hostDefId = instanceLookup(a.hostInstanceId);
+    return (hostDefId ? cardPool[hostDefId as string]?.name : undefined) ?? 'item cache';
+  });
+  const seen = new Map<string, number>();
+  return actions.map((action, i) => {
+    const name = names[i];
+    const duplicated = names.filter(n => n === name).length > 1;
+    const ordinal = (seen.get(name) ?? 0) + 1;
+    seen.set(name, ordinal);
+    return { label: duplicated ? `Place under ${name} #${ordinal}` : `Place under ${name}`, action };
+  });
 }
 
 /**
@@ -1450,6 +1497,8 @@ export function renderHand(
     const isRevealedCardPlay = revealedCardPlayActions.length > 0;
     const declareBurglaryActions = findDeclareBurglaryActions(cardInstanceId, viable);
     const isDeclareBurglary = declareBurglaryActions.length > 0;
+    const itemCacheStoreActions = findItemCacheStoreActions(cardInstanceId, viable);
+    const isItemCacheStore = itemCacheStoreActions.length > 0;
     const discardAction = cardInstanceId
       ? viable.find(a => a.type === 'discard-card' && a.cardInstanceId === cardInstanceId)
       : undefined;
@@ -1459,7 +1508,7 @@ export function renderHand(
     const balrogSwapActions = findBalrogSwapActions(cardInstanceId, viable);
     const startingCompanyEventActions = findStartingCompanyEventActions(cardDefId, viable);
     const isStartingCompanyEvent = startingCompanyEventActions.length > 0;
-    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isAgentHazard && !isAlly && !isResource && !isPermanentEventWithCharTarget && !isPermanentEventWithLongEventTarget && !isInfluence && !isCancelAttack && !isModifyAttack && !isStrikeEvent && !isRingAfterTest && !isPlacementOffer && !isDragonAmbushOffer && !isSiteAutoAttack && !isConvertCreatureToAlly && !isSacrificeOfForm && !isRevealedCardPlay && !isDeclareBurglary && !discardAction && !onGuardAction && !isStartingCompanyEvent && !reshuffleAction
+    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isAgentHazard && !isAlly && !isResource && !isPermanentEventWithCharTarget && !isPermanentEventWithLongEventTarget && !isInfluence && !isCancelAttack && !isModifyAttack && !isStrikeEvent && !isRingAfterTest && !isPlacementOffer && !isDragonAmbushOffer && !isSiteAutoAttack && !isConvertCreatureToAlly && !isSacrificeOfForm && !isRevealedCardPlay && !isDeclareBurglary && !isItemCacheStore && !discardAction && !onGuardAction && !isStartingCompanyEvent && !reshuffleAction
       ? findNonViableReason(cardDefId, view.legalActions, cachedInstanceLookup)
       : undefined;
     const selectedItemDefId = getSelectedItemDefId();
@@ -1851,6 +1900,18 @@ export function renderHand(
             showCursorTooltipMenu(e, items);
           });
         }
+      }
+    } else if (isItemCacheStore) {
+      // Item cache (Armory dm-116): place a minor item from hand under the
+      // cache during organization. Always confirm via a menu naming the host
+      // so a misclick doesn't silently tuck the item away.
+      img.className = 'hand-card hand-card-playable';
+      if (onAction) {
+        img.addEventListener('click', (e) => {
+          const items: TooltipMenuItem[] = itemCacheStoreChoices(itemCacheStoreActions, cachedInstanceLookup, cardPool)
+            .map(c => ({ label: c.label, onClick: () => onAction(c.action) }));
+          showCursorTooltipMenu(e, items);
+        });
       }
     } else if (isInfluence) {
       // Faction influence two-step flow: click to select, then click a character in company
