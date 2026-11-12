@@ -363,7 +363,7 @@
 | dm-113 | Wisp of Pale Sheen | — | 4 | ☑ |
 | dm-114 | An Unexpected Party | — | 15 | ☑ |
 | dm-115 | Ancient Stair | — | 8 | ☑ |
-| dm-116 | Armory | — | 11 | ☑ |
+| dm-116 | Armory | — | 12 | ☑ |
 | dm-117 | Await the Advent of Allies | — | 16 | ☑ |
 | dm-118 | Balance Between Powers | — | 24 | ☑ |
 | dm-119 | Barrow-blade | — | 12 | ☑ |

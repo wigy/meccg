@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.236.0 — 2026-11-12
+
+Armory Releases Its Unique Treasures
+
+### Cards
+
+- Unique items stored under an Armory (dm-116), such as Thrór's Map, no longer block themselves as "unique and already in play" when played from under the Armory (#3526)
+
 ## 0.235.0 — 2026-11-11
 
 Forced Joins Respect Company Size, Dragons at Home in Minion Lairs
