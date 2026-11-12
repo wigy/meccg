@@ -550,6 +550,53 @@ describe('renderPassButton — choose-long-dark-reach-attacker (Long Dark Reach)
 });
 
 /**
+ * Regression test for bug report 4e5fcb4311a5da27 (game mwdm9yf5-0n2hrq, seq
+ * 841): after Desire All for Thy Belly (ba-16) resolved, the card-player saw
+ * four cards revealed from the opponent's play deck but "the game is stuck,
+ * i cant choose any cards". The engine offered one viable
+ * `desire-choose-shown-card` per revealed card, but {@link renderPassButton}
+ * had no branch for it (nor for the opponent's follow-up
+ * `desire-choose-penalty`), so every control was hidden.
+ */
+describe('renderPassButton — Desire All for Thy Belly (ba-16)', () => {
+  const show = (cardInstanceId: string): EvaluatedAction => ({
+    action: { type: 'desire-choose-shown-card', player: 'p1', cardInstanceId: cardInstanceId as CardInstanceId },
+    viable: true,
+  } as EvaluatedAction);
+  const penalty = (p: 'remove-from-game' | 'reduce-hand-size'): EvaluatedAction => ({
+    action: { type: 'desire-choose-penalty', player: 'p1', penalty: p },
+    viable: true,
+  } as EvaluatedAction);
+
+  test('renders one Show button per revealed card and sends the chosen card', () => {
+    // tw-350 / tw-259 are real card ids (resolved via the instance lookup).
+    appState.lastInstanceLookup = lookupOf({ 'p2-12': 'tw-350', 'p2-60': 'tw-259' });
+    let sent: unknown = null;
+    const a = show('p2-12');
+    const b = show('p2-60');
+    renderPassButton(viewWith([a, b]), action => { sent = action; });
+
+    expect(passBtn.classList.contains('hidden')).toBe(true);
+    expect(tierInPhasePass.children).toHaveLength(2);
+    expect(tierInPhasePass.children[0].textContent).toMatch(/^Show /);
+    expect(tierInPhasePass.children[0].textContent).not.toContain('p2-12');
+    tierInPhasePass.children[1].onclick?.();
+    expect(sent).toEqual(b.action);
+  });
+
+  test('renders both penalty choices for the opponent', () => {
+    let sent: unknown = null;
+    const remove = penalty('remove-from-game');
+    const reduce = penalty('reduce-hand-size');
+    renderPassButton(viewWith([remove, reduce]), action => { sent = action; });
+
+    expect(tierInPhasePass.children.map(c => c.textContent)).toEqual(['Remove shown card from game', 'Reduce hand size by one']);
+    tierInPhasePass.children[1].onclick?.();
+    expect(sent).toEqual(reduce.action);
+  });
+});
+
+/**
  * Regression test for bug report underlying feature request "change 'pass'
  * button name and place": Movement/Hazard's `draw-cards` and `play-hazards`
  * steps are two separate engine steps with independent pass semantics, but
