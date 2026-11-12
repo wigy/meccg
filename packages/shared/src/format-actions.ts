@@ -403,7 +403,9 @@ export function describeAction(
         ? `on ${[action.targetCharacterId, ...(action.additionalTargetCharacterIds ?? [])].map(instName).join(' and ')}`
         : action.targetAgentId
           ? `on agent ${agentName(action.targetAgentId)}`
-          : `against ${compName(action.targetCompanyId)}`;
+          : action.targetFactionInstanceId
+            ? `on ${instName(action.targetFactionInstanceId)}`
+            : `against ${compName(action.targetCompanyId)}`;
       const base = `Play hazard ${instName(action.cardInstanceId)} ${target}`;
       const raceTag = action.chosenCreatureRace ? ` (race: ${action.chosenCreatureRace})` : '';
       // Mutually-exclusive arrival modes (Choking Shadows tw-21) emit one

@@ -860,7 +860,8 @@ function showShortEventTargetMenu(
  *
  * Hazards offered once per target must name that target, or the menu shows
  * several indistinguishable "Play hazard" buttons: a character-targeting
- * hazard names the character, and an agent-targeting hazard (Never Seen Him
+ * hazard names the character, a faction-targeting hazard (Trouble on All
+ * Borders as-40) names the faction, and an agent-targeting hazard (Never Seen Him
  * dm-74, Inner Cunning dm-68) names the agent through `agentNames` — the
  * agent-id → name map built by `buildAgentNames`. A hazard played by tapping
  * an agent names the tapped agent and, if it takes a prisoner, the prison site.
@@ -878,6 +879,12 @@ export function hazardPlayLabel(
     label = charDef ? `Play on ${charDef.name}` : `Play on ${action.targetCharacterId as string}`;
   } else if (action.targetAgentId) {
     label = `Play on agent ${agentNames[action.targetAgentId as string] ?? 'agent'}`;
+  } else if (action.targetFactionInstanceId && cardPool) {
+    // Faction-targeting hazards (Trouble on All Borders as-40): one action
+    // per eligible faction in play, so name the faction.
+    const factionDefId = instanceLookup(action.targetFactionInstanceId);
+    const factionDef = factionDefId ? cardPool[factionDefId as string] : undefined;
+    label = `Play on ${factionDef?.name ?? (action.targetFactionInstanceId as string)}`;
   }
   // Tap-an-agent hazards (To Get You Away dm-92): one action per tappable
   // agent and, for take-prisoner strikes, per prison site — name both.
