@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.238.0 — 2026-11-12
+
+Desire All for Thy Belly Gets Its Buttons
+
+### Web Client
+
+- Desire All for Thy Belly (ba-16) resolutions now render choice buttons for picking a revealed opponent deck card and for choosing the penalty, so the game no longer appears stuck after it resolves (#3529)
+
 ## 0.237.0 — 2026-11-12
 
 Granted Leaders Become Fair Targets
