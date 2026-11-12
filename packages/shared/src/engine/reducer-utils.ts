@@ -4672,6 +4672,28 @@ export function matchesCompanyContextCondition(
 }
 
 /**
+ * Returns a character's effective keyword tags: the keywords printed on its
+ * card definition plus any granted by a `grant-keyword` effect on a card it
+ * bears (items/permanent events in `items`). E.g. *By the Ringwraith's Word*
+ * (le-174) makes its bearer a leader, so a play-target filter such as
+ * *Smart and Secret*'s (le-229) `{ "target.keywords": { "$includes": "leader" } }`
+ * must see the granted keyword too.
+ */
+export function characterKeywordsOf(
+  state: GameState,
+  charData: { readonly items: readonly { readonly definitionId: CardDefinitionId }[] },
+  charDef: CardDefinition,
+): string[] {
+  const keywords = [...((charDef as { keywords?: readonly string[] }).keywords ?? [])];
+  for (const item of charData.items) {
+    for (const effect of getCardEffects(defById(state, item.definitionId))) {
+      if (effect.type === 'grant-keyword' && !keywords.includes(effect.keyword)) keywords.push(effect.keyword);
+    }
+  }
+  return keywords;
+}
+
+/**
  * Collect the combined `keywords` of all given item instances. Used to build
  * the `itemKeywords` field of condition-matcher contexts so filters can gate
  * on an item keyword borne by a character (e.g. `target.itemKeywords`).

@@ -62,6 +62,8 @@ const ASTERNAK = 'le-1' as CardDefinitionId;
 const CIRITH_GORGOR = 'le-361' as CardDefinitionId;
 /** Ettenmoors — minion ruins-and-lairs site */
 const ETTENMOORS = 'le-373' as CardDefinitionId;
+/** By the Ringwraith's Word — grants the leader keyword to its bearer */
+const BY_THE_RINGWRAITHS_WORD = 'le-174' as CardDefinitionId;
 
 // ── State builder ─────────────────────────────────────────────────────────────
 
@@ -119,6 +121,18 @@ describe('Smart and Secret (le-229)', () => {
   test('NOT playable on a character without the Leader keyword', () => {
     const state = stateFor({ leader: THE_MOUTH });
     expect(viableActions(state, PLAYER_1, 'play-permanent-event')).toHaveLength(0);
+  });
+
+  // Regression (game mwd349zu-hn5s33): The Mouth bearing By the Ringwraith's
+  // Word "becomes a leader", but Smart and Secret's play-target filter only
+  // read printed keywords, so The Mouth was not offered as a target.
+  test('playable on a character made a leader by By the Ringwraith\'s Word', () => {
+    const base = stateFor({ leader: THE_MOUTH });
+    const state = attachItemToChar(base, RESOURCE_PLAYER, THE_MOUTH, BY_THE_RINGWRAITHS_WORD);
+    const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
+    expect(actions).toHaveLength(1);
+    expect((actions[0].action as { targetCharacterId?: unknown }).targetCharacterId)
+      .toBe(findCharInstanceId(state, RESOURCE_PLAYER, THE_MOUTH));
   });
 
   test('attaches to the leader instead of the general cards-in-play area', () => {
