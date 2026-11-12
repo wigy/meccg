@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.237.0 — 2026-11-12
+
+Granted Leaders Become Fair Targets
+
+### Game Engine
+
+- Play-target filters now see keywords granted by borne cards, so Smart and Secret (le-229) can target a character made a leader by By the Ringwraith's Word (le-174) (#3528)
+
+### Web Client
+
+- Faction-targeting hazard play choices, such as Trouble on All Borders (as-40), now name the target faction instead of a generic "Play hazard" label (#3527)
+
 ## 0.236.0 — 2026-11-12
 
 Armory Releases Its Unique Treasures

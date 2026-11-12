@@ -611,7 +611,7 @@
 | le-225 | Ruse | — | 11 | ☑ |
 | le-226 | Secrets of Their Forging | — | 21 | ☑ |
 | le-228 | Skies of Fire | — | 9 | ☑ |
-| le-229 | Smart and Secret | — | 10 | ☑ |
+| le-229 | Smart and Secret | — | 11 | ☑ |
 | le-230 | Smoke on the Wind | — | 11 | ☑ |
 | le-231 | Sneakin’ | — | 8 | ☑ |
 | le-232 | Some Secret Art of Flame | — | 5 | ☑ |
