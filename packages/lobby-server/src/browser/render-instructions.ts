@@ -300,6 +300,53 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
       return;
     }
 
+    // Desire All for Thy Belly (ba-16), step 1: the card-player must choose
+    // one of the cards revealed from the top of the OPPONENT's play deck to
+    // show (`desire-choose-shown-card`, mandatory, no pass). Those cards sit
+    // in the opponent's play deck, which has no pile-picking flow, so render
+    // one button per revealed card instead of falling through to the "no pass
+    // action" branch below (which hides every control). Bug report
+    // 4e5fcb4311a5da27 (game mwdm9yf5-0n2hrq, seq 841): "i can see four cards
+    // from my opponents deck, but from there the game is stuck".
+    const desireShowEvals = view.legalActions.filter(ea => ea.viable && ea.action.type === 'desire-choose-shown-card');
+    if (desireShowEvals.length > 0) {
+      btn.classList.add('hidden');
+      waitingEl?.classList.add('hidden');
+      for (const ea of desireShowEvals) {
+        const showAction = ea.action;
+        if (showAction.type !== 'desire-choose-shown-card') continue;
+        const defId = appState.lastInstanceLookup(showAction.cardInstanceId);
+        const name = defId ? cardPool[defId as string]?.name : undefined;
+        const showBtn = document.createElement('button');
+        showBtn.className = 'enter-site-btn desire-show-card-btn';
+        showBtn.textContent = `Show ${name ?? showAction.cardInstanceId as string}`;
+        showBtn.onclick = () => onAction(showAction);
+        inPhaseTier?.appendChild(showBtn);
+      }
+      return;
+    }
+
+    // Desire All for Thy Belly (ba-16), step 2: the opponent must choose the
+    // penalty — remove the shown card from the game, or permanently reduce
+    // their hand size by one (`desire-choose-penalty`, mandatory, no pass).
+    const desirePenaltyEvals = view.legalActions.filter(ea => ea.viable && ea.action.type === 'desire-choose-penalty');
+    if (desirePenaltyEvals.length > 0) {
+      btn.classList.add('hidden');
+      waitingEl?.classList.add('hidden');
+      for (const ea of desirePenaltyEvals) {
+        const penaltyAction = ea.action;
+        if (penaltyAction.type !== 'desire-choose-penalty') continue;
+        const penaltyBtn = document.createElement('button');
+        penaltyBtn.className = 'enter-site-btn desire-penalty-btn';
+        penaltyBtn.textContent = penaltyAction.penalty === 'remove-from-game'
+          ? 'Remove shown card from game'
+          : 'Reduce hand size by one';
+        penaltyBtn.onclick = () => onAction(penaltyAction);
+        inPhaseTier?.appendChild(penaltyBtn);
+      }
+      return;
+    }
+
     // CoE 3.47 general-influence overflow: the player left their organization
     // phase over their general influence and must remove one of several
     // named characters (`influence-overflow-discard`). Like the two choices
