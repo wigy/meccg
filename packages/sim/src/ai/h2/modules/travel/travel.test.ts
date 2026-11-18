@@ -503,6 +503,56 @@ describe('leaving a site the company could play at', () => {
   });
 });
 
+describe('a company standing on a site it has already tapped', () => {
+  // Game mwk7rt81-7bhvnu, turn 6: Lieutenant of Dol Guldur's company of three,
+  // nobody wounded, on a Mount Doom it had tapped. Staying plays nothing and
+  // draws nothing, yet every move out was priced below staying by its region
+  // crossing alone, and the company sat there two turns running.
+  const SPENT = 'travel/stuck-on-a-spent-site';
+  const toCirithUngol = {
+    type: 'plan-movement', player: 'p2', companyId: 'company-p2-0', destinationSite: 'p2-107',
+  } as unknown as GameAction;
+  const toBaradDur = {
+    type: 'plan-movement', player: 'p2', companyId: 'company-p2-0', destinationSite: 'p2-94',
+  } as unknown as GameAction;
+  const withShare = (share: number): ModuleContext => {
+    const { context } = position(SPENT);
+    return { ...context, tunables: { ...DEFAULT_TUNABLES, spentSiteExitShare: share } };
+  };
+
+  test('is not charged the cheapest crossing out, which staying only defers', () => {
+    const evaluation = travelModule.evaluate(toCirithUngol, withShare(1))!;
+    expect(JSON.stringify(evaluation.rationale)).toContain('staying only defers the cheapest way out');
+    const stay = travelModule.evaluate({ type: 'pass' } as unknown as GameAction, withShare(1))!;
+    expect(evaluation.utility).toBeGreaterThan(stay.utility);
+  });
+
+  test('with the credit off, the same move loses to staying — the recorded behaviour', () => {
+    const evaluation = travelModule.evaluate(toCirithUngol, withShare(0))!;
+    const stay = travelModule.evaluate({ type: 'pass' } as unknown as GameAction, withShare(0))!;
+    expect(evaluation.utility).toBeLessThan(stay.utility);
+  });
+
+  test('a longer way out is still charged the crossing beyond the cheapest', () => {
+    const near = travelModule.evaluate(toCirithUngol, withShare(1))!;
+    const far = travelModule.evaluate(toBaradDur, withShare(1))!;
+    expect(far.expectedTsd).toBeLessThan(near.expectedTsd);
+  });
+
+  test('a site the company could still play at is charged in full', () => {
+    // The Barad-dûr company in `leaving-a-site-with-plays` stands untapped.
+    const { context } = position('travel/leaving-a-site-with-plays');
+    const toMountDoom = {
+      type: 'plan-movement', player: 'p2', companyId: 'company-p2-1', destinationSite: 'p2-81',
+    } as unknown as GameAction;
+    const on = travelModule.evaluate(toMountDoom, context)!;
+    const off = travelModule.evaluate(toMountDoom, {
+      ...context, tunables: { ...DEFAULT_TUNABLES, spentSiteExitShare: 0 },
+    })!;
+    expect(on.expectedTsd).toBe(off.expectedTsd);
+  });
+});
+
 describe('plays behind a site\'s automatic attacks', () => {
   // Bug report (Damian O_Dea, game mvj4blbj-kkinem, stateSeq 3286): Boromir II
   // entered The Lonely Mountain alone to play a hoard item. The Dragon's one
