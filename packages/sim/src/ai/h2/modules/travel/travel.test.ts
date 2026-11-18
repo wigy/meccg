@@ -553,6 +553,38 @@ describe('a company standing on a site it has already tapped', () => {
   });
 });
 
+describe('a company standing at a site its own automatic attacks would empty', () => {
+  // Game mwd349zu-hn5s33: Pallando alone at an untapped Moria, holding
+  // Wormsbane. Entering means four strikes at prowess 7 first, which leaves
+  // nobody untapped to play it — `enter-site` priced it so and declined, turn
+  // after turn — yet every move away was charged for "giving up" the
+  // Wormsbane play, and the company never left.
+  const MORIA = 'travel/parked-outside-moria';
+  const toRivendell = (context: ModuleContext): GameAction => {
+    const action = context.legalActions.find(a => {
+      const fields = a as unknown as { companyId?: string; destinationSite?: string };
+      if (a.type !== 'plan-movement' || fields.companyId !== 'company-p2-1') return false;
+      const site = context.view.self.siteDeck.find(c => (c.instanceId as string) === fields.destinationSite);
+      return site !== undefined && context.cardPool[site.definitionId as string]?.name === 'Rivendell';
+    });
+    expect(action).toBeDefined();
+    return action!;
+  };
+
+  test('is not charged for plays the attacks would leave nobody to make', () => {
+    const { context } = position(MORIA);
+    const evaluation = travelModule.evaluate(toRivendell(context), context)!;
+    expect(JSON.stringify(evaluation.rationale)).not.toContain('plays given up here');
+  });
+
+  test('and leaves, because staying there banks nothing', () => {
+    const { context } = position(MORIA);
+    const stay = travelModule.evaluate({ type: 'pass' } as unknown as GameAction, context)!;
+    const leave = travelModule.evaluate(toRivendell(context), context)!;
+    expect(leave.utility).toBeGreaterThan(stay.utility);
+  });
+});
+
 describe('plays behind a site\'s automatic attacks', () => {
   // Bug report (Damian O_Dea, game mvj4blbj-kkinem, stateSeq 3286): Boromir II
   // entered The Lonely Mountain alone to play a hoard item. The Dragon's one
