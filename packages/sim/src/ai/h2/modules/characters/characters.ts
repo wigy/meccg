@@ -391,9 +391,22 @@ function evaluateShape(context: ModuleContext, action: GameAction): Evaluation |
 /** The characters module. No context gate: both actions are always its own. */
 /**
  * Actions that name a character without tapping him: placing him under
- * direct influence, rolling his corruption check, storing his item.
+ * direct influence, rolling his corruption check, storing his item, and
+ * giving him a strike.
+ *
+ * `assign-strike` is here because assigning does not spend the tap — facing
+ * the strike might, and `combat` already prices that through
+ * `character-value`. Charged as a tap, it cost the whole committed plan to
+ * *assign* a strike while `pass` cost nothing, though passing hands the same
+ * strike to the attacker, who lands it on the same character whenever he is
+ * the only one left: game mwd349zu-hn5s33, one strike, Óin the only target,
+ * and the AI passed because assigning him "forfeited" Iron Hill Dwarves.
+ * Human defenders pass 6% of the assignment windows they could act in; the
+ * AI passed 17%.
  */
-const NON_TAPPING_ACTIONS: ReadonlySet<string> = new Set(['move-to-influence', 'corruption-check', 'store-item']);
+const NON_TAPPING_ACTIONS: ReadonlySet<string> = new Set([
+  'move-to-influence', 'corruption-check', 'store-item', 'assign-strike',
+]);
 
 /**
  * Whether an action that names a character spends his tap.

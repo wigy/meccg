@@ -22,6 +22,8 @@ import { evaluateDecision } from '../../core/registry.js';
 import { loadScenario, scenarioView } from '../../scenario-store.js';
 import { testWinProbModel } from '../../test-support.js';
 import { combatModule } from './combat.js';
+import type { AgentContext } from '../../../../types.js';
+import { createHeuristic2Agent } from '../../agent.js';
 
 const CARD_POOL = loadCardPool();
 const MODEL = testWinProbModel();
@@ -613,5 +615,48 @@ describe('boosting a strike with an item the target carries', () => {
 
   test('is the best thing to do against the strike', () => {
     expect(isShield(rank(SCENARIO)[0].action)).toBe(true);
+  });
+});
+
+describe('an ally that may not be attacked', () => {
+  // Game mwk7rt81-7bhvnu, turn 12: six strikes against a company of three
+  // characters, one controlling Great Bats ("may not be attacked"). The engine
+  // offers only the characters; the projection of the attacker's assignment
+  // used to aim its first strike at the bats, which made handing the
+  // assignment over look as safe as keeping it, and the AI passed.
+  const SCENARIO = 'combat/attacker-assigns-past-unattackable-ally';
+
+  test('is never projected to face a strike when the attacker assigns', () => {
+    const context = contextFor(SCENARIO);
+    const evaluation = combatModule.evaluate(
+      context.legalActions.find(a => a.type === 'pass')!, context)!;
+    const strikes = leavesOf(evaluation).filter(l => /^strike \d+ →/.test(l.label));
+    expect(strikes.length).toBeGreaterThan(0);
+    for (const strike of strikes) expect(strike.label).not.toContain('Great Bats');
+  });
+
+  test('so the defender keeps the assignment rather than handing it over', () => {
+    const context = contextFor(SCENARIO);
+    const evaluations = evaluateDecision([combatModule], context).evaluations;
+    expect(evaluations[0].action.type).toBe('assign-strike');
+  });
+});
+
+describe('the only character a strike can go to', () => {
+  // Game mwd349zu-hn5s33: one strike, Óin the only target, and a committed
+  // plan to play Iron Hill Dwarves with his company. The attacker could only
+  // have given the strike to Óin as well, so passing changed nothing but who
+  // chose — and the whole agent passed, because the plan layer read
+  // *assigning* the strike as spending Óin's tap and charged it the plan.
+  test('the whole agent assigns it rather than handing the choice over', () => {
+    const context = contextFor('combat/lone-target-with-committed-plan');
+    const decision = createHeuristic2Agent().chooseAction({
+      view: context.view,
+      cardPool: context.cardPool,
+      legalActions: context.legalActions,
+      evaluated: context.view.legalActions,
+      random: () => 0.5,
+    } as unknown as AgentContext);
+    expect(decision.action.type).toBe('assign-strike');
   });
 });
