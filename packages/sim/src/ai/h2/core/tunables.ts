@@ -573,6 +573,14 @@ export interface Tunables {
    */
   readonly planHorizonTurns: number;
   /**
+   * What each hazard held beyond the halved hazard limit costs the untap
+   * sideboard access, in TSD (`hand`): a play the halving pushes out of the
+   * coming turn. The hazard plan prices only creatures and their boosts, so
+   * without this a hand of three creatures and two events against a limit of
+   * six read as untouched by halving it to three.
+   */
+  readonly halvedSlotTsd: number;
+  /**
    * The least a card in hand is worth to keep, in TSD.
    *
    * Split from `provisionalCardPrice`, which was doing two different jobs: the
@@ -795,6 +803,7 @@ export const DEFAULT_TUNABLES: Tunables = {
   planAggregationMode: 0,
   planUnroutedReachProbability: 0.25,
   planHorizonTurns: 6,
+  halvedSlotTsd: 0,
   heldCardFloor: 1,
   organizationGoalCap: 4,
   avatarInPlayTsd: 6,

@@ -111,6 +111,11 @@ export interface HazardPlan {
    * the project and only one decision a turn ever asks.
    */
   harmIfLimitsHalved(): number;
+  /**
+   * The hazard slots the coming movement/hazard phase opens, summed over the
+   * opponent's companies, at the full limits and at the halved ones.
+   */
+  readonly slots: { readonly full: number; readonly halved: number };
 }
 
 /** A creature in hand, with the attack it would make before any boost. */
@@ -593,9 +598,14 @@ function buildHazardPlan(
   const ordered = [...assignments.values()].sort((a, b) => b.marginal - a.marginal);
   /** The halved-limit total, computed at most once — see `harmIfLimitsHalved`. */
   let halvedHarm: number | null = null;
+  const totalHarm = targets.reduce((sum, target) => sum + target.harm, 0);
   return {
     assignments: ordered,
-    totalHarm: targets.reduce((sum, target) => sum + target.harm, 0),
+    totalHarm,
+    slots: {
+      full: targets.reduce((sum, target) => sum + target.slots, 0),
+      halved: targets.reduce((sum, target) => sum + Math.ceil(target.slots / 2), 0),
+    },
     worth: (instanceId: CardInstanceId) => assignments.get(instanceId as string) ?? null,
 
     harmIfLimitsHalved(): number {
@@ -608,7 +618,15 @@ function buildHazardPlan(
       // The halved run re-derives its own boost from the board, so the totals
       // stay comparable with the full-limit plan above.
 
-      halvedHarm = halved.reduce((sum, target) => sum + target.harm, 0);
+      // Capped at the full-limit total. Every plan that fits the halved limits
+      // fits the full ones, so halving can never add harm — but the allocation
+      // is greedy, and with fewer slots it can stumble on a sequence the
+      // full-limit run passed by. Uncapped, that artefact priced the untap
+      // sideboard access as a *gain* of up to 21 TSD for the halving itself
+      // (mvzojc7d-yzqsyc seq 387: Call of Home, worth 0.3, fetched at +21), and
+      // the agent took the access in 71% of the windows where humans took it
+      // in 17%.
+      halvedHarm = Math.min(totalHarm, halved.reduce((sum, target) => sum + target.harm, 0));
       return halvedHarm;
     },
 
