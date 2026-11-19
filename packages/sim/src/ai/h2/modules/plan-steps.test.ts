@@ -172,6 +172,18 @@ describe('characters owns the carrier step', () => {
     expect(charactersModule.planStepDelta?.(action, p, p.steps[0], 0, context([THEODEN]))).toBe(0);
   });
 
+  test('giving the last untapped character a strike does not spend him', () => {
+    // Assigning does not tap — facing the strike might, and `combat` prices
+    // that. Charged as a tap, assigning cost the commitment while passing cost
+    // nothing, though passing lets the attacker put the same strike on the
+    // same character (game mwd349zu-hn5s33: one strike, Óin the only target).
+    const p = plan([step(CARRIER_STEP, 'characters')]);
+    const action = {
+      type: 'assign-strike', characterId: THEODEN, tapped: false,
+    } as unknown as GameAction;
+    expect(charactersModule.planStepDelta?.(action, p, p.steps[0], 0, context([THEODEN]))).toBeNull();
+  });
+
   test('spending one of two leaves the play possible', () => {
     const p = plan([step(CARRIER_STEP, 'characters')]);
     const action = {

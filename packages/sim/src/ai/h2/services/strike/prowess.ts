@@ -26,7 +26,7 @@
  * exactly what `prowess.test.ts` does across the scenario corpus.
  */
 
-import { CardStatus, stayUntappedPenalty } from '@meccg/shared';
+import { CardStatus, hasPlayFlag, stayUntappedPenalty } from '@meccg/shared';
 import type { CardDefinition, CardInstanceId, CombatState, PlayerView } from '@meccg/shared';
 import type { CombatAbilities, StrikeCancelGuard } from './ability.js';
 import { combatAbilitiesOf, strikeCancelGuardOf } from './ability.js';
@@ -133,6 +133,15 @@ export function rosterOf(
       strikeCancel: strikeCancelGuardOf(cardPool[character.definitionId]),
     });
     for (const ally of character.allies) {
+      // "May not be attacked" (Great Bats, Goldberry, Regiment of Black Crows,
+      // Nenseldë): the engine never offers such an ally as a strike target to
+      // either seat. Listed here, it absorbed a projected strike that really
+      // lands on a character — so handing the assignment to the attacker
+      // priced as though he would waste a strike on a prowess-0 ally, and the
+      // AI passed its own assignment far more often than human defenders do
+      // (game mwk7rt81-7bhvnu, turn 12: six strikes, three characters
+      // assignable, none assigned).
+      if (hasPlayFlag(cardPool[ally.definitionId], 'no-attack')) continue;
       targets.push({
         instanceId: ally.instanceId,
         definitionId: ally.definitionId,
