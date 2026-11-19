@@ -56,6 +56,7 @@ import type { Standing } from './standing.js';
 import { computeBudget } from './budget.js';
 import { computeHazardPlan } from './hazard-plan.js';
 import { heldGain } from './event-value.js';
+import { noSitePlays } from './opportunities.js';
 import type { OwnDeckList } from '../../../types.js';
 
 /** What one card in hand is worth keeping. */
@@ -191,6 +192,8 @@ function buildComputeCardPrices(
     for (const card of view.self.hand) {
       const def = printed(cardPool[card.definitionId as string], card.definitionId as string);
       if (!def || def.marshallingPoints <= 0) continue;
+      // Points no reachable site can collect never land.
+      if (noSitePlays(view, cardPool, cardPool[card.definitionId as string])) continue;
       const source = CHARACTER_TYPES.test(def.cardType) ? 'character' : def.marshallingCategory;
       totals[source] = (totals[source] ?? 0) + def.marshallingPoints;
     }
@@ -270,6 +273,15 @@ function buildComputeCardPrices(
         name: def.name,
         tsd: gain * tunables.potentialDiscount,
         reason: `${def.marshallingPoints} character MP, mind ${def.mind} inside the influence free`,
+      };
+    }
+
+    if (def.marshallingPoints > 0 && noSitePlays(view, cardPool, cardPool[definitionId])) {
+      return {
+        instanceId,
+        name: def.name,
+        tsd: floor,
+        reason: `${def.marshallingPoints} ${def.marshallingCategory} MP, but no site left to reach plays it — the flat price`,
       };
     }
 

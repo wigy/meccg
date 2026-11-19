@@ -392,6 +392,40 @@ function candidateSitesOf(view: PlayerView): string[] {
   return [...seen].sort();
 }
 
+/** Resources whose play is tied to a site: items, factions and allies. */
+const SITE_BOUND = /-resource-(item|faction|ally)$/;
+
+/**
+ * True when `def` is a site-bound resource (item, faction, ally) and no site
+ * the player can still reach plays it — not one in the location deck or the
+ * site discard pile, and not one a company stands on or is moving to. Those
+ * are every site there is to walk to, so the card's points cannot be
+ * collected however the game goes; holding it only blocks a draw.
+ *
+ * Game mwhjzjic, a Saruman deck: Hillmen (playable only at Cameth Brin, not
+ * in the location deck) sat in hand from turn 9 to turn 40 priced at its full
+ * 4 faction MP, while the hand cycled through cards it could use.
+ */
+export function noSitePlays(
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  def: CardDefinition,
+): boolean {
+  const cardType = (def as unknown as { cardType?: string }).cardType ?? '';
+  if (!SITE_BOUND.test(cardType)) return false;
+  // A view that does not say where the player can go proves nothing.
+  if (!Array.isArray(view.self.siteDeck)) return false;
+  // Discarded sites count too: they go back into the location deck when the
+  // play deck is exhausted (CoE 10.1), and Quickbeam's Wellinghall did.
+  const reachable = [...candidateSitesOf(view), ...(view.self.siteDiscardPile ?? []).map(site => site.definitionId as string)];
+  for (const siteDefinitionId of reachable) {
+    const siteDef = cardPool[siteDefinitionId];
+    if (!siteDef || !isSiteDefinition(siteDef)) continue;
+    if (resourcePlayableAt(def, siteDef as never, view.self.alignment)) return false;
+  }
+  return true;
+}
+
 /** Enumerate the goal candidates of a position: hand order, then site order. */
 function buildEnumerateGoalCandidates(
   view: PlayerView,

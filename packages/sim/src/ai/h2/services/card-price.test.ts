@@ -133,3 +133,32 @@ describe('quoting a card that is not in hand yet', () => {
     }
   });
 });
+
+describe('a card no reachable site plays', () => {
+  // Game mwhjzjic, turn 15: a Saruman deck at The White Towers holding Sword
+  // of Gondolin and Hillmen. No site in its location deck, its site discard
+  // pile or under a company plays either, so their points cannot land.
+  function handPrices() {
+    const view = scenarioView(loadScenario('hand/no-site-plays-it'));
+    const cardPool = loadCardPool();
+    const standing = computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES);
+    const priced = computeCardPrices(view, cardPool, standing, DEFAULT_TUNABLES);
+    const named = (name: string) => {
+      const card = view.self.hand.find(c => cardPool[c.definitionId]?.name === name);
+      expect(card).toBeDefined();
+      return priced.worth(card!.instanceId)!;
+    };
+    return { named };
+  }
+
+  test.each(['Sword of Gondolin', 'Hillmen'])('%s is held at the flat floor', name => {
+    const worth = handPrices().named(name);
+    expect(worth.tsd).toBe(DEFAULT_TUNABLES.heldCardFloor);
+    expect(worth.reason).toContain('no site left to reach plays it');
+  });
+
+  test('a points card that needs no site is still priced by its points', () => {
+    const worth = handPrices().named('The White Hand');
+    expect(worth.tsd).toBeGreaterThan(DEFAULT_TUNABLES.heldCardFloor);
+  });
+});
