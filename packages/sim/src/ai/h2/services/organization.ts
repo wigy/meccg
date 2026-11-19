@@ -53,6 +53,7 @@ import { automaticAttacksOf, computeDefence, hazardSlots } from './defence.js';
 import { computeReach } from './reach.js';
 import { enumerateGoalCandidates, routeProbabilityFor } from './opportunities.js';
 import { rosterOf } from './strike/prowess.js';
+import { untappedAfterAttacks } from './strike/taps.js';
 import { allyLossOnArrival } from './ally-restriction.js';
 
 /**
@@ -552,6 +553,32 @@ function buildComputeOrganization(
     return harm;
   };
 
+  // Whether a roster still has a character to tap once the site's automatic
+  // attacks have been faced — playing the card or making the influence
+  // attempt is a tap. Tapped-ness-blind like the rest of the matching: the
+  // question is the shape, every member fresh. Without it a lone Old Troll
+  // was credited with Framsburg's item behind its own automatic attack, so
+  // splitting him off cost nothing and merging two companies into one that
+  // could actually work the site was worth exactly nothing.
+  const workableCache = new Map<string, boolean>();
+  const workableBy = (characterIds: readonly string[], siteDefinitionId: string): boolean => {
+    const key = `${characterIds.join('|')}@${siteDefinitionId}`;
+    let workable = workableCache.get(key);
+    if (workable === undefined) {
+      const attacks = automaticAttacksOf(cardPool, siteDefinitionId);
+      if (attacks.length === 0) {
+        workable = true;
+      } else {
+        const roster = rosterOf({ characters: characterIds as unknown as CardInstanceId[] },
+          view.self.characters, cardPool)
+          .map(target => ({ ...target, status: CardStatus.Untapped }));
+        workable = untappedAfterAttacks(roster, attacks) > 0;
+      }
+      workableCache.set(key, workable);
+    }
+    return workable;
+  };
+
   const valueOf = (arrangement: Arrangement): ArrangementValue => {
     // Canonical form: rosters sorted, empty companies dropped, companies
     // ordered by their lowest member. This is condition one of the potential:
@@ -639,6 +666,9 @@ function buildComputeOrganization(
       if (goal.siteDefinitionId !== undefined
         && goal.siteDefinitionId !== company.currentSiteDefinitionId
         && immobileOf(company.characterIds)) {
+        return { p: 0, valueTsd: 0, weightTsd: 0 };
+      }
+      if (goal.siteDefinitionId !== undefined && !workableBy(company.characterIds, goal.siteDefinitionId)) {
         return { p: 0, valueTsd: 0, weightTsd: 0 };
       }
       const liveHarm = goal.committed || goal.siteDefinitionId === undefined

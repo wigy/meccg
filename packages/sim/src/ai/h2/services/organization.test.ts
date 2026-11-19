@@ -22,15 +22,30 @@ import { computeOrganization } from './organization.js';
 const cardPool = loadCardPool();
 const model = loadWinProbModel();
 
-function organizationFor(scenarioId: string, commitment?: Commitment) {
+function organizationFor(
+  scenarioId: string,
+  commitment?: Commitment,
+  pool: Readonly<Record<string, CardDefinition>> = cardPool,
+) {
   const view = scenarioView(loadScenario(scenarioId));
   const standing = computeStanding(view, model, DEFAULT_TUNABLES);
   return {
     view,
     standing,
-    organization: computeOrganization(view, cardPool, standing, DEFAULT_TUNABLES, commitment),
+    organization: computeOrganization(view, pool, standing, DEFAULT_TUNABLES, commitment),
   };
 }
+
+/**
+ * The pool with Mount Gundabad's automatic attack struck out. Both goals of
+ * the `trailing-split-*` scenarios sit there, behind two Orc strikes no
+ * singleton keeps a tap through — the tests about how a second goal prices a
+ * split use this so the split they build can serve it at all.
+ */
+const unguardedGundabad: Readonly<Record<string, CardDefinition>> = {
+  ...cardPool,
+  'tw-416': { ...cardPool['tw-416'], automaticAttacks: [] } as unknown as CardDefinition,
+};
 
 describe('one Organization per position', () => {
   test('the memo is hit: recompute equals cached, by identity', () => {
@@ -101,7 +116,7 @@ describe('resources to play for all', () => {
   });
 
   test('with a second goal in hand, the split company is credited for serving it', () => {
-    const { organization } = organizationFor('organization/trailing-split-two-goals');
+    const { organization } = organizationFor('organization/trailing-split-two-goals', undefined, unguardedGundabad);
     expect(organization.goals.length).toBeGreaterThanOrEqual(2);
     const current = organization.current();
     const big = [...current.companies].sort(
@@ -119,6 +134,22 @@ describe('resources to play for all', () => {
     expect(before.assignments.length).toBe(1);
     expect(after.assignments.length).toBe(2);
     expect(after.opportunityTsd).toBeGreaterThan(before.opportunityTsd);
+  });
+
+  test('behind Mount Gundabad\'s Orcs the singleton serves nothing: both strikes tap him', () => {
+    const { organization } = organizationFor('organization/trailing-split-two-goals');
+    const current = organization.current();
+    const big = [...current.companies].sort(
+      (a, b) => b.characterIds.length - a.characterIds.length)[0];
+    const others = current.companies.filter(c => c !== big);
+    const split: Arrangement = {
+      companies: [
+        ...others,
+        { ...big, characterIds: [big.characterIds[0]] },
+        { ...big, characterIds: big.characterIds.slice(1) },
+      ],
+    };
+    expect(organization.valueOf(split).assignments).toHaveLength(1);
   });
 });
 
@@ -429,5 +460,47 @@ describe('allies pinned to their home regions', () => {
   test('the same goal stays credited on a board with no restricted ally', () => {
     const { plain, current, goalId } = pinned();
     expect(plain.valueOf(current).assignments.some(a => a.goal.id === goalId)).toBe(true);
+  });
+});
+
+describe('a site whose automatic attacks tap everyone who walks in', () => {
+  // Game mwk7rt81, turn 24: the Old Troll split off on his own was credited
+  // with Thong of Fire at Framsburg at 100% — but Framsburg's automatic attack
+  // assigns its strike to him, he taps to face it, and nobody is left to tap
+  // for the item.
+  const scenarioId = 'organization/lone-troll-at-framsburg';
+  const framsburgGoal = (label: string) => label.includes('Framsburg');
+
+  function splitOffOldTroll() {
+    const { view, organization } = organizationFor(scenarioId);
+    const oldTroll = Object.values(view.self.characters).find(
+      c => cardPool[c.definitionId]?.name === 'Old Troll')!;
+    const current = organization.current();
+    const home = current.companies.find(c => c.characterIds.includes(oldTroll.instanceId))!;
+    const split: Arrangement = {
+      companies: [
+        ...current.companies.filter(c => c !== home),
+        { ...home, characterIds: home.characterIds.filter(id => id !== oldTroll.instanceId) },
+        { ...home, characterIds: [oldTroll.instanceId] },
+      ],
+    };
+    return { organization, oldTroll, value: organization.valueOf(split) };
+  }
+
+  test('Framsburg\'s item is one of the goals', () => {
+    const { organization } = organizationFor(scenarioId);
+    expect(organization.goals.some(g => framsburgGoal(g.label))).toBe(true);
+  });
+
+  test('a company of the Old Troll alone is not credited with it', () => {
+    const { value } = splitOffOldTroll();
+    const lone = value.assignments.find(a => a.companyLabel === 'Old Troll');
+    expect(lone === undefined || !framsburgGoal(lone.goal.label)).toBe(true);
+  });
+
+  test('a company that keeps a character untapped behind the attack still is', () => {
+    const { organization } = organizationFor(scenarioId);
+    const value = organization.valueOf(organization.current());
+    expect(value.assignments.some(a => framsburgGoal(a.goal.label) && a.p > 0)).toBe(true);
   });
 });

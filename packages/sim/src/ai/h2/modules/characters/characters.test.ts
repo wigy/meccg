@@ -439,12 +439,26 @@ describe('the organization potential', () => {
   // and these scenarios were built to exercise exactly that.
   const model = loadWinProbModel();
 
+  /**
+   * The pool with Mount Gundabad's automatic attack struck out: both goals of
+   * the `trailing-split-*` scenarios sit behind two Orc strikes that tap any
+   * singleton, so without this no split there serves a second goal at all.
+   */
+  const unguardedGundabad: Readonly<Record<string, CardDefinition>> = {
+    ...cardPool,
+    'tw-416': { ...cardPool['tw-416'], automaticAttacks: [] } as unknown as CardDefinition,
+  };
+
   /** Context for a scenario at an optionally forced risk posture. */
-  function scenarioContext(id: string, riskOverride?: number): ModuleContext {
+  function scenarioContext(
+    id: string,
+    riskOverride?: number,
+    pool: Readonly<Record<string, CardDefinition>> = cardPool,
+  ): ModuleContext {
     const view = scenarioView(loadScenario(id));
     return {
       view,
-      cardPool,
+      cardPool: pool,
       legalActions: [],
       tunables: DEFAULT_TUNABLES,
       standing: computeStanding(view, model, DEFAULT_TUNABLES, riskOverride),
@@ -470,10 +484,21 @@ describe('the organization potential', () => {
     // item's discounted payoff adds. What must hold is the ordering — the
     // same spin-off with a second goal to serve beats one with none, and by
     // at least that goal's worth showing through.
-    const withSecondGoal = bestSplitUtility(scenarioContext('organization/trailing-split-two-goals'));
-    const withoutSecondGoal = bestSplitUtility(scenarioContext('organization/trailing-split-no-second-goal'));
+    const withSecondGoal = bestSplitUtility(
+      scenarioContext('organization/trailing-split-two-goals', undefined, unguardedGundabad));
+    const withoutSecondGoal = bestSplitUtility(
+      scenarioContext('organization/trailing-split-no-second-goal', undefined, unguardedGundabad));
     expect(withSecondGoal).toBeGreaterThan(withoutSecondGoal);
     expect(withSecondGoal).toBeGreaterThan(-0.005);
+  });
+
+  test('behind Mount Gundabad\'s Orcs the second goal prices no singleton split', () => {
+    // Two Orc strikes tap a lone character before he can play anything, so
+    // the spun-off singleton serves nothing whether or not a second item is
+    // in hand.
+    const withSecondGoal = bestSplitUtility(scenarioContext('organization/trailing-split-two-goals'));
+    const withoutSecondGoal = bestSplitUtility(scenarioContext('organization/trailing-split-no-second-goal'));
+    expect(withSecondGoal).toBeCloseTo(withoutSecondGoal, 9);
   });
 
   test('trailing with no second goal: the split is refused', () => {
