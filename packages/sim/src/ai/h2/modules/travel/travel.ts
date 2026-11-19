@@ -62,7 +62,6 @@ import type { Beliefs } from '../../services/beliefs.js';
 import { automaticAttacksOf, computeDefence } from '../../services/defence.js';
 import { rosterOf } from '../../services/strike/prowess.js';
 import { untappedAfterAttacks } from '../../services/strike/taps.js';
-import type { StrikeTarget } from '../../services/strike/prowess.js';
 import { computeReach } from '../../services/reach.js';
 import { computeDrawValue } from '../../services/draw-value.js';
 import type { SiteExposure } from '../../services/exposure.js';
