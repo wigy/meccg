@@ -578,6 +578,11 @@ export interface Tunables {
    * coming turn. The hazard plan prices only creatures and their boosts, so
    * without this a hand of three creatures and two events against a limit of
    * six read as untouched by halving it to three.
+   *
+   * Off by default: at 2 and 5 it cut the fetch rate on recorded human
+   * positions from 71% to 61% and 55% (the humans fetched 17%), but head to
+   * head against itself at 0 it scored −3/−6 and −4/−2 on decks a/b and c/d,
+   * all inside the noise, so it buys no wins.
    */
   readonly halvedSlotTsd: number;
   /**
