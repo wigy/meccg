@@ -572,6 +572,11 @@ function buildHazardPlan(
   };
 
   const targets = makeTargets(base => base);
+  // Read before the allocation spends them: `allocate` counts `slots` down.
+  const slots = {
+    full: targets.reduce((sum, target) => sum + target.slots, 0),
+    halved: targets.reduce((sum, target) => sum + Math.ceil(target.slots / 2), 0),
+  };
   const { assigned: assignments, boost: plannedBoost } = allocate(targets);
 
   // Everything the plan could not use. Worth nothing to keep *as an attack* —
@@ -602,10 +607,7 @@ function buildHazardPlan(
   return {
     assignments: ordered,
     totalHarm,
-    slots: {
-      full: targets.reduce((sum, target) => sum + target.slots, 0),
-      halved: targets.reduce((sum, target) => sum + Math.ceil(target.slots / 2), 0),
-    },
+    slots,
     worth: (instanceId: CardInstanceId) => assignments.get(instanceId as string) ?? null,
 
     harmIfLimitsHalved(): number {
