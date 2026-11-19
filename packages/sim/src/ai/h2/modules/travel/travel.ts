@@ -61,8 +61,7 @@ import { computeBeliefs } from '../../services/beliefs.js';
 import type { Beliefs } from '../../services/beliefs.js';
 import { automaticAttacksOf, computeDefence } from '../../services/defence.js';
 import { rosterOf } from '../../services/strike/prowess.js';
-import type { StrikeTarget } from '../../services/strike/prowess.js';
-import type { AttackProfile } from '../../services/strike/sequence.js';
+import { untappedAfterAttacks } from '../../services/strike/taps.js';
 import { computeReach } from '../../services/reach.js';
 import { computeDrawValue } from '../../services/draw-value.js';
 import type { SiteExposure } from '../../services/exposure.js';
@@ -106,40 +105,7 @@ interface Destination {
   readonly tapsAvailable: number;
 }
 
-/**
- * How many of a company's untapped characters are still untapped once a
- * site's automatic attacks have been faced — the taps left to play what the
- * site unlocks.
- *
- * A character who faces a strike taps to fight it unless he can afford the −3
- * for staying untapped (CoE 3.iv), and the attacker assigns whatever strikes
- * the defender leaves over, so every strike lands on an untapped character
- * while one remains. Without this, a lone Boromir II at The Lonely Mountain
- * priced his Enruned Shield as playable behind the Dragon's single strike —
- * but the only character who could tap for it had to tap to face the Dragon
- * first, so entering was all risk and no reward (game mvj4blbj-kkinem,
- * turn 64).
- *
- * The defender puts his strongest characters up first, and one of them keeps
- * his tap only if even the lowest roll (2) at −3 prowess cannot lose the
- * strike. Each attack is a fresh assignment (one strike per character per
- * attack), but a character tapped by an earlier attack stays tapped.
- */
-export function untappedAfterAttacks(
-  roster: readonly StrikeTarget[],
-  attacks: readonly AttackProfile[],
-): number {
-  let untapped = roster
-    .filter(t => !t.isAlly && t.status === CardStatus.Untapped)
-    .map(t => t.prowess)
-    .sort((a, b) => b - a);
-  for (const attack of attacks) {
-    const facing = untapped.slice(0, attack.strikes);
-    const keepsTap = facing.filter(prowess => prowess - 3 + 2 >= attack.strikeProwess);
-    untapped = [...keepsTap, ...untapped.slice(attack.strikes)].sort((a, b) => b - a);
-  }
-  return untapped.length;
-}
+export { untappedAfterAttacks };
 
 /** The window a card is played in once its company stands on the site. */
 const SITE_WINDOW = windowOf({ phaseState: { phase: Phase.Site }, activePlayer: 'self' }, 'self');
