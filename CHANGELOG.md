@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.240.0 — 2026-11-19
+
+AI Drops Dead Cards and Keeps Companies Whole
+
+### AI
+
+- Modular AI no longer credits splitting off a company that a site's automatic attacks would leave with nobody untapped, so it keeps companies large enough to work guarded sites (#3533)
+- Modular AI prices items, factions and allies that no reachable site can play as dead cards, so it discards them instead of holding them for dozens of turns (#3534)
+
 ## 0.239.0 — 2026-11-19
 
 AI Stops Lingering on Spent Sites
