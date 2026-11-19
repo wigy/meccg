@@ -444,13 +444,25 @@ function routed(
  * cross no region at all — is the part of
  * every move's crossing that staying cannot save, and it is not charged. What
  * is still charged is each route's crossing *beyond* the cheapest exit, which
- * is the real difference between one way out and another. Zero anywhere the
- * site is untapped or a haven, so nothing else changes.
+ * is the real difference between one way out and another. Zero at a haven,
+ * and at an untapped site the company can still work.
+ *
+ * An untapped site whose own automatic attacks would leave nobody untapped
+ * (`nobodyLeftToPlay`) is spent for this company in the same way: entering
+ * plays nothing, so staying plays nothing. Pallando's company sat outside
+ * Moria — four strikes against a company of two — for ten turns of game
+ * mwd349zu-hn5s33, every way out priced below staying by its crossing.
  */
-function spentSiteExitCost(context: ModuleContext, companyId: string, beliefs: Beliefs): number {
+function spentSiteExitCost(
+  context: ModuleContext,
+  companyId: string,
+  beliefs: Beliefs,
+  nobodyLeftToPlay: boolean,
+): number {
   const company = context.view.self.companies.find(c => (c.id as string) === companyId);
   const origin = company?.currentSite;
-  if (!company || !origin || origin.status === CardStatus.Untapped) return 0;
+  if (!company || !origin) return 0;
+  if (origin.status === CardStatus.Untapped && !nobodyLeftToPlay) return 0;
   const originId = origin.definitionId as string;
   const originDef = context.cardPool[originId] as unknown as { siteType?: string; name?: string } | undefined;
   if (!originDef || originDef.siteType === 'haven') return 0;
@@ -520,12 +532,33 @@ function destinationValue(context: ModuleContext, destination: Destination): Des
   const threat = beliefs.holdsAtLeastOne('creature');
   // …and by *where* it can answer: see `regionDanger`.
   const crossing = crossingCost(beliefs, site.sitePath, tunables);
+
+  // The taps a play *here* would have, counting the ones the origin's own
+  // automatic attacks take — used both for what staying banks (`forgone`,
+  // below) and for whether the site is workable at all (`spentSiteExitCost`).
+  //
+  // "The same taps" includes the ones the origin's own automatic attacks take.
+  // Staying banks a play only by entering the site again, and entering means
+  // facing its attacks first — the bound `tapsAvailable` already applies to a
+  // destination above. Left out, a site whose attacks tap the whole company
+  // still "banked" its items: Pallando's company sat outside Moria for ten
+  // turns (game mwd349zu-hn5s33), every move away charged +4.9 for a
+  // Wormsbane that entering would have left nobody untapped to play, while
+  // `enter-site` itself priced the same entry at zero taps and declined it.
+  const originId = company?.currentSite?.definitionId;
+  const originAttacks = originId === undefined ? [] : automaticAttacksOf(context.cardPool, originId as string);
+  const tapsHere = company !== undefined && originAttacks.length > 0
+    ? Math.min(
+      destination.tapsAvailable,
+      untappedAfterAttacks(rosterOf(company, context.view.self.characters, context.cardPool), originAttacks),
+    )
+    : destination.tapsAvailable;
   // …less the part of it a company on a spent site pays whether it leaves now
   // or later — see `spentSiteExitCost`, scaled by `spentSiteExitShare`.
   // Bounded by this route's own crossing, so no route is credited for being
   // cheaper than the cheapest one.
   const deferredExit = tunables.spentSiteExitShare > 0
-    ? Math.min(crossing, tunables.spentSiteExitShare * spentSiteExitCost(context, companyId, beliefs))
+    ? Math.min(crossing, tunables.spentSiteExitShare * spentSiteExitCost(context, companyId, beliefs, tapsHere <= 0))
     : 0;
   const tempo = crossing - deferredExit;
 
@@ -684,8 +717,10 @@ function destinationValue(context: ModuleContext, destination: Destination): Des
   // and Orcs of the Red Eye walked off to Mount Doom to play Blasting Fire
   // (game mvdparjz-nnjb3o, turn 4). Bounded by the same taps as the
   // destination's plays, and nothing once the site is tapped.
+  //
+  const bankedHere = playableHere.slice(0, Math.max(0, tapsHere));
   const forgone = company?.currentSite?.status === CardStatus.Untapped
-    ? playableHere.slice(0, Math.max(0, destination.tapsAvailable)).reduce((sum, c) => sum + c.tsd, 0)
+    ? bankedHere.reduce((sum, c) => sum + c.tsd, 0)
     : 0;
 
   const dtsd = netTsdDelta(
@@ -758,7 +793,7 @@ function destinationValue(context: ModuleContext, destination: Destination): Des
     ...(forgone > 0
       ? [leaf('plays given up here', forgone, {
         unit: 'tsd',
-        note: `${playableHere.slice(0, Math.max(0, destination.tapsAvailable)).map(c => c.name).join(', ')} `
+        note: `${bankedHere.map(c => c.name).join(', ')} `
           + 'playable where the company stands — staying banks them',
       })]
       : []),
