@@ -393,6 +393,24 @@ export interface Tunables {
    */
   readonly deniedPlayMp: number;
   /**
+   * The held resource cards one company can play at one site, at most, when
+   * pricing what tapping one of our own characters denies
+   * (`character-value`): the play that taps the site, then the one extra
+   * minor item. Counting every held card (the old behaviour; set it high to
+   * restore it) charged each tap of a three-character company holding five
+   * resources a whole denied play — 12 TSD against a corruption-check support
+   * worth 5 — and the agent supported 14–31% of the need 4–7 checks humans
+   * supported 36–63% of.
+   */
+  readonly selfDenialSitePlays: number;
+  /**
+   * 1 charges a tap of our own character the influence attempt and the
+   * resource play it forfeits only while that company's site phase is still
+   * ahead this turn — not on the opponent's turn, not at our end of turn, and
+   * not once the company's site is tapped. 0 charges them always.
+   */
+  readonly selfDenialSitePhaseOnly: number;
+  /**
    * The most hazards `hazards` will plan into one company at once.
    *
    * A hard cap on top of the hazard limit, because the enumeration is over
@@ -781,6 +799,8 @@ export const DEFAULT_TUNABLES: Tunables = {
   resourceDrawValue: 1,
   hazardBeamWidth: 4,
   deniedPlayMp: 1,
+  selfDenialSitePlays: 2,
+  selfDenialSitePhaseOnly: 1,
   hazardMaxBundle: 3,
   abilityTapDenialTsd: 1,
   abilityLossDenialTsd: 0.5,

@@ -33,6 +33,7 @@
  * about the combat.
  */
 
+import { CardStatus, Phase } from '@meccg/shared';
 import type { CardDefinition, CardInstanceId, CompanyId, PlayerView } from '@meccg/shared';
 import { memoizeOnFirst } from '../core/memo.js';
 import { pAtLeast, pAtMost } from '../core/dice.js';
@@ -130,10 +131,31 @@ function buildComputeCharacterValue(
   tunables: Tunables,
   budget: Budget = computeBudget(view, cardPool),
 ): CharacterValue {
+  /**
+   * Whether this company's site phase is still ahead of it this turn — the only
+   * window a tap can take an influence attempt or a resource play out of.
+   *
+   * Outside it, a tap forfeits neither: on the opponent's turn and at the end
+   * of our own, the untap phase comes before our next site phase; and once the
+   * company's site is tapped, its play there has already been made. Charging
+   * the site phase anyway priced a corruption-check support at a whole denied
+   * resource play, and the agent supported 0–31% of the checks humans
+   * supported 36–63% of (need 4–7).
+   */
+  const sitePhaseAhead = (companyId: CompanyId): boolean => {
+    if (tunables.selfDenialSitePhaseOnly <= 0) return true;
+    if (view.activePlayer !== view.self.id) return false;
+    const phase = view.phaseState.phase;
+    if (phase === Phase.EndOfTurn) return false;
+    if (phase !== Phase.Site) return true;
+    const company = view.self.companies.find(c => c.id === companyId);
+    return company?.currentSite?.status !== CardStatus.Tapped;
+  };
+
   const priceOfInfluence = (character: CharacterBudget): number => {
     if (character.freeDirectInfluence <= 0) return 0;
     const companyId = companyOf(view, character.instanceId);
-    if (!companyId) return 0;
+    if (!companyId || !sitePhaseAhead(companyId)) return 0;
     // Only the best influencer's tap forfeits an attempt — if someone else can
     // make the same check, tapping this one costs the tempo and no more.
     const best = budget.bestInfluencerIn(companyId);
@@ -148,6 +170,12 @@ function buildComputeCharacterValue(
   const heldResourceCards = view.self.hand
     .filter(card => kindOf(cardPool[card.definitionId]) === 'resource')
     .length;
+  // But a company does not play its whole hand at one site: the first item,
+  // ally or faction taps the site, and after it only the one extra minor item
+  // window remains (`legal-actions/site.ts`). So at most this many held cards
+  // want an untapped body there, and a tap that leaves that many untapped
+  // denies nothing (`selfDenialSitePlays`).
+  const sitePlays = Math.min(heldResourceCards, tunables.selfDenialSitePlays);
 
   /**
    * What tapping this character costs in resource plays it takes with it.
@@ -159,11 +187,11 @@ function buildComputeCharacterValue(
    * charged — which is exactly the tap that leaves nobody free to act.
    */
   const priceOfSelfDenial = (character: CharacterBudget): number => {
-    if (heldResourceCards <= 0) return 0;
+    if (sitePlays <= 0) return 0;
     const companyId = companyOf(view, character.instanceId);
-    if (!companyId) return 0;
+    if (!companyId || !sitePhaseAhead(companyId)) return 0;
     const untappedBefore = budget.untappedIn(companyId).length;
-    const denied = Math.min(untappedBefore, heldResourceCards) - Math.min(untappedBefore - 1, heldResourceCards);
+    const denied = Math.min(untappedBefore, sitePlays) - Math.min(untappedBefore - 1, sitePlays);
     if (denied <= 0) return 0;
     // What forfeiting `deniedPlayMp` of our own resource points costs, through
     // `standing` so it picks up the doubling and the diversity cap — denying
