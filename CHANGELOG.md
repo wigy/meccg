@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.239.0 — 2026-11-19
+
+AI Stops Lingering on Spent Sites
+
+### AI
+
+- Modular AI no longer treats staying on an already-tapped non-haven site as saving the trip out, so companies leave used-up sites instead of idling there (new tunable `spentSiteExitShare`) (#3530)
+- Modular AI keeps its own strike assignments: allies that may not be attacked are excluded from the strike roster, and assigning a strike is no longer priced as spending the character's tap, cutting needless passes from 106 to 20 across 557 recorded windows (#3531)
+- Modular AI no longer credits staying at a site whose own automatic attacks would leave nobody untapped to play there (#3532)
+
 ## 0.238.0 — 2026-11-12
 
 Desire All for Thy Belly Gets Its Buttons
