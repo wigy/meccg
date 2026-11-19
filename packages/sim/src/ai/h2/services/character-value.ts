@@ -170,12 +170,6 @@ function buildComputeCharacterValue(
   const heldResourceCards = view.self.hand
     .filter(card => kindOf(cardPool[card.definitionId]) === 'resource')
     .length;
-  // But a company does not play its whole hand at one site: the first item,
-  // ally or faction taps the site, and after it only the one extra minor item
-  // window remains (`legal-actions/site.ts`). So at most this many held cards
-  // want an untapped body there, and a tap that leaves that many untapped
-  // denies nothing (`selfDenialSitePlays`).
-  const sitePlays = Math.min(heldResourceCards, tunables.selfDenialSitePlays);
 
   /**
    * What tapping this character costs in resource plays it takes with it.
@@ -187,11 +181,11 @@ function buildComputeCharacterValue(
    * charged — which is exactly the tap that leaves nobody free to act.
    */
   const priceOfSelfDenial = (character: CharacterBudget): number => {
-    if (sitePlays <= 0) return 0;
+    if (heldResourceCards <= 0) return 0;
     const companyId = companyOf(view, character.instanceId);
     if (!companyId || !sitePhaseAhead(companyId)) return 0;
     const untappedBefore = budget.untappedIn(companyId).length;
-    const denied = Math.min(untappedBefore, sitePlays) - Math.min(untappedBefore - 1, sitePlays);
+    const denied = Math.min(untappedBefore, heldResourceCards) - Math.min(untappedBefore - 1, heldResourceCards);
     if (denied <= 0) return 0;
     // What forfeiting `deniedPlayMp` of our own resource points costs, through
     // `standing` so it picks up the doubling and the diversity cap — denying
