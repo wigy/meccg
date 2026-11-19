@@ -608,6 +608,19 @@ export interface Tunables {
    */
   readonly revisitedSiteCost: number;
   /**
+   * How much of the cheapest crossing off a **spent** site `travel` stops
+   * charging, as a share: 1 credits all of it, 0 restores the old charge.
+   *
+   * A non-haven site the company has already tapped has no site phase left to
+   * play and draws nothing for staying, so staying does not avoid the trip
+   * out, it defers it. Charging every move its full crossing against a free
+   * "stay" priced that deferral as a saving. On the live server's recorded
+   * games the AI kept a healthy company on a tapped non-haven site in 51% of
+   * its organization phases, the human players in 12%. See
+   * `spentSiteExitCost` in `modules/travel`.
+   */
+  readonly spentSiteExitShare: number;
+  /**
    * What moving the whole of the deck's remaining points into one-move reach
    * is worth, in TSD — `travel` credits a move by the *change* in the share of
    * marshalling-point value (hand plus unseen deck) playable within
@@ -763,6 +776,7 @@ export const DEFAULT_TUNABLES: Tunables = {
   decisiveMargin: 0,
   gatingResolutionTsd: 1,
   revisitedSiteCost: 1.5,
+  spentSiteExitShare: 1,
   deckReachValue: 3,
   resourceDrawValue: 1,
   hazardBeamWidth: 4,

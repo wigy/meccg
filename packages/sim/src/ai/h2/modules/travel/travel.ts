@@ -420,6 +420,65 @@ function routed(
 }
 
 /**
+ * The crossing a company standing on a **spent** site cannot avoid by staying.
+ *
+ * Every destination is measured against staying put, scored 0, and that zero
+ * is right where staying is worth something: a haven heals, an untapped site
+ * still has a site phase to play at (`forgone` prices it). A non-haven site
+ * the company has already tapped has neither. Its next site phase plays
+ * nothing, and the company draws nothing for not moving — so staying does not
+ * *avoid* the trip out, it only *defers* it: every way off the site crosses
+ * regions, now or on a later turn. Charging each move its full crossing
+ * against a free "stay" priced the deferral as a saving, and a company whose
+ * best exit was a hair below zero sat on the spent site turn after turn.
+ *
+ * Measured on the live server's recorded human games (60 modular-AI games,
+ * November 2026): at a tapped non-haven site with nobody wounded the AI kept
+ * the company in place on **51%** of its organization phases, the human
+ * players on **12%**. A company once sat on a tapped Mount Doom for two turns
+ * running with three untapped characters (game mwk7rt81-7bhvnu, turns 4–6),
+ * every move out priced −0.1% to −2% by the region crossing alone.
+ *
+ * So the cheapest crossing out — over the same destinations
+ * `pay-movement-tax` considers, plus a move already declared, less any that
+ * cross no region at all — is the part of
+ * every move's crossing that staying cannot save, and it is not charged. What
+ * is still charged is each route's crossing *beyond* the cheapest exit, which
+ * is the real difference between one way out and another. Zero anywhere the
+ * site is untapped or a haven, so nothing else changes.
+ */
+function spentSiteExitCost(context: ModuleContext, companyId: string, beliefs: Beliefs): number {
+  const company = context.view.self.companies.find(c => (c.id as string) === companyId);
+  const origin = company?.currentSite;
+  if (!company || !origin || origin.status === CardStatus.Untapped) return 0;
+  const originId = origin.definitionId as string;
+  const originDef = context.cardPool[originId] as unknown as { siteType?: string; name?: string } | undefined;
+  if (!originDef || originDef.siteType === 'haven') return 0;
+
+  const exposure = computeExposure(context.view, context.cardPool);
+  const reach = computeReach(context.cardPool);
+  const candidates = context.view.self.siteDeck.map(card => card.definitionId as string);
+  if (company.destinationSite) candidates.push(company.destinationSite.definitionId as string);
+  let cheapest: number | null = null;
+  for (const definitionId of candidates) {
+    if (definitionId === originId) continue;
+    if (context.cardPool[definitionId]?.name === originDef.name) continue;
+    const distance = reach.between(originId, definitionId);
+    if (distance === null || distance > BASE_MAX_REGION_DISTANCE) continue;
+    const site = exposure.siteExposure(definitionId);
+    if (!site) continue;
+    // A route that prints no region at all is not a way out by ordinary
+    // movement — an Under-deeps site reads as `[]` and would make every exit
+    // look free.
+    const path = routed(context, site, companyId, definitionId).sitePath;
+    if (path.length === 0) continue;
+    const cost = crossingCost(beliefs, path, context.tunables);
+    if (cheapest === null || cost < cheapest) cheapest = cost;
+  }
+  return cheapest ?? 0;
+}
+
+/**
  * The arithmetic of one destination, separated from the evaluation of it.
  *
  * `cancel-movement` needs exactly this number with the sign flipped —
@@ -460,7 +519,15 @@ function destinationValue(context: ModuleContext, destination: Destination): Des
   const beliefs = computeBeliefs(context.view, context.cardPool);
   const threat = beliefs.holdsAtLeastOne('creature');
   // …and by *where* it can answer: see `regionDanger`.
-  const tempo = crossingCost(beliefs, site.sitePath, tunables);
+  const crossing = crossingCost(beliefs, site.sitePath, tunables);
+  // …less the part of it a company on a spent site pays whether it leaves now
+  // or later — see `spentSiteExitCost`, scaled by `spentSiteExitShare`.
+  // Bounded by this route's own crossing, so no route is credited for being
+  // cheaper than the cheapest one.
+  const deferredExit = tunables.spentSiteExitShare > 0
+    ? Math.min(crossing, tunables.spentSiteExitShare * spentSiteExitCost(context, companyId, beliefs))
+    : 0;
+  const tempo = crossing - deferredExit;
 
   // A site this company has already worked is a site whose *new* options are
   // the ones the hand has drawn since — and `route-compare` says human players
@@ -643,7 +710,11 @@ function destinationValue(context: ModuleContext, destination: Destination): Des
       tunable: 'regionCrossingCost',
       note: `${site.pathLength} region(s), scaled by a ${(threat * 100).toFixed(0)}% chance the `
         + `opponent holds a creature (${(beliefs.confidence * 100).toFixed(0)}% confidence, `
-        + `${beliefs.observed} cards seen)`,
+        + `${beliefs.observed} cards seen)`
+        + (deferredExit > 0
+          ? `; ${deferredExit.toFixed(1)} of a ${crossing.toFixed(1)} crossing not charged — the site is `
+            + 'spent, and staying only defers the cheapest way out'
+          : ''),
     }),
     leaf('taps available', tapsAvailable, {
       note: tapsAvailable < destination.tapsAvailable
