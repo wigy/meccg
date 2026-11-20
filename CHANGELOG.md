@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.242.0 — 2026-11-20
+
+AI Saves Its Hazards for the Right Company
+
+### AI
+
+- Modular AI charges a hazard event played where it does nothing for the hazard plan's use of that card, so it no longer spends its best hazard on a company resting in a haven while the intended target has still to move (#3539)
+- Modular AI prices an action that names a discard target by the card's removal mode, so it no longer taps a Ringwraith for Ancient Secrets to discard its own Reaching Shadow (#3540)
+- Modular AI can count free general influence as room for MP characters still in the deck, weighted by their chance of being drawn; new tunable `deckHeadroomWeight` ships at 0, so play is unchanged (#3538)
+- Modular AI can weight the corruption an item adds by the checks the bearer is expected to face; new tunable `corruptionCheckExposure` ships at 1, so play is unchanged (#3541)
+
 ## 0.241.0 — 2026-11-20
 
 AI Backs Corruption Checks and Reads Slayer Right
