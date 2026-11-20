@@ -247,10 +247,17 @@ function buildComputeCharacterValue(
       const deltaFail = pAtMost(before + added) - pAtMost(before);
       if (deltaFail <= 0) return { tsd: 0, reason: 'the failing band is already as wide as it gets' };
       const onFailure = onFailureOf(instanceId);
+      // The widening costs only on checks that actually come, so it is
+      // weighted by how many the bearer is expected to face
+      // (`corruptionCheckExposure`). At one certain check, Orcrist on Círdan
+      // (4 → 6) cost 11.2 against a 6.0 gain, and the AI passed on item plays
+      // the human made in 42 recorded site windows (mvjfm7kj-gi2ve3 seq 455).
+      const exposure = tunables.corruptionCheckExposure;
       return {
-        tsd: deltaFail * onFailure,
+        tsd: deltaFail * onFailure * exposure,
         reason: `corruption ${before} → ${before + added} widens the failing band by `
-          + `${(deltaFail * 100).toFixed(1)}%, against ${onFailure.toFixed(1)} tsd lost if it fails`,
+          + `${(deltaFail * 100).toFixed(1)}%, against ${onFailure.toFixed(1)} tsd lost if it fails`
+          + (exposure !== 1 ? `, at ${exposure} expected check(s)` : ''),
       };
     },
 

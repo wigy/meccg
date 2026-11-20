@@ -585,6 +585,12 @@ export interface Tunables {
    */
   readonly planHorizonTurns: number;
   /**
+   * How many corruption checks a character's carried corruption is expected to
+   * face, weighting what added corruption costs (`character-value`'s
+   * `corruptionRisk`). At 1 every point is charged as if a check were certain.
+   */
+  readonly corruptionCheckExposure: number;
+  /**
    * What each hazard held beyond the halved hazard limit costs the untap
    * sideboard access, in TSD (`hand`): a play the halving pushes out of the
    * coming turn. The hazard plan prices only creatures and their boosts, so
@@ -821,6 +827,7 @@ export const DEFAULT_TUNABLES: Tunables = {
   planAggregationMode: 0,
   planUnroutedReachProbability: 0.25,
   planHorizonTurns: 6,
+  corruptionCheckExposure: 1,
   halvedSlotTsd: 0,
   heldCardFloor: 1,
   organizationGoalCap: 4,
