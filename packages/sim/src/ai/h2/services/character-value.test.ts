@@ -15,7 +15,7 @@ import { describe, test, expect } from 'vitest';
 import { CardStatus } from '@meccg/shared';
 import type { CardDefinition, PlayerView } from '@meccg/shared';
 import { computeCharacterValue } from './character-value.js';
-import { DEFAULT_TUNABLES } from '../core/tunables.js';
+import { DEFAULT_TUNABLES, withTunable } from '../core/tunables.js';
 import type { MpDelta } from '../core/tsd.js';
 import type { Standing } from './standing.js';
 
@@ -149,5 +149,17 @@ describe('tapCost — only a site phase still ahead can be forfeited', () => {
   test('is charged always with the switch off', () => {
     const always = { ...DEFAULT_TUNABLES, selfDenialSitePhaseOnly: 0 };
     expect(price(at(solo(), { phase: 'end-of-turn' }), always)).toBeCloseTo(always.tapTempoCost + always.deniedPlayMp, 9);
+  });
+});
+
+describe('corruptionRisk — weighted by the checks the bearer is expected to face', () => {
+  test('scales with corruptionCheckExposure', () => {
+    // A fresh view per call: the service is memoised on it.
+    const risk = (exposure: number): number => computeCharacterValue(
+      viewWith(['a', 'b'], []), POOL, STANDING, withTunable(DEFAULT_TUNABLES, 'corruptionCheckExposure', exposure),
+    ).corruptionRisk('a' as never, 4).tsd;
+    expect(risk(1)).toBeGreaterThan(0);
+    expect(risk(0.5)).toBeCloseTo(risk(1) / 2, 9);
+    expect(risk(0)).toBe(0);
   });
 });
