@@ -573,6 +573,14 @@ export interface Tunables {
    */
   readonly planHorizonTurns: number;
   /**
+   * How much of a still-undrawn character's headroom credit the organization
+   * potential counts (`organization`), on top of its chance of being drawn
+   * over `planHorizonTurns`. At 0 only characters in hand make free general
+   * influence worth anything, and the AI stacked followers in 63 recorded
+   * windows to the humans' 735.
+   */
+  readonly deckHeadroomWeight: number;
+  /**
    * The least a card in hand is worth to keep, in TSD.
    *
    * Split from `provisionalCardPrice`, which was doing two different jobs: the
@@ -795,6 +803,7 @@ export const DEFAULT_TUNABLES: Tunables = {
   planAggregationMode: 0,
   planUnroutedReachProbability: 0.25,
   planHorizonTurns: 6,
+  deckHeadroomWeight: 0,
   heldCardFloor: 1,
   organizationGoalCap: 4,
   avatarInPlayTsd: 6,
