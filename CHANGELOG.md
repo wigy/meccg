@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.241.0 — 2026-11-20
+
+AI Backs Corruption Checks and Reads Slayer Right
+
+### AI
+
+- Modular AI taps characters to support corruption checks more like human players: tapping now costs only the site plays still open this turn, and the support is scored on the check's two outcomes (new tunables `selfDenialSitePlays`, `selfDenialSitePhaseOnly`) (#3535)
+- Modular AI no longer treats halving the opponent's hazard limit as adding harm, which had overvalued untap sideboard fetches by up to 21 TSD; adds an optional `halvedSlotTsd` cost, off by default (#3536)
+- Modular AI resolves single-target attacks such as Slayer and Assassin correctly, with every strike landing on the one character, and no longer prices declining Slayer's cancel-by-tap as a single strike (#3537)
+
 ## 0.240.0 — 2026-11-19
 
 AI Drops Dead Cards and Keeps Companies Whole
