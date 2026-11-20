@@ -12,7 +12,7 @@
 import { describe, expect, test } from 'vitest';
 import { computeLegalActions, loadCardPool } from '@meccg/shared';
 import type { GameAction, PlayerView } from '@meccg/shared';
-import { DEFAULT_TUNABLES } from '../../core/tunables.js';
+import { DEFAULT_TUNABLES, withTunable } from '../../core/tunables.js';
 import { computeStanding } from '../../services/standing.js';
 import { evaluateDecision } from '../../core/registry.js';
 import { loadScenario, opposingPlayer, scenarioView } from '../../scenario-store.js';
@@ -1183,5 +1183,48 @@ describe('Doors of Night sweeping their Gates of Morning', () => {
     const evaluation = hazardsModule.evaluate(doors, context)!;
     expect(JSON.stringify(evaluation.rationale)).toContain('takes their Gates of Morning out of play');
     expect(evaluation.expectedTsd).toBeGreaterThan(hazardsModule.evaluate(doors, baseContext)!.expectedTsd);
+  });
+});
+
+describe('a hazard event that does nothing to the company it is played on', () => {
+  // A lone character sits in a haven while their three-character company has
+  // still to move; Chill Them with Fear is the plan's best card against that
+  // one (mwk7rt81-7bhvnu seq 351). Scored at the card rotation alone, the AI
+  // spent it here — humans passed in 258 of 1278 such windows, and the AI
+  // would have played in 240 of them.
+  const SPENT = 'hazards/event-spent-off-plan';
+
+  function spentPosition(weight: number) {
+    const scenario = loadScenario(SPENT);
+    const view = scenarioView(scenario);
+    const cardPool = loadCardPool();
+    const tunables = withTunable(DEFAULT_TUNABLES, 'forgonePlanWeight', weight);
+    const standing = computeStanding(view, testWinProbModel(), tunables);
+    const legalActions = viableActions(scenario);
+    const chill = view.self.hand.find(c =>
+      (cardPool[c.definitionId] as unknown as { name?: string }).name === 'Chill Them with Fear')!;
+    const play = legalActions.find(a => a.type === 'play-hazard'
+      && (a as { cardInstanceId?: string }).cardInstanceId === chill.instanceId)!;
+    return { play, context: { view, cardPool, legalActions, tunables, standing } };
+  }
+
+  test('is charged what the plan had the card for', () => {
+    const { play, context } = spentPosition(1);
+    const evaluation = hazardsModule.evaluate(play, context)!;
+    expect(evaluation.expectedTsd).toBeLessThan(0);
+    expect(JSON.stringify(evaluation.rationale)).toContain('what the plan had it for');
+  });
+
+  test('so passing beats it', () => {
+    const { play, context } = spentPosition(1);
+    const pass = context.legalActions.find(a => a.type === 'pass')!;
+    const played = hazardsModule.evaluate(play, context)!;
+    const passed = hazardsModule.evaluate(pass, context);
+    expect(played.utility).toBeLessThan(passed?.utility ?? 0);
+  });
+
+  test('and at weight 0 it is the rotation alone, as before', () => {
+    const { play, context } = spentPosition(0);
+    expect(hazardsModule.evaluate(play, context)!.expectedTsd).toBeGreaterThan(0);
   });
 });
