@@ -78,6 +78,11 @@ interface SequenceState {
   /** True while every strike so far has been defeated — the kill-MP condition. */
   readonly allDefeated: boolean;
   readonly label: string;
+  /**
+   * The one character a single-target attack is aimed at, once it has been
+   * chosen (see {@link AttackProfile.singleTarget}).
+   */
+  readonly pinned?: string;
 }
 
 /** The company's condition when a strike lands, for pricers that need it. */
@@ -229,6 +234,20 @@ export interface AttackProfile {
    * defence answer.
    */
   readonly attackerChooses?: boolean;
+  /**
+   * True when every strike of the attack lands on one character, each resolved
+   * on its own against him as the strike before left him — a multi-attack
+   * creature "all against the same character" (Slayer tw-89, Assassin tw-8),
+   * which the engine marks `forceSingleTarget`.
+   *
+   * Without it the walk read the second strike settled on him as an excess
+   * strike — a −1 never rolled — so passing on Slayer's cancel-by-tap priced
+   * one strike where the engine rolls two, and the modular AI declined the
+   * cancel a human took (mwa9yq5y-7hf72s seq 337). And once he is eliminated
+   * the rest are not reassigned: the engine resolves them as successful for
+   * the defence (CoE 3.i.5, `combat-strike.ts`), so they are skipped here.
+   */
+  readonly singleTarget?: boolean;
 }
 
 /**
@@ -321,7 +340,7 @@ function mergeStates(states: readonly SequenceState[], acrossRosters: boolean): 
   const groups = new Map<string, SequenceState[]>();
   for (const state of states) {
     const key = `${acrossRosters ? '' : signatureOf(state.roster)}#${Math.round(state.dtsd / BUCKET_WIDTH)}`
-      + `#${state.allDefeated ? 1 : 0}`;
+      + `#${state.allDefeated ? 1 : 0}#${acrossRosters ? '' : state.pinned ?? ''}`;
     const group = groups.get(key);
     if (group) group.push(state);
     else groups.set(key, [state]);
@@ -338,6 +357,7 @@ function mergeStates(states: readonly SequenceState[], acrossRosters: boolean): 
       dtsd: group.reduce((sum, s) => sum + s.p * s.dtsd, 0) / p,
       allDefeated: dominant.allDefeated,
       label: dominant.label,
+      ...(dominant.pinned !== undefined ? { pinned: dominant.pinned } : {}),
     };
   });
 }
@@ -371,6 +391,7 @@ export function resolveSequentially(
     // point the rule may have been granted to the attack by an event rather
     // than printed on the creature.
     attackerChooses: options.attackerChooses ?? combat.attackerChoosesDefenders ?? false,
+    singleTarget: combat.forceSingleTarget === true,
   };
   // This entry point resolves the attack from the *defending* seat — the roster
   // is `view.self` — so its pricer counts harm suffered as a negative number.
@@ -692,10 +713,21 @@ export function resolveAttacks(
           ? chooseAttackerTarget(state.roster, profile, profile.strikes - i)
           : pickTarget(state.roster, cardPool, profile.strikeProwess));
         const settled = first && i < forced.length ? forced[i] : undefined;
-        const settledEntry = settled
-          ? state.roster.find(e => e.target.instanceId === settled.instanceId)
+        // A single-target attack, once aimed, stays on its one character
+        // whatever the last strike did to him; if it eliminated him the strike
+        // is resolved for the defence unrolled.
+        const pinnedId = profile.singleTarget
+          ? state.pinned ?? (settled?.instanceId as string | undefined)
           : undefined;
-        if (settledEntry && settledEntry.struck > 0) {
+        const aimedAt = pinnedId ?? (settled?.instanceId as string | undefined);
+        const settledEntry = aimedAt !== undefined
+          ? state.roster.find(e => e.target.instanceId === aimedAt)
+          : undefined;
+        if (pinnedId !== undefined && !settledEntry) {
+          next.push(state);
+          continue;
+        }
+        if (settledEntry && settledEntry.struck > 0 && !profile.singleTarget) {
           // The engine records a second strike settled on one character as
           // `excessStrikes`: it is never resolved on its own (CoE 3.iii), only
           // felt as the −1 `excessFor` already charges, so it is not faced.
@@ -710,7 +742,10 @@ export function resolveAttacks(
           next.push(state);
           continue;
         }
-        const excess = excessFor(candidatesOf(state.roster).length, profile.strikes - i);
+        // A single-target attack's strikes are each their own attack, so none
+        // is excess to another.
+        const excess = profile.singleTarget ? 0 : excessFor(candidatesOf(state.roster).length, profile.strikes - i);
+        const pin = profile.singleTarget ? { pinned: entry.target.instanceId as string } : {};
         const need = needAgainst(entry.target, cardPool, profile.strikeProwess, { excessStrikes: excess });
         const untappedBefore = untappedIn(state.roster);
         if (first && state === states[0] && !openingRecorded) {
@@ -733,6 +768,7 @@ export function resolveAttacks(
             dtsd: state.dtsd + price(CANCEL_OUTCOME, canceller.target, { untappedBefore }),
             allDefeated: false,
             label: state.label === '' ? note : `${state.label}; ${note}`,
+            ...pin,
           });
           continue;
         }
@@ -744,6 +780,7 @@ export function resolveAttacks(
             dtsd: state.dtsd + price(outcome, entry.target, { untappedBefore }),
             allDefeated: state.allDefeated && outcome.strike === 'defeated',
             label: state.label === '' ? describe(entry, outcome) : `${state.label}; ${describe(entry, outcome)}`,
+            ...pin,
           });
         }
       }
