@@ -585,6 +585,17 @@ export interface Tunables {
    */
   readonly planHorizonTurns: number;
   /**
+   * How many corruption checks a character's carried corruption is expected to
+   * face, weighting what added corruption costs (`character-value`'s
+   * `corruptionRisk`). At 1 every point is charged as if a check were certain.
+   *
+   * Left at 1: at 1, Orcrist on Círdan (corruption 4 → 6) costs 11.2 against
+   * a 6.0 gain, and the AI passes on item plays humans made in 42 recorded
+   * site windows. But head to head against 1, 0.5 scored +5 and −4 on decks
+   * a/b and c/d, and 0.25 scored +0 and −4 — no wins either way.
+   */
+  readonly corruptionCheckExposure: number;
+  /**
    * How much of a hand hazard's planned use against another company, still to
    * move this phase, a hazard event played elsewhere is charged (`hazards`).
    * At 0 an event that does nothing here is priced at the card rotation alone,
@@ -840,6 +851,7 @@ export const DEFAULT_TUNABLES: Tunables = {
   planAggregationMode: 0,
   planUnroutedReachProbability: 0.25,
   planHorizonTurns: 6,
+  corruptionCheckExposure: 1,
   forgonePlanWeight: 1,
   deckHeadroomWeight: 0,
   halvedSlotTsd: 0,
