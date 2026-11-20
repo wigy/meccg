@@ -585,6 +585,18 @@ export interface Tunables {
    */
   readonly planHorizonTurns: number;
   /**
+   * How much of a still-undrawn character's headroom credit the organization
+   * potential counts (`organization`), on top of its chance of being drawn
+   * over `planHorizonTurns`. At 0 only characters in hand make free general
+   * influence worth anything, and the AI stacked followers in 63 recorded
+   * windows to the humans' 735.
+   *
+   * Off by default: head to head against 0, weight 0.5 scored +16 and −1 on
+   * decks a/b and c/d, then +3 and +3 on fresh seeds; weight 1 scored +14 and
+   * −3 — all inside the noise, so it buys no wins.
+   */
+  readonly deckHeadroomWeight: number;
+  /**
    * What each hazard held beyond the halved hazard limit costs the untap
    * sideboard access, in TSD (`hand`): a play the halving pushes out of the
    * coming turn. The hazard plan prices only creatures and their boosts, so
@@ -821,6 +833,7 @@ export const DEFAULT_TUNABLES: Tunables = {
   planAggregationMode: 0,
   planUnroutedReachProbability: 0.25,
   planHorizonTurns: 6,
+  deckHeadroomWeight: 0,
   halvedSlotTsd: 0,
   heldCardFloor: 1,
   organizationGoalCap: 4,

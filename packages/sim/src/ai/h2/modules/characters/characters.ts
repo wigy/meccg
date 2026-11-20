@@ -261,7 +261,7 @@ function arrangedFrom(
  */
 function evaluateShape(context: ModuleContext, action: GameAction): Evaluation | null {
   const { standing, cardPool, tunables, view } = context;
-  const organization = computeOrganization(view, cardPool, standing, tunables, context.commitment);
+  const organization = computeOrganization(view, cardPool, standing, tunables, context.commitment, context.ownDeck);
   const merging = action.type === 'merge-companies';
 
   const untouched = (excluded: readonly string[]): ArrangedCompany[] =>
@@ -543,7 +543,7 @@ export const charactersModule: H2Module = {
       }).controlledBy;
       if (controlledBy === undefined) return null;
       const { view, cardPool } = context;
-      const organization = computeOrganization(view, cardPool, standing, tunables, context.commitment);
+      const organization = computeOrganization(view, cardPool, standing, tunables, context.commitment, context.ownDeck);
       const current = organization.current();
       const valueBefore = organization.valueOf(current);
       const valueAfter = organization.valueOf({
