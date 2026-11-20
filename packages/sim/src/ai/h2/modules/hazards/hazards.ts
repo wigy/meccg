@@ -67,7 +67,7 @@
 
 import { CardStatus, Phase, ownerOf } from '@meccg/shared';
 import type {
-  CardDefinition, CombatState, CreatureKeyingMatch, GameAction, OpponentCompanyView, PlayerView,
+  CardDefinition, CardInstanceId, CombatState, CreatureKeyingMatch, GameAction, OpponentCompanyView, PlayerView,
 } from '@meccg/shared';
 import type { Evaluation, H2Module, ModuleContext, Outcome, Rationale } from '../../core/types.js';
 import { netTsdDelta } from '../../core/tsd.js';
@@ -1034,6 +1034,35 @@ function futureBoostGain(
 }
 
 /**
+ * What playing a hazard event here takes from the hazard plan: the marginal
+ * the plan credits the card with against *another* company that has still to
+ * move this phase.
+ *
+ * Without it an event that does nothing to this company was scored at the
+ * card rotation alone (a small positive), so the AI spent the plan's best
+ * card on a company sitting in a haven — Chill Them with Fear, worth 11 TSD
+ * against their three-character company, thrown at a lone character who was
+ * not moving (mwk7rt81-7bhvnu seq 351). Humans passed in 258 of the 1278
+ * recorded windows where the AI would have played; the AI played in 240 of
+ * those 258. On-guard placement already charges this cost the same way.
+ */
+function forgonePlanUse(
+  instanceId: CardInstanceId,
+  company: OpponentCompanyView,
+  context: ModuleContext,
+): { tsd: number; label: string } | null {
+  const { view, cardPool, standing, tunables } = context;
+  if (tunables.forgonePlanWeight <= 0) return null;
+  const use = computeHazardPlan(view, cardPool, standing, tunables).worth(instanceId);
+  if (!use || use.targetCompanyId === null || use.marginal <= 0) return null;
+  if (use.targetCompanyId === (company.id as string)) return null;
+  const handled = new Set((view.phaseState as unknown as { handledCompanyIds?: readonly string[] })
+    .handledCompanyIds ?? []);
+  if (handled.has(use.targetCompanyId)) return null;
+  return { tsd: use.marginal * tunables.forgonePlanWeight, label: use.targetLabel };
+}
+
+/**
  * Score a hazard *event* — the half of hazard play that is not an attack.
  *
  * Two families can be priced, and they come from different places.
@@ -1109,7 +1138,8 @@ function evaluateHazardEvent(
   // no rotation worth the card: kept, it waits for a target it can hurt.
   const wasted = 'wasted' in gain && gain.wasted === true;
   const cardPrice = wasted ? -tunables.hazardCardPrice : tunables.hazardCardPrice;
-  const dtsd = netTsdDelta({ realized: gain.tsd, tempo: cardPrice }, tunables);
+  const forgone = forgonePlanUse(card.instanceId, company, context);
+  const dtsd = netTsdDelta({ realized: gain.tsd, tempo: cardPrice }, tunables) - (forgone?.tsd ?? 0);
   const outcomes: Outcome[] = [{ p: 1, label: `play ${name} — ${gain.reason}`, dtsd }];
 
   return scoredEvaluation({
@@ -1129,6 +1159,13 @@ function evaluateHazardEvent(
             ? 'thrown away on a target it cannot affect — kept, it waits for one it can'
             : 'drawn back before our turn — negative is the rotation it buys',
         }),
+        ...(forgone
+          ? [leaf('what the plan had it for', -forgone.tsd, {
+            unit: 'tsd',
+            tunable: 'forgonePlanWeight',
+            note: `the hazard plan plays it against ${forgone.label}, still to move this turn`,
+          })]
+          : []),
       ], { unit: 'tsd' }),
     ],
     assumptions: [

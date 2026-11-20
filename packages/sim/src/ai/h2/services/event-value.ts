@@ -514,7 +514,17 @@ export function gainOf(
     };
   }
 
-  const recovery = effects.find(e => e.type === 'move' && (e.to === 'hand' || e.to === 'deck'));
+  // An action that names a card in play to discard has picked the removal
+  // mode of a card that offers both (Ancient Secrets ba-36: "tap your
+  // Ringwraith to discard one hazard permanent-event. Alternatively, during
+  // your organization phase, ... take up to two resources from your sideboard
+  // to your play deck"). Read as the recovery it is not, every such action was
+  // worth two draws — including the ones that discard our *own* Reaching
+  // Shadow, which the AI then played in movement/hazard windows where the
+  // human passed (mvv75dqs-d3mo1z seq 533, 78 such windows in one game).
+  const recovery = namedDiscardTarget(action) === undefined
+    ? effects.find(e => e.type === 'move' && (e.to === 'hand' || e.to === 'deck'))
+    : undefined;
   if (recovery) {
     const cards = recovery.count ?? 1;
     const chosen = bestRecoverable(recovery, context);
