@@ -13,7 +13,7 @@ import { CardStatus, loadCardPool } from '@meccg/shared';
 import type { CardDefinition, GameAction, PlayerView } from '@meccg/shared';
 import type { ModuleContext } from '../../core/types.js';
 import type { Commitment } from '../../core/plan.js';
-import { DEFAULT_TUNABLES } from '../../core/tunables.js';
+import { DEFAULT_TUNABLES, withTunable } from '../../core/tunables.js';
 import { computeStanding } from '../../services/standing.js';
 import { testMarshallingPoints, testWinProbModel } from '../../test-support.js';
 import { loadScenario, scenarioView } from '../../scenario-store.js';
@@ -267,6 +267,31 @@ describe('changing controller', () => {
     const evaluation = charactersModule.evaluate(stack, context)!;
     expect(evaluation.utility).toBeGreaterThan(0);
     expect(JSON.stringify(evaluation.rationale)).toContain('headroom');
+  });
+
+  test('stacking keeps room for an MP character still in the deck, when the deck is priced', () => {
+    // The same 7 free and the same blocked Elrond, but in the deck instead of
+    // the hand: humans stacked followers in 735 recorded windows to the AI's
+    // 63, mostly with no character waiting to be played.
+    const deckOnly = (weight: number): ModuleContext => {
+      const context = contextWith(BALANCED, BALANCED, 13, 'general');
+      const self = context.view.self as unknown as Record<string, unknown[]>;
+      self.hand = self.hand.filter(card => (card as { definitionId: string }).definitionId !== SCORER);
+      for (const pile of ['discardPile', 'sideboard', 'killPile', 'outOfPlayPile']) self[pile] = [];
+      return {
+        ...context,
+        // A second Elrond-shaped card: the one in play is seen, so the deck's
+        // copy of that definition would be counted out.
+        cardPool: { ...POOL, 'tw-drawn': { ...POOL[SCORER], name: 'Glorfindel' } } as typeof POOL,
+        tunables: withTunable(DEFAULT_TUNABLES, 'deckHeadroomWeight', weight),
+        ownDeck: { playDeck: ['tw-drawn', CHEAP, CHEAP, CHEAP], draftPool: [] },
+      };
+    };
+    const priced = charactersModule.evaluate(stack, deckOnly(1))!;
+    const unpriced = charactersModule.evaluate(stack, deckOnly(0))!;
+    expect(priced.utility).toBeGreaterThan(0);
+    expect(JSON.stringify(priced.rationale)).toContain('still in the deck');
+    expect(unpriced.utility).toBeLessThan(priced.utility);
   });
 
   test('stack and unstack are exactly free, at every posture', () => {
