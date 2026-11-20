@@ -393,6 +393,18 @@ export interface Tunables {
    */
   readonly deniedPlayMp: number;
   /**
+   * 1 charges a tap of our own character the influence attempt and the
+   * resource play it forfeits only while that company's site phase is still
+   * ahead this turn — not on the opponent's turn, not at our end of turn, and
+   * not once the company's site is tapped. 0 charges them always.
+   *
+   * Capping the held cards counted at the two a site takes (the tapping play
+   * and the extra minor item) was tried with it and dropped: it made every
+   * support tap nearly free, and strike support rose from 22% to 37% of the
+   * agent's windows where humans support 17%.
+   */
+  readonly selfDenialSitePhaseOnly: number;
+  /**
    * The most hazards `hazards` will plan into one company at once.
    *
    * A hard cap on top of the hazard limit, because the enumeration is over
@@ -781,6 +793,7 @@ export const DEFAULT_TUNABLES: Tunables = {
   resourceDrawValue: 1,
   hazardBeamWidth: 4,
   deniedPlayMp: 1,
+  selfDenialSitePhaseOnly: 1,
   hazardMaxBundle: 3,
   abilityTapDenialTsd: 1,
   abilityLossDenialTsd: 0.5,

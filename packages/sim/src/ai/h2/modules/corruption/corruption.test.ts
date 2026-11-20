@@ -10,7 +10,7 @@
 import { describe, test, expect } from 'vitest';
 import { CardStatus, computeLegalActions, loadCardPool } from '@meccg/shared';
 import type { CardDefinition, GameAction, PlayerView } from '@meccg/shared';
-import type { ModuleContext } from '../../core/types.js';
+import type { ModuleContext, Rationale } from '../../core/types.js';
 import { DEFAULT_TUNABLES } from '../../core/tunables.js';
 import { computeStanding } from '../../services/standing.js';
 import { testMarshallingPoints, testWinProbModel } from '../../test-support.js';
@@ -78,6 +78,15 @@ function contextWith(
 }
 
 const BALANCED = { character: 3, item: 3, faction: 3, ally: 3 };
+
+/** The value of the first rationale line with this label, searched depth-first. */
+function line(rationale: Rationale, label: string): number {
+  const found = (r: Rationale): Rationale | undefined =>
+    r.label === label ? r : (r.children ?? []).map(found).find(x => x !== undefined);
+  const hit = found(rationale);
+  if (!hit || typeof hit.value !== 'number') throw new Error(`no numeric line '${label}'`);
+  return hit.value;
+}
 
 describe('the odds', () => {
   test('come from the target the engine publishes', () => {
@@ -211,6 +220,21 @@ describe('supporting somebody else\'s check', () => {
     )!;
     expect(capped.expectedTsd).toBeLessThan(rich.expectedTsd);
     expect(JSON.stringify(rich.rationale)).toContain('the tap it spends');
+  });
+
+  test('carries the roll it precedes, centred where the bare check is', () => {
+    // The check is still rolled after the support, at need − 1, so the support
+    // has the check's two outcomes rather than one sure number; set against
+    // the check's spread, a sure number lost wherever the risk curve favours
+    // variance. Their means differ by exactly what the +1 averts, less the tap.
+    const context = contextWith(BALANCED, BALANCED, CHECK, [SUPPORT]);
+    const support = corruptionModule.evaluate(SUPPORT, context)!;
+    const check = corruptionModule.evaluate(CHECK, context)!;
+    expect(support.outcomes).toHaveLength(2);
+    expect(support.outcomes[0].p).toBeCloseTo(30 / 36, 9);
+    const averted = line(support.rationale, 'what the +1 buys');
+    const tap = line(support.rationale, 'the tap it spends');
+    expect(support.expectedTsd - check.expectedTsd).toBeCloseTo(averted - tap, 6);
   });
 });
 

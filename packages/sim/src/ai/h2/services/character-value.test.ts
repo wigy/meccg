@@ -62,6 +62,25 @@ function viewWith(characterIds: readonly string[], handDefIds: readonly string[]
       generalInfluenceUsed: 0,
     },
     opponent: { characters: {}, cardsInPlay: [] },
+    activePlayer: 'p1',
+    phaseState: { phase: 'organization' },
+  } as unknown as PlayerView;
+}
+
+/** The same view at another moment of the turn. */
+function at(view: PlayerView, moment: { activePlayer?: string; phase?: string; siteTapped?: boolean }): PlayerView {
+  const company = view.self.companies[0];
+  return {
+    ...view,
+    activePlayer: moment.activePlayer ?? view.activePlayer,
+    phaseState: { phase: moment.phase ?? view.phaseState.phase },
+    self: {
+      ...view.self,
+      companies: [{
+        ...company,
+        currentSite: { instanceId: 'site', definitionId: 'tw-site', status: moment.siteTapped ? CardStatus.Tapped : CardStatus.Untapped },
+      }],
+    },
   } as unknown as PlayerView;
 }
 
@@ -93,5 +112,42 @@ describe('tapCost — resource plays forfeited by emptying the company', () => {
     const value = computeCharacterValue(view, POOL, STANDING, DEFAULT_TUNABLES);
     const price = value.tapCost('solo' as never);
     expect(price.tsd).toBe(0);
+  });
+});
+
+describe('tapCost — only a site phase still ahead can be forfeited', () => {
+  // The untap phase comes before our next site phase, so a tap on the
+  // opponent's turn or at our own end of turn takes no play away; nor does one
+  // after the company's site is tapped, when its play there is made.
+  const solo = (): PlayerView => viewWith(['solo'], [ITEM]);
+  const price = (view: PlayerView, tunables = DEFAULT_TUNABLES): number =>
+    computeCharacterValue(view, POOL, STANDING, tunables).tapCost('solo' as never).tsd;
+
+  test('is charged in our movement/hazard phase, before the site phase', () => {
+    expect(price(at(solo(), { phase: 'movement-hazard' })))
+      .toBeCloseTo(DEFAULT_TUNABLES.tapTempoCost + DEFAULT_TUNABLES.deniedPlayMp, 9);
+  });
+
+  test('is charged in our site phase while the site is untapped', () => {
+    expect(price(at(solo(), { phase: 'site' })))
+      .toBeCloseTo(DEFAULT_TUNABLES.tapTempoCost + DEFAULT_TUNABLES.deniedPlayMp, 9);
+  });
+
+  test('is not charged once the company\'s site is tapped', () => {
+    expect(price(at(solo(), { phase: 'site', siteTapped: true }))).toBeCloseTo(DEFAULT_TUNABLES.tapTempoCost, 9);
+  });
+
+  test('is not charged at our end of turn', () => {
+    expect(price(at(solo(), { phase: 'end-of-turn' }))).toBeCloseTo(DEFAULT_TUNABLES.tapTempoCost, 9);
+  });
+
+  test('is not charged on the opponent\'s turn', () => {
+    expect(price(at(solo(), { activePlayer: 'p2', phase: 'movement-hazard' })))
+      .toBeCloseTo(DEFAULT_TUNABLES.tapTempoCost, 9);
+  });
+
+  test('is charged always with the switch off', () => {
+    const always = { ...DEFAULT_TUNABLES, selfDenialSitePhaseOnly: 0 };
+    expect(price(at(solo(), { phase: 'end-of-turn' }), always)).toBeCloseTo(always.tapTempoCost + always.deniedPlayMp, 9);
   });
 });
