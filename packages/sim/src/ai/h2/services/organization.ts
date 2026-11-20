@@ -55,6 +55,8 @@ import { enumerateGoalCandidates, routeProbabilityFor } from './opportunities.js
 import { rosterOf } from './strike/prowess.js';
 import { untappedAfterAttacks } from './strike/taps.js';
 import { allyLossOnArrival } from './ally-restriction.js';
+import { unseenDeckCards } from './deck-reach.js';
+import type { OwnDeckList } from '../../../types.js';
 
 /**
  * Target assumed for a faction whose definition does not print one — the same
@@ -416,32 +418,67 @@ interface HeadroomCandidate {
   readonly creditTsd: number;
 }
 
-/** MP-bearing characters in hand, the raw material of the headroom term. */
+/**
+ * MP-bearing characters the headroom term could unlock: those in hand, and —
+ * at `deckHeadroomWeight` times their chance of being drawn — those still in
+ * the play deck.
+ *
+ * Counting only the hand made a follower worth stacking only while a
+ * character waited for the room, so the AI stacked in 63 recorded windows
+ * where humans stacked in 735 — mostly just before planning movement or
+ * passing, with no character to play: they keep the pool free for the next
+ * one they draw. A deck character is credited by the chance it is drawn over
+ * `planHorizonTurns` at two draws a turn, the same discount `event-value`'s
+ * enabler term uses.
+ */
 function headroomCandidates(
   view: PlayerView,
   cardPool: Readonly<Record<string, CardDefinition>>,
   standing: Standing,
   tunables: Tunables,
-): HeadroomCandidate[] {
-  const candidates: HeadroomCandidate[] = [];
-  for (const card of view.self.hand) {
-    const def = cardPool[card.definitionId];
-    if (!def || !isCharacterCard(def)) continue;
-    const fields = def as unknown as {
-      name?: string; marshallingPoints?: number; marshallingCategory?: string; mind?: number | null;
-    };
-    const mp = fields.marshallingPoints ?? 0;
-    if (mp <= 0) continue;
-    const source = (fields.marshallingCategory ?? 'character') as MpSource;
-    const marginal = standing.tsdAfter({ [source]: mp }) - standing.tsd;
-    if (marginal <= 0) continue;
-    candidates.push({
-      name: fields.name ?? card.definitionId,
-      mind: fields.mind ?? 0,
-      creditTsd: marginal * tunables.potentialDiscount,
-    });
+  ownDeck?: OwnDeckList,
+): { hand: HeadroomCandidate[]; deck: HeadroomCandidate[] } {
+  const deck: HeadroomCandidate[] = [];
+  if (ownDeck && tunables.deckHeadroomWeight > 0) {
+    const unseen = unseenDeckCards(view, ownDeck);
+    const draws = 2 * tunables.planHorizonTurns;
+    const copies = new Map<string, number>();
+    for (const id of unseen) copies.set(id, (copies.get(id) ?? 0) + 1);
+    for (const [id, count] of copies) {
+      const pDrawn = Math.min(1, count * draws / unseen.length);
+      const found = headroomCandidate(id, cardPool, standing, tunables, pDrawn * tunables.deckHeadroomWeight);
+      if (found) deck.push(found);
+    }
   }
-  return candidates;
+  const hand = view.self.hand
+    .map(card => headroomCandidate(card.definitionId as string, cardPool, standing, tunables, 1))
+    .filter((found): found is HeadroomCandidate => found !== null);
+  return { hand, deck };
+}
+
+/** One character the headroom could unlock, its credit scaled by `scale`; null if it scores nothing. */
+function headroomCandidate(
+  definitionId: string,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  standing: Standing,
+  tunables: Tunables,
+  scale: number,
+): HeadroomCandidate | null {
+  const def = cardPool[definitionId];
+  if (!def || !isCharacterCard(def)) return null;
+  const fields = def as unknown as {
+    name?: string; marshallingPoints?: number; marshallingCategory?: string; mind?: number | null;
+  };
+  const mp = fields.marshallingPoints ?? 0;
+  if (mp <= 0) return null;
+  const source = (fields.marshallingCategory ?? 'character') as MpSource;
+  const marginal = standing.tsdAfter({ [source]: mp }) - standing.tsd;
+  if (marginal <= 0) return null;
+  return {
+    name: fields.name ?? definitionId,
+    mind: fields.mind ?? 0,
+    creditTsd: marginal * tunables.potentialDiscount * scale,
+  };
 }
 
 /** Build the organization potential for one position. */
@@ -451,12 +488,13 @@ function buildComputeOrganization(
   standing: Standing,
   tunables: Tunables,
   commitment?: Commitment,
+  ownDeck?: OwnDeckList,
 ): Organization {
   const defence = computeDefence(view, cardPool, standing, tunables);
   const reach = computeReach(cardPool);
   const waypoints = view.self.siteDeck.map(site => site.definitionId as string);
   const { goals, capBound } = goalList(view, cardPool, standing, tunables, commitment);
-  const headroom = headroomCandidates(view, cardPool, standing, tunables);
+  const { hand: headroom, deck: deckHeadroom } = headroomCandidates(view, cardPool, standing, tunables, ownDeck);
 
   // The view's baseline follower assignment: who controls whom, and what the
   // general-influence pool has free. Controller overrides are priced as
@@ -767,7 +805,11 @@ function buildComputeOrganization(
       (bestSoFar, candidate) => (bestSoFar === null || candidate.creditTsd > bestSoFar.creditTsd
         ? candidate : bestSoFar),
       null);
-    const headroomTsd = unlocked?.creditTsd ?? 0;
+    // The deck's characters add to it, each discounted by its draw chance —
+    // a sum, since any of them may be the one drawn into the free room.
+    const deckFitting = deckHeadroom.filter(candidate => candidate.mind <= freeGi);
+    const deckHeadroomTsd = deckFitting.reduce((sum, candidate) => sum + candidate.creditTsd, 0);
+    const headroomTsd = (unlocked?.creditTsd ?? 0) + deckHeadroomTsd;
 
     const opportunityTsd = best.total + headroomTsd;
     const shift = -harmTsd + headroomTsd;
@@ -820,6 +862,13 @@ function buildComputeOrganization(
         ? `${freeGi} free fits ${unlocked.name} (mind ${unlocked.mind})`
         : `${freeGi} free fits no marshalling-point character waiting in hand`,
     }));
+    if (deckHeadroomTsd > 0) {
+      detail.push(leaf('room for characters still in the deck', deckHeadroomTsd, {
+        unit: 'tsd',
+        tunable: 'deckHeadroomWeight',
+        note: `${deckFitting.length} of them would fit, each at its chance of being drawn`,
+      }));
+    }
     if (capBound) {
       detail.push(leaf('goal list truncated', tunables.organizationGoalCap, {
         tunable: 'organizationGoalCap',
