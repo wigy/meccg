@@ -277,6 +277,26 @@ describe('what the hazard limit itself is worth', () => {
     expect(plan.harmIfLimitsHalved()).toBeLessThan(plan.totalHarm);
   });
 
+  test('holds in a recorded position where the greedy allocation found more with less', () => {
+    // mvzojc7d-yzqsyc seq 387: with the limits halved, the greedy allocation
+    // stumbled on a sequence the full-limit run passed by and scored it 21 TSD
+    // higher, which priced the untap sideboard access as a gain for the
+    // halving itself — Call of Home, worth 0.3, fetched at +21.
+    const { plan } = position('hand/halved-limit-greedy-gain');
+    expect(plan.harmIfLimitsHalved()).toBeLessThanOrEqual(plan.totalHarm);
+  });
+
+  test('counts the slots the halving leaves, rounding each company\'s up', () => {
+    const { view, cardPool, plan } = position();
+    const exposure = computeExposure(view, cardPool);
+    const limits = view.opponent.companies.map(company => {
+      const published = exposure.hazardLimit(company.id) ?? 0;
+      return published > 0 ? published : Math.max(company.characters.length, 2);
+    });
+    expect(plan.slots.full).toBe(limits.reduce((a, b) => a + b, 0));
+    expect(plan.slots.halved).toBe(limits.reduce((a, b) => a + Math.ceil(b / 2), 0));
+  });
+
   test('the answer is stable, because it is computed once and kept', () => {
     const { plan } = position();
     expect(plan.harmIfLimitsHalved()).toBe(plan.harmIfLimitsHalved());

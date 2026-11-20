@@ -259,6 +259,28 @@ describe('cancelling a strike after assignment', () => {
   });
 });
 
+describe('declining Slayer\'s cancel-by-tap', () => {
+  // Slayer (tw-89): two one-strike attacks, both pre-assigned to Orc Tracker.
+  // Declining the cancel means both are rolled against him, the second as the
+  // first left him; the walk used to read the second as an excess −1 and
+  // priced the pass as one strike, so the AI kept the tap a human spent
+  // (mwa9yq5y-7hf72s seq 337).
+  const evaluations = rank('combat/slayer-cancel-by-tap');
+
+  test('faces both strikes on the one character', () => {
+    const declined = find(evaluations, a => a.type === 'pass')!;
+    expect(declined.outcomes.some(o => o.label.split('; ').length === 2
+      && o.label.split('; ').every(part => part.startsWith('Orc Tracker')))).toBe(true);
+    expect(declined.outcomes.some(o => o.label.includes('Orc Veteran'))).toBe(false);
+  });
+
+  test('so the cancel ranks above taking the attack', () => {
+    const declined = find(evaluations, a => a.type === 'pass')!;
+    const cancel = find(evaluations, a => a.type === 'cancel-by-tap')!;
+    expect(cancel.utility).toBeGreaterThan(declined.utility);
+  });
+});
+
 describe('choosing which strike resolves next', () => {
   test('every candidate is scored — the decision is claimed, not just owned', () => {
     // At this step there is deliberately no *current* strike: picking one is

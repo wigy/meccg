@@ -220,13 +220,28 @@ function evaluateSupport(action: GameAction, context: ModuleContext): Evaluation
     ? { tsd: 0, reason: 'the Free Council ends the game — a tap there forgoes nothing' }
     : computeCharacterValue(view, cardPool, standing, tunables).tapCost(fields.supportingCharacterId);
 
-  const dtsd = netTsdDelta({ realized: averted, tempo: tap.tsd }, tunables);
-  const outcomes: Outcome[] = [{
-    p: 1,
-    label: `tap for +1 on ${failure.name}'s check — ${((pWith - pWithout) * 100).toFixed(1)}% `
-      + 'less chance of losing them',
-    dtsd,
-  }];
+  // The support does not replace the roll, it precedes it: the check is still
+  // rolled, at need − 1, and its two outcomes are priced exactly as the check's
+  // own are — centred on the roll at the current need, which is coming either
+  // way, and crediting the same unblocking of the phase. Scored as one sure
+  // number instead, the support was a certainty set against the check's
+  // spread, and wherever the risk curve favours variance (a trailing
+  // standing) the bare roll won on its σ alone.
+  const tapped = netTsdDelta({ realized: 0, tempo: tap.tsd }, tunables);
+  const unavoidable = (1 - pWithout) * failure.dtsd;
+  const base = tapped - unavoidable + tunables.gatingResolutionTsd;
+  const outcomes: Outcome[] = [];
+  if (pWith > 0) {
+    outcomes.push({
+      p: pWith,
+      label: `tap for +1 on ${failure.name}'s check — it holds, `
+        + `${((pWith - pWithout) * 100).toFixed(1)}% more often than unsupported`,
+      dtsd: base,
+    });
+  }
+  if (pWith < 1) {
+    outcomes.push({ p: 1 - pWith, label: `tap for +1, and ${failure.name} is corrupted anyway`, dtsd: base + failure.dtsd });
+  }
   return scoredEvaluation({
     action,
     module: 'corruption',

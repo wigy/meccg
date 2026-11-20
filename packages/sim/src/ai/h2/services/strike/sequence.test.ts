@@ -16,6 +16,7 @@ import { CardStatus } from '@meccg/shared';
 import type { CardDefinition, CombatState, PlayerView } from '@meccg/shared';
 import { pAtLeast } from '../../core/dice.js';
 import { resolveSequentially } from './sequence.js';
+import { strikeTargets } from './prowess.js';
 import type { SequencePricer } from './sequence.js';
 
 const HERO = 'tw-hero';
@@ -400,5 +401,55 @@ describe('an assignment the defender gave away', () => {
       viewWith([6, 5]), POOL, attack(3, 9), 3, HARM, { maxStates: 192, forced });
     expect(chance(result.outcomes, () => true)).toBeCloseTo(1, 9);
     expect(result.outcomes.some(o => o.label.includes('c1'))).toBe(true);
+  });
+});
+
+describe('an attack whose every strike lands on one character', () => {
+  // Slayer (tw-89) and Assassin (tw-8): separate one-strike attacks, all
+  // against the same character, which the engine marks `forceSingleTarget`.
+  const single = (strikes: number, prowess: number, attackerChoosesDefenders = false): CombatState =>
+    ({ ...attack(strikes, prowess, attackerChoosesDefenders), forceSingleTarget: true }) as CombatState;
+  const NAMED = {
+    ...POOL,
+    'tw-first': { name: 'First', marshallingPoints: 1, marshallingCategory: 'character', body: 8 },
+    'tw-second': { name: 'Second', marshallingPoints: 1, marshallingCategory: 'character', body: 8 },
+  } as unknown as Readonly<Record<string, CardDefinition>>;
+  const pair = (prowess: readonly number[]): PlayerView => viewWith(prowess, ['tw-first', 'tw-second']);
+  const parts = (label: string): string[] => label.split('; ');
+  /** `count` strikes settled on the first character, as the engine assigns them. */
+  const onFirst = (count: number): never => {
+    const first = strikeTargets(pair([6, 5]), NAMED, single(count, 9))[0];
+    return Array.from({ length: count }, () => first) as never;
+  };
+
+  test('rolls each strike against him as the last one left him', () => {
+    // Read as excess, the second strike was a −1 never rolled, and passing on
+    // Slayer's cancel priced one strike where the engine rolls two
+    // (mwa9yq5y-7hf72s seq 337).
+    const both = resolveSequentially(pair([6, 5]), NAMED, single(2, 9), 2, HARM, { maxStates: 192, forced: onFirst(2) });
+    const one = resolveSequentially(pair([6, 5]), NAMED, single(1, 9), 1, HARM, { maxStates: 192, forced: onFirst(1) });
+    expect(chance(both.outcomes, () => true)).toBeCloseTo(1, 9);
+    expect(both.outcomes.some(o => parts(o.label).length === 2
+      && parts(o.label).every(part => part.startsWith('First')))).toBe(true);
+    const harm = (r: typeof both): number => r.outcomes.reduce((s, o) => s + o.p * o.dtsd, 0);
+    expect(harm(both)).toBeLessThan(harm(one));
+  });
+
+  test('never passes a strike to anyone else, even once he is eliminated', () => {
+    // CoE 3.i.5: the strikes left on an eliminated combatant are resolved as
+    // successful for the defence (`combat-strike.ts`), not reassigned.
+    const result = resolveSequentially(pair([6, 5]), NAMED, single(3, 9), 3, HARM, { maxStates: 192, forced: onFirst(3) });
+    expect(chance(result.outcomes, () => true)).toBeCloseTo(1, 9);
+    expect(result.outcomes.some(o => o.label.includes('Second'))).toBe(false);
+    expect(result.outcomes.some(o => o.label.endsWith('First eliminated') && parts(o.label).length < 3)).toBe(true);
+  });
+
+  test('aims every strike where the first one went when nothing is assigned yet', () => {
+    const result = resolveSequentially(
+      pair([6, 3]), NAMED, single(2, 8, true), 2, HARM, { maxStates: 192 });
+    const first = result.opening[0].target.name;
+    expect(result.outcomes.every(o => parts(o.label).every(part => part.startsWith(first)))).toBe(true);
+    expect(result.outcomes.some(o => parts(o.label).length === 2)).toBe(true);
+    expect(chance(result.outcomes, () => true)).toBeCloseTo(1, 9);
   });
 });
