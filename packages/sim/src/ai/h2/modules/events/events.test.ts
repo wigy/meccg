@@ -634,6 +634,39 @@ describe('discarding a corruption card from our own character', () => {
   });
 });
 
+describe('a card with a removal mode and a recovery mode', () => {
+  test('is priced by the removal when the action names a card to discard', () => {
+    // Regression (game mvv75dqs-d3mo1z seq 533): Ancient Secrets either
+    // discards a hazard permanent-event or, in organization, shuffles two
+    // sideboard resources into the deck. Each movement/hazard action named one
+    // of our own hazard permanents, yet every one was priced as the two-card
+    // recovery, so the AI would throw away its own Reaching Shadow where the
+    // human passed — 78 such windows in that game alone.
+    const scenario = loadScenario('events/ancient-secrets-own-hazard');
+    const view = scenarioView(scenario);
+    const cardPool = loadCardPool();
+    const legalActions = computeLegalActions(scenario.state, scenario.actingPlayer)
+      .filter(legal => legal.viable)
+      .map(legal => legal.action);
+    const context: ModuleContext = {
+      view,
+      cardPool,
+      legalActions,
+      tunables: DEFAULT_TUNABLES,
+      standing: computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES),
+    };
+    const discards = legalActions.filter(a => a.type === 'play-short-event'
+      && (a as unknown as { discardTargetInstanceId?: string }).discardTargetInstanceId !== undefined);
+    expect(discards.length).toBeGreaterThan(0);
+    for (const discard of discards) {
+      const evaluation = eventsModule.evaluate(discard, context);
+      const text = JSON.stringify(evaluation?.rationale ?? null);
+      expect(text).not.toContain('back to deck');
+      expect(evaluation?.expectedTsd ?? 0).toBeLessThanOrEqual(0);
+    }
+  });
+});
+
 describe('the one short-event family combat shares this type for', () => {
   // `play-short-event` has two owners, and which of them gets a plain
   // `company-combat-boost` must be stated in both rather than left to the
