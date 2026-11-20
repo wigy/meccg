@@ -1056,8 +1056,8 @@ function forgonePlanUse(
   const use = computeHazardPlan(view, cardPool, standing, tunables).worth(instanceId);
   if (!use || use.targetCompanyId === null || use.marginal <= 0) return null;
   if (use.targetCompanyId === (company.id as string)) return null;
-  const handled = new Set(((view.phaseState as unknown as { handledCompanyIds?: readonly string[] })
-    .handledCompanyIds ?? []).map(id => id as string));
+  const handled = new Set((view.phaseState as unknown as { handledCompanyIds?: readonly string[] })
+    .handledCompanyIds ?? []);
   if (handled.has(use.targetCompanyId)) return null;
   return { tsd: use.marginal * tunables.forgonePlanWeight, label: use.targetLabel };
 }
