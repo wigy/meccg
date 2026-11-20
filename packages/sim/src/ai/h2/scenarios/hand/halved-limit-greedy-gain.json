@@ -1,0 +1,1355 @@
+{
+  "id": "hand/halved-limit-greedy-gain",
+  "description": "Untap: the hazard sideboard access is offered; the greedy hazard plan scores the halved limits above the full ones.",
+  "module": "hand",
+  "actingPlayer": "p1",
+  "expectation": "Pass; halving the limit is not a gain, and Call of Home is worth next to nothing (the human passed).",
+  "source": {
+    "kind": "game",
+    "gameId": "/srv/backup/meccg/logs/games/mvzojc7d-yzqsyc.jsonl",
+    "stateSeq": 387
+  },
+  "hash": "46399c28a00396f5",
+  "state": {
+    "gameId": "mvzojc7d-yzqsyc",
+    "players": [
+      {
+        "id": "p1",
+        "name": "Yur33",
+        "alignment": "wizard",
+        "wizard": null,
+        "hand": [
+          {
+            "instanceId": "p1-22",
+            "definitionId": "tw-209"
+          },
+          {
+            "instanceId": "p1-36",
+            "definitionId": "le-77"
+          },
+          {
+            "instanceId": "p1-3",
+            "definitionId": "tw-244"
+          },
+          {
+            "instanceId": "p1-10",
+            "definitionId": "tw-300"
+          },
+          {
+            "instanceId": "p1-47",
+            "definitionId": "tw-103"
+          },
+          {
+            "instanceId": "p1-57",
+            "definitionId": "tw-61"
+          },
+          {
+            "instanceId": "p1-14",
+            "definitionId": "tw-353"
+          },
+          {
+            "instanceId": "p1-43",
+            "definitionId": "tw-076"
+          }
+        ],
+        "playDeck": [
+          {
+            "instanceId": "p1-6",
+            "definitionId": "tw-263"
+          },
+          {
+            "instanceId": "p1-9",
+            "definitionId": "tw-280"
+          },
+          {
+            "instanceId": "p1-7",
+            "definitionId": "tw-276"
+          },
+          {
+            "instanceId": "p1-60",
+            "definitionId": "tw-106"
+          },
+          {
+            "instanceId": "p1-0",
+            "definitionId": "tw-181"
+          },
+          {
+            "instanceId": "p1-41",
+            "definitionId": "tw-073"
+          },
+          {
+            "instanceId": "p1-78",
+            "definitionId": "tw-117"
+          },
+          {
+            "instanceId": "p1-8",
+            "definitionId": "tw-277"
+          },
+          {
+            "instanceId": "p1-97",
+            "definitionId": "tw-106"
+          },
+          {
+            "instanceId": "p1-13",
+            "definitionId": "tw-323"
+          },
+          {
+            "instanceId": "p1-104",
+            "definitionId": "tw-123"
+          },
+          {
+            "instanceId": "p1-23",
+            "definitionId": "tw-248"
+          },
+          {
+            "instanceId": "p1-1",
+            "definitionId": "tw-181"
+          },
+          {
+            "instanceId": "p1-5",
+            "definitionId": "tw-254"
+          },
+          {
+            "instanceId": "p1-25",
+            "definitionId": "tw-253"
+          },
+          {
+            "instanceId": "p1-56",
+            "definitionId": "tw-28"
+          },
+          {
+            "instanceId": "p1-50",
+            "definitionId": "as-24"
+          },
+          {
+            "instanceId": "p1-2",
+            "definitionId": "tw-181"
+          },
+          {
+            "instanceId": "p1-35",
+            "definitionId": "le-77"
+          },
+          {
+            "instanceId": "p1-33",
+            "definitionId": "tw-016"
+          },
+          {
+            "instanceId": "p1-49",
+            "definitionId": "as-24"
+          },
+          {
+            "instanceId": "p1-39",
+            "definitionId": "tw-073"
+          },
+          {
+            "instanceId": "p1-108",
+            "definitionId": "tw-182"
+          },
+          {
+            "instanceId": "p1-31",
+            "definitionId": "tw-332"
+          },
+          {
+            "instanceId": "p1-55",
+            "definitionId": "tw-28"
+          },
+          {
+            "instanceId": "p1-40",
+            "definitionId": "tw-073"
+          },
+          {
+            "instanceId": "p1-54",
+            "definitionId": "tw-28"
+          },
+          {
+            "instanceId": "p1-34",
+            "definitionId": "le-77"
+          },
+          {
+            "instanceId": "p1-45",
+            "definitionId": "tw-078"
+          },
+          {
+            "instanceId": "p1-20",
+            "definitionId": "tw-207"
+          },
+          {
+            "instanceId": "p1-32",
+            "definitionId": "tw-332"
+          },
+          {
+            "instanceId": "p1-19",
+            "definitionId": "tw-207"
+          },
+          {
+            "instanceId": "p1-26",
+            "definitionId": "td-134"
+          },
+          {
+            "instanceId": "p1-42",
+            "definitionId": "tw-076"
+          },
+          {
+            "instanceId": "p1-37",
+            "definitionId": "dm-108"
+          },
+          {
+            "instanceId": "p1-44",
+            "definitionId": "tw-078"
+          },
+          {
+            "instanceId": "p1-61",
+            "definitionId": "tw-106"
+          },
+          {
+            "instanceId": "p1-30",
+            "definitionId": "tw-332"
+          },
+          {
+            "instanceId": "p1-59",
+            "definitionId": "tw-61"
+          },
+          {
+            "instanceId": "p1-46",
+            "definitionId": "tw-078"
+          },
+          {
+            "instanceId": "p1-105",
+            "definitionId": "tw-164"
+          },
+          {
+            "instanceId": "p1-52",
+            "definitionId": "dm-45"
+          }
+        ],
+        "discardPile": [
+          {
+            "instanceId": "p1-18",
+            "definitionId": "tw-204"
+          },
+          {
+            "instanceId": "p1-21",
+            "definitionId": "tw-209"
+          },
+          {
+            "instanceId": "p1-53",
+            "definitionId": "tw-21"
+          },
+          {
+            "instanceId": "p1-24",
+            "definitionId": "tw-253"
+          },
+          {
+            "instanceId": "p1-15",
+            "definitionId": "td-98"
+          },
+          {
+            "instanceId": "p1-29",
+            "definitionId": "dm-159"
+          },
+          {
+            "instanceId": "p1-62",
+            "definitionId": "dm-97"
+          },
+          {
+            "instanceId": "p1-48",
+            "definitionId": "tw-112"
+          },
+          {
+            "instanceId": "p1-28",
+            "definitionId": "td-134"
+          },
+          {
+            "instanceId": "p1-102",
+            "definitionId": "tw-161"
+          },
+          {
+            "instanceId": "p1-101",
+            "definitionId": "td-105"
+          },
+          {
+            "instanceId": "p1-17",
+            "definitionId": "tw-204"
+          },
+          {
+            "instanceId": "p1-16",
+            "definitionId": "tw-204"
+          },
+          {
+            "instanceId": "p1-58",
+            "definitionId": "tw-61"
+          },
+          {
+            "instanceId": "p1-51",
+            "definitionId": "dm-45"
+          },
+          {
+            "instanceId": "p1-27",
+            "definitionId": "td-134"
+          }
+        ],
+        "siteDeck": [
+          {
+            "instanceId": "p1-63",
+            "definitionId": "tw-386"
+          },
+          {
+            "instanceId": "p1-64",
+            "definitionId": "tw-393"
+          },
+          {
+            "instanceId": "p1-65",
+            "definitionId": "tw-394"
+          },
+          {
+            "instanceId": "p1-69",
+            "definitionId": "td-178"
+          },
+          {
+            "instanceId": "p1-70",
+            "definitionId": "tw-407"
+          },
+          {
+            "instanceId": "p1-73",
+            "definitionId": "tw-413"
+          },
+          {
+            "instanceId": "p1-74",
+            "definitionId": "tw-419"
+          },
+          {
+            "instanceId": "p1-77",
+            "definitionId": "tw-437"
+          },
+          {
+            "instanceId": "p1-75",
+            "definitionId": "tw-421"
+          },
+          {
+            "instanceId": "p1-76",
+            "definitionId": "tw-433"
+          },
+          {
+            "instanceId": "p1-72",
+            "definitionId": "tw-412"
+          }
+        ],
+        "siteDiscardPile": [
+          {
+            "instanceId": "p1-66",
+            "definitionId": "tw-397"
+          },
+          {
+            "instanceId": "p1-67",
+            "definitionId": "tw-400"
+          },
+          {
+            "instanceId": "p1-68",
+            "definitionId": "tw-404"
+          }
+        ],
+        "sideboard": [
+          {
+            "instanceId": "p1-79",
+            "definitionId": "tw-190"
+          },
+          {
+            "instanceId": "p1-80",
+            "definitionId": "td-132"
+          },
+          {
+            "instanceId": "p1-81",
+            "definitionId": "wh-34"
+          },
+          {
+            "instanceId": "p1-82",
+            "definitionId": "wh-34"
+          },
+          {
+            "instanceId": "p1-83",
+            "definitionId": "dm-155"
+          },
+          {
+            "instanceId": "p1-84",
+            "definitionId": "tw-317"
+          },
+          {
+            "instanceId": "p1-85",
+            "definitionId": "tw-348"
+          },
+          {
+            "instanceId": "p1-86",
+            "definitionId": "tw-356"
+          },
+          {
+            "instanceId": "p1-87",
+            "definitionId": "tw-362"
+          },
+          {
+            "instanceId": "p1-88",
+            "definitionId": "td-169"
+          },
+          {
+            "instanceId": "p1-89",
+            "definitionId": "tw-18"
+          },
+          {
+            "instanceId": "p1-90",
+            "definitionId": "td-21"
+          },
+          {
+            "instanceId": "p1-91",
+            "definitionId": "le-115"
+          },
+          {
+            "instanceId": "p1-92",
+            "definitionId": "tw-67"
+          },
+          {
+            "instanceId": "p1-93",
+            "definitionId": "tw-67"
+          },
+          {
+            "instanceId": "p1-94",
+            "definitionId": "tw-67"
+          },
+          {
+            "instanceId": "p1-95",
+            "definitionId": "le-132"
+          },
+          {
+            "instanceId": "p1-96",
+            "definitionId": "le-132"
+          }
+        ],
+        "killPile": [],
+        "outOfPlayPile": [
+          {
+            "instanceId": "p1-106",
+            "definitionId": "td-93",
+            "removedFromGame": true
+          },
+          {
+            "instanceId": "p1-100",
+            "definitionId": "tw-495"
+          }
+        ],
+        "companies": [
+          {
+            "id": "company-p1-0",
+            "characters": [
+              "p1-98",
+              "p1-109",
+              "p1-103",
+              "p1-107"
+            ],
+            "currentSite": {
+              "instanceId": "p1-71",
+              "definitionId": "tw-408",
+              "status": "untapped"
+            },
+            "siteCardOwned": true,
+            "destinationSite": null,
+            "movementPath": [],
+            "moved": false,
+            "siteOfOrigin": null,
+            "onGuardCards": [],
+            "hazards": [],
+            "facedHazardRaces": [],
+            "facedHazardNames": []
+          }
+        ],
+        "agents": [],
+        "characters": {
+          "p1-98": {
+            "instanceId": "p1-98",
+            "definitionId": "tw-116",
+            "status": "tapped",
+            "items": [
+              {
+                "instanceId": "p1-99",
+                "definitionId": "tw-259",
+                "status": "untapped"
+              },
+              {
+                "instanceId": "p1-4",
+                "definitionId": "tw-254",
+                "status": "untapped"
+              }
+            ],
+            "allies": [],
+            "hazards": [
+              {
+                "instanceId": "p2-55",
+                "definitionId": "le-123",
+                "status": "untapped",
+                "playedAtSiteDefId": "tw-408"
+              }
+            ],
+            "followers": [],
+            "controlledBy": "general",
+            "effectiveStats": {
+              "prowess": 3,
+              "body": 6,
+              "directInfluence": 1,
+              "corruptionPoints": 4
+            }
+          },
+          "p1-109": {
+            "instanceId": "p1-109",
+            "definitionId": "tw-118",
+            "status": "untapped",
+            "items": [],
+            "allies": [],
+            "hazards": [],
+            "followers": [],
+            "controlledBy": "general",
+            "effectiveStats": {
+              "prowess": 2,
+              "body": 8,
+              "directInfluence": 0,
+              "corruptionPoints": 0
+            }
+          },
+          "p1-103": {
+            "instanceId": "p1-103",
+            "definitionId": "tw-180",
+            "status": "tapped",
+            "items": [
+              {
+                "instanceId": "p1-12",
+                "definitionId": "tw-322",
+                "status": "untapped"
+              }
+            ],
+            "allies": [],
+            "hazards": [],
+            "followers": [],
+            "controlledBy": "general",
+            "effectiveStats": {
+              "prowess": 1,
+              "body": 9,
+              "directInfluence": 0,
+              "corruptionPoints": 1
+            },
+            "woundedByRaceThisTurn": []
+          },
+          "p1-107": {
+            "instanceId": "p1-107",
+            "definitionId": "tw-176",
+            "status": "untapped",
+            "items": [],
+            "allies": [],
+            "hazards": [],
+            "followers": [],
+            "controlledBy": "general",
+            "effectiveStats": {
+              "prowess": 4,
+              "body": 7,
+              "directInfluence": 1,
+              "corruptionPoints": 0
+            }
+          }
+        },
+        "cardsInPlay": [
+          {
+            "instanceId": "p1-11",
+            "definitionId": "tw-310",
+            "status": "untapped"
+          }
+        ],
+        "marshallingPoints": {
+          "character": 3,
+          "item": 3,
+          "faction": 3,
+          "ally": 0,
+          "kill": 0,
+          "misc": 0
+        },
+        "callableMarshallingPoints": {
+          "character": 3,
+          "item": 3,
+          "faction": 3,
+          "ally": 0,
+          "kill": 0,
+          "misc": 0
+        },
+        "stagePoints": 0,
+        "generalInfluenceUsed": 13,
+        "generalInfluenceBonus": 0,
+        "generalInfluenceControlPenalty": 0,
+        "deckExhaustionCount": 0,
+        "freeCouncilCalled": false,
+        "lastDiceRoll": {
+          "die1": 2,
+          "die2": 5
+        },
+        "sideboardAccessedDuringUntap": false,
+        "deckExhaustPending": false,
+        "deckExhaustExchangeCount": 0,
+        "reservedCreatures": [],
+        "factionsPlayedAtSites": {
+          "tw-400": true
+        }
+      },
+      {
+        "id": "p2",
+        "name": "AI-Modular",
+        "alignment": "ringwraith",
+        "wizard": null,
+        "hand": [
+          {
+            "instanceId": "p2-26",
+            "definitionId": "as-102"
+          },
+          {
+            "instanceId": "p2-39",
+            "definitionId": "td-32"
+          },
+          {
+            "instanceId": "p2-38",
+            "definitionId": "tw-24"
+          },
+          {
+            "instanceId": "p2-93",
+            "definitionId": "le-418"
+          },
+          {
+            "instanceId": "p2-36",
+            "definitionId": "le-67"
+          },
+          {
+            "instanceId": "p2-61",
+            "definitionId": "le-145"
+          },
+          {
+            "instanceId": "p2-34",
+            "definitionId": "le-61"
+          },
+          {
+            "instanceId": "p2-50",
+            "definitionId": "le-122"
+          }
+        ],
+        "playDeck": [
+          {
+            "instanceId": "p2-6",
+            "definitionId": "as-74"
+          },
+          {
+            "instanceId": "p2-20",
+            "definitionId": "le-183"
+          },
+          {
+            "instanceId": "p2-53",
+            "definitionId": "le-123"
+          },
+          {
+            "instanceId": "p2-58",
+            "definitionId": "le-124"
+          },
+          {
+            "instanceId": "p2-40",
+            "definitionId": "td-57"
+          },
+          {
+            "instanceId": "p2-59",
+            "definitionId": "tw-93"
+          },
+          {
+            "instanceId": "p2-42",
+            "definitionId": "le-90"
+          },
+          {
+            "instanceId": "p2-3",
+            "definitionId": "le-262"
+          },
+          {
+            "instanceId": "p2-25",
+            "definitionId": "as-102"
+          },
+          {
+            "instanceId": "p2-10",
+            "definitionId": "le-281"
+          },
+          {
+            "instanceId": "p2-41",
+            "definitionId": "le-89"
+          },
+          {
+            "instanceId": "p2-49",
+            "definitionId": "dm-45"
+          },
+          {
+            "instanceId": "p2-44",
+            "definitionId": "le-90"
+          },
+          {
+            "instanceId": "p2-48",
+            "definitionId": "dm-45"
+          },
+          {
+            "instanceId": "p2-29",
+            "definitionId": "le-250"
+          },
+          {
+            "instanceId": "p2-5",
+            "definitionId": "wh-51"
+          },
+          {
+            "instanceId": "p2-12",
+            "definitionId": "le-162"
+          },
+          {
+            "instanceId": "p2-91",
+            "definitionId": "le-343"
+          },
+          {
+            "instanceId": "p2-24",
+            "definitionId": "as-102"
+          },
+          {
+            "instanceId": "p2-54",
+            "definitionId": "le-123"
+          },
+          {
+            "instanceId": "p2-62",
+            "definitionId": "le-145"
+          },
+          {
+            "instanceId": "p2-23",
+            "definitionId": "le-185"
+          },
+          {
+            "instanceId": "p2-51",
+            "definitionId": "le-122"
+          },
+          {
+            "instanceId": "p2-107",
+            "definitionId": "le-34"
+          },
+          {
+            "instanceId": "p2-8",
+            "definitionId": "le-267"
+          },
+          {
+            "instanceId": "p2-9",
+            "definitionId": "le-275"
+          },
+          {
+            "instanceId": "p2-32",
+            "definitionId": "le-253"
+          }
+        ],
+        "discardPile": [
+          {
+            "instanceId": "p2-35",
+            "definitionId": "le-66"
+          },
+          {
+            "instanceId": "p2-2",
+            "definitionId": "le-51"
+          },
+          {
+            "instanceId": "p2-31",
+            "definitionId": "le-253"
+          },
+          {
+            "instanceId": "p2-18",
+            "definitionId": "le-179"
+          },
+          {
+            "instanceId": "p2-47",
+            "definitionId": "dm-45"
+          },
+          {
+            "instanceId": "p2-46",
+            "definitionId": "as-24"
+          },
+          {
+            "instanceId": "p2-28",
+            "definitionId": "le-250"
+          },
+          {
+            "instanceId": "p2-22",
+            "definitionId": "le-185"
+          },
+          {
+            "instanceId": "p2-108",
+            "definitionId": "le-34"
+          },
+          {
+            "instanceId": "p2-21",
+            "definitionId": "le-183"
+          },
+          {
+            "instanceId": "p2-30",
+            "definitionId": "le-253"
+          },
+          {
+            "instanceId": "p2-17",
+            "definitionId": "le-179"
+          },
+          {
+            "instanceId": "p2-106",
+            "definitionId": "le-6"
+          },
+          {
+            "instanceId": "p2-52",
+            "definitionId": "le-122"
+          },
+          {
+            "instanceId": "p2-56",
+            "definitionId": "le-124"
+          },
+          {
+            "instanceId": "p2-43",
+            "definitionId": "le-90"
+          },
+          {
+            "instanceId": "p2-11",
+            "definitionId": "le-159"
+          },
+          {
+            "instanceId": "p2-19",
+            "definitionId": "le-183"
+          },
+          {
+            "instanceId": "p2-27",
+            "definitionId": "le-250"
+          },
+          {
+            "instanceId": "p2-33",
+            "definitionId": "le-60"
+          },
+          {
+            "instanceId": "p2-1",
+            "definitionId": "le-51"
+          },
+          {
+            "instanceId": "p2-15",
+            "definitionId": "as-80"
+          },
+          {
+            "instanceId": "p2-37",
+            "definitionId": "le-67"
+          },
+          {
+            "instanceId": "p2-16",
+            "definitionId": "le-179"
+          },
+          {
+            "instanceId": "p2-57",
+            "definitionId": "le-124"
+          },
+          {
+            "instanceId": "p2-45",
+            "definitionId": "as-24"
+          },
+          {
+            "instanceId": "p2-60",
+            "definitionId": "le-145"
+          }
+        ],
+        "siteDeck": [
+          {
+            "instanceId": "p2-63",
+            "definitionId": "le-351"
+          },
+          {
+            "instanceId": "p2-65",
+            "definitionId": "le-354"
+          },
+          {
+            "instanceId": "p2-66",
+            "definitionId": "le-356"
+          },
+          {
+            "instanceId": "p2-67",
+            "definitionId": "le-357"
+          },
+          {
+            "instanceId": "p2-68",
+            "definitionId": "le-359"
+          },
+          {
+            "instanceId": "p2-69",
+            "definitionId": "le-360"
+          },
+          {
+            "instanceId": "p2-70",
+            "definitionId": "le-361"
+          },
+          {
+            "instanceId": "p2-71",
+            "definitionId": "le-364"
+          },
+          {
+            "instanceId": "p2-72",
+            "definitionId": "le-367"
+          },
+          {
+            "instanceId": "p2-73",
+            "definitionId": "le-372"
+          },
+          {
+            "instanceId": "p2-74",
+            "definitionId": "le-373"
+          },
+          {
+            "instanceId": "p2-75",
+            "definitionId": "le-374"
+          },
+          {
+            "instanceId": "p2-76",
+            "definitionId": "le-378"
+          },
+          {
+            "instanceId": "p2-77",
+            "definitionId": "le-384"
+          },
+          {
+            "instanceId": "p2-79",
+            "definitionId": "le-391"
+          },
+          {
+            "instanceId": "p2-80",
+            "definitionId": "le-392"
+          },
+          {
+            "instanceId": "p2-82",
+            "definitionId": "le-394"
+          },
+          {
+            "instanceId": "p2-83",
+            "definitionId": "le-395"
+          },
+          {
+            "instanceId": "p2-85",
+            "definitionId": "le-399"
+          },
+          {
+            "instanceId": "p2-86",
+            "definitionId": "le-401"
+          },
+          {
+            "instanceId": "p2-87",
+            "definitionId": "le-403"
+          },
+          {
+            "instanceId": "p2-88",
+            "definitionId": "le-412"
+          },
+          {
+            "instanceId": "p2-89",
+            "definitionId": "as-169"
+          },
+          {
+            "instanceId": "p2-90",
+            "definitionId": "as-170"
+          }
+        ],
+        "siteDiscardPile": [
+          {
+            "instanceId": "p2-64",
+            "definitionId": "le-352"
+          }
+        ],
+        "sideboard": [
+          {
+            "instanceId": "p2-92",
+            "definitionId": "le-235"
+          },
+          {
+            "instanceId": "p2-94",
+            "definitionId": "le-107"
+          },
+          {
+            "instanceId": "p2-95",
+            "definitionId": "le-119"
+          },
+          {
+            "instanceId": "p2-96",
+            "definitionId": "dm-73"
+          },
+          {
+            "instanceId": "p2-97",
+            "definitionId": "le-134"
+          },
+          {
+            "instanceId": "p2-98",
+            "definitionId": "dm-88"
+          }
+        ],
+        "killPile": [],
+        "outOfPlayPile": [
+          {
+            "instanceId": "p2-13",
+            "definitionId": "as-80"
+          },
+          {
+            "instanceId": "p2-14",
+            "definitionId": "as-80"
+          }
+        ],
+        "companies": [
+          {
+            "id": "company-p2-0",
+            "characters": [
+              "p2-103",
+              "p2-99",
+              "p2-100",
+              "p2-101",
+              "p2-109"
+            ],
+            "currentSite": {
+              "instanceId": "p2-81",
+              "definitionId": "le-393",
+              "status": "tapped"
+            },
+            "siteCardOwned": true,
+            "destinationSite": null,
+            "movementPath": [],
+            "moved": false,
+            "siteOfOrigin": null,
+            "onGuardCards": [],
+            "hazards": [],
+            "facedHazardRaces": [],
+            "facedHazardNames": []
+          },
+          {
+            "id": "company-p2-1",
+            "characters": [
+              "p2-102"
+            ],
+            "currentSite": {
+              "instanceId": "p2-84",
+              "definitionId": "le-396",
+              "status": "untapped"
+            },
+            "siteCardOwned": true,
+            "destinationSite": null,
+            "movementPath": [],
+            "moved": false,
+            "siteOfOrigin": null,
+            "onGuardCards": [],
+            "hazards": [],
+            "facedHazardRaces": [],
+            "facedHazardNames": []
+          },
+          {
+            "id": "company-p2-2",
+            "characters": [
+              "p2-0"
+            ],
+            "currentSite": {
+              "instanceId": "p2-78",
+              "definitionId": "le-390",
+              "status": "untapped"
+            },
+            "siteCardOwned": true,
+            "destinationSite": null,
+            "movementPath": [],
+            "moved": false,
+            "siteOfOrigin": null,
+            "onGuardCards": [],
+            "hazards": []
+          }
+        ],
+        "agents": [],
+        "characters": {
+          "p2-103": {
+            "instanceId": "p2-103",
+            "definitionId": "le-45",
+            "status": "untapped",
+            "items": [
+              {
+                "instanceId": "p2-104",
+                "definitionId": "le-344",
+                "status": "untapped"
+              },
+              {
+                "instanceId": "p2-105",
+                "definitionId": "le-302",
+                "status": "untapped"
+              }
+            ],
+            "allies": [
+              {
+                "instanceId": "p2-7",
+                "definitionId": "as-74",
+                "status": "untapped"
+              }
+            ],
+            "hazards": [],
+            "followers": [
+              "p2-109"
+            ],
+            "controlledBy": "general",
+            "effectiveStats": {
+              "prowess": 6,
+              "body": 9,
+              "directInfluence": 0,
+              "corruptionPoints": 2
+            }
+          },
+          "p2-99": {
+            "instanceId": "p2-99",
+            "definitionId": "le-2",
+            "status": "untapped",
+            "items": [],
+            "allies": [],
+            "hazards": [],
+            "followers": [],
+            "controlledBy": "general",
+            "effectiveStats": {
+              "prowess": 3,
+              "body": 7,
+              "directInfluence": 2,
+              "corruptionPoints": 0
+            }
+          },
+          "p2-102": {
+            "instanceId": "p2-102",
+            "definitionId": "le-31",
+            "status": "untapped",
+            "items": [
+              {
+                "instanceId": "p2-4",
+                "definitionId": "wh-51",
+                "status": "untapped"
+              }
+            ],
+            "allies": [],
+            "hazards": [],
+            "followers": [],
+            "controlledBy": "general",
+            "effectiveStats": {
+              "prowess": 5,
+              "body": 8,
+              "directInfluence": 1,
+              "corruptionPoints": 1
+            },
+            "trophies": [
+              {
+                "instanceId": "p1-38",
+                "definitionId": "tw-072",
+                "trophyWorthNoMarshallingPoints": true
+              }
+            ]
+          },
+          "p2-100": {
+            "instanceId": "p2-100",
+            "definitionId": "le-8",
+            "status": "untapped",
+            "items": [],
+            "allies": [],
+            "hazards": [],
+            "followers": [],
+            "controlledBy": "general",
+            "effectiveStats": {
+              "prowess": 2,
+              "body": 7,
+              "directInfluence": 1,
+              "corruptionPoints": 0
+            }
+          },
+          "p2-101": {
+            "instanceId": "p2-101",
+            "definitionId": "le-30",
+            "status": "untapped",
+            "items": [],
+            "allies": [],
+            "hazards": [],
+            "followers": [],
+            "controlledBy": "general",
+            "effectiveStats": {
+              "prowess": 3,
+              "body": 8,
+              "directInfluence": 0,
+              "corruptionPoints": 0
+            }
+          },
+          "p2-109": {
+            "instanceId": "p2-109",
+            "definitionId": "le-35",
+            "status": "untapped",
+            "items": [],
+            "allies": [],
+            "hazards": [],
+            "followers": [],
+            "controlledBy": "p2-103",
+            "effectiveStats": {
+              "prowess": 4,
+              "body": 8,
+              "directInfluence": 0,
+              "corruptionPoints": 0
+            }
+          },
+          "p2-0": {
+            "instanceId": "p2-0",
+            "definitionId": "le-51",
+            "status": "untapped",
+            "items": [],
+            "allies": [],
+            "hazards": [],
+            "followers": [],
+            "controlledBy": "general",
+            "effectiveStats": {
+              "prowess": 8,
+              "body": 9,
+              "directInfluence": 3,
+              "corruptionPoints": 0
+            }
+          }
+        },
+        "cardsInPlay": [],
+        "marshallingPoints": {
+          "character": 7,
+          "item": 1,
+          "faction": 0,
+          "ally": 1,
+          "kill": 0,
+          "misc": 0
+        },
+        "callableMarshallingPoints": {
+          "character": 7,
+          "item": 1,
+          "faction": 0,
+          "ally": 1,
+          "kill": 0,
+          "misc": 0
+        },
+        "stagePoints": 0,
+        "generalInfluenceUsed": 20,
+        "generalInfluenceBonus": 0,
+        "generalInfluenceControlPenalty": 0,
+        "deckExhaustionCount": 0,
+        "freeCouncilCalled": false,
+        "lastDiceRoll": {
+          "die1": 5,
+          "die2": 2
+        },
+        "sideboardAccessedDuringUntap": false,
+        "deckExhaustPending": false,
+        "deckExhaustExchangeCount": 0,
+        "reservedCreatures": []
+      }
+    ],
+    "activePlayer": "p2",
+    "phaseState": {
+      "phase": "untap",
+      "untapped": true,
+      "hazardSideboardDestination": null,
+      "hazardSideboardFetched": 0,
+      "hazardSideboardAccessed": false,
+      "resourcePlayerPassed": false,
+      "hazardPlayerPassed": false
+    },
+    "combat": null,
+    "chain": null,
+    "turnNumber": 10,
+    "startingPlayer": "p1",
+    "pendingEffects": [],
+    "pendingResolutions": [],
+    "activeConstraints": [],
+    "hazardHosts": [],
+    "singletonTapLocks": [],
+    "dragonAtHomeVictorySiteIds": [],
+    "rng": {
+      "seed": 1793649391748,
+      "counter": 549
+    },
+    "stateSeq": 387,
+    "reverseActions": [],
+    "lastTurnFor": null,
+    "earlyCouncilProposal": null,
+    "cheatRollTotal": null,
+    "cheated": false,
+    "revealedInstances": {
+      "p1-102": "tw-161",
+      "p2-103": "le-45",
+      "p1-98": "tw-116",
+      "p2-99": "le-2",
+      "p1-109": "tw-118",
+      "p2-102": "le-31",
+      "p1-100": "tw-495",
+      "p2-100": "le-8",
+      "p1-103": "tw-180",
+      "p2-101": "le-30",
+      "p1-99": "tw-259",
+      "p1-101": "td-105",
+      "p2-104": "le-344",
+      "p2-105": "le-302",
+      "p1-106": "td-93",
+      "p1-75": "tw-421",
+      "p2-78": "le-390",
+      "p1-66": "tw-397",
+      "p2-38": "tw-24",
+      "p1-18": "tw-204",
+      "p2-35": "le-66",
+      "p1-21": "tw-209",
+      "p2-56": "le-124",
+      "p1-4": "tw-254",
+      "p2-31": "le-253",
+      "p2-109": "le-35",
+      "p1-24": "tw-253",
+      "p1-67": "tw-400",
+      "p2-52": "le-122",
+      "p2-47": "dm-45",
+      "p1-11": "tw-310",
+      "p2-0": "le-51",
+      "p1-68": "tw-404",
+      "p1-29": "dm-159",
+      "p1-12": "tw-322",
+      "p2-64": "le-352",
+      "p2-30": "le-253",
+      "p1-48": "tw-112",
+      "p1-38": "tw-072",
+      "p2-4": "wh-51",
+      "p2-13": "as-80",
+      "p1-28": "td-134",
+      "p1-71": "tw-408",
+      "p2-43": "le-90",
+      "p1-17": "tw-204",
+      "p1-16": "tw-204",
+      "p2-45": "as-24",
+      "p2-57": "le-124",
+      "p2-14": "as-80",
+      "p2-81": "le-393",
+      "p2-84": "le-396",
+      "p1-51": "dm-45",
+      "p2-7": "as-74",
+      "p1-107": "tw-176",
+      "p2-55": "le-123"
+    },
+    "handRevealedInstances": {
+      "p2-31": "le-253",
+      "p1-24": "tw-253",
+      "p1-29": "dm-159",
+      "p2-30": "le-253",
+      "p2-13": "as-80",
+      "p1-28": "td-134",
+      "p2-14": "as-80"
+    },
+    "gameLength": "short",
+    "sitePathsThisTurn": {
+      "turnNumber": 8,
+      "byCompany": {
+        "company-p2-0": [
+          "shadow",
+          "dark"
+        ],
+        "company-p2-1": [
+          "dark"
+        ]
+      }
+    },
+    "cardsPlayedThisTurn": {
+      "turnNumber": 9,
+      "definitionIds": [
+        "le-123"
+      ]
+    }
+  }
+}

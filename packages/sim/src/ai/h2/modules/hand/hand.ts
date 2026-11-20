@@ -348,14 +348,25 @@ export const handModule: H2Module = {
       ? ((): { tsd: number; reason: string } => {
         const plan = computeHazardPlan(view, context.cardPool, standing, tunables);
         const lost = plan.totalHarm - plan.harmIfLimitsHalved();
-        return {
-          tsd: lost,
-          reason: lost > 0
+        // The plan prices only the creatures and their boosts, so a hand of
+        // three creatures against a limit of six looks untouched by halving it
+        // to three — yet the events in that hand spend the same slots. Each
+        // hazard held beyond the halved limit (up to the full one) is a play
+        // pushed out of this turn, at `halvedSlotTsd` apiece.
+        const held = view.self.hand.filter(card => isHazard(context.cardPool[card.definitionId])).length;
+        const crowded = Math.max(0, Math.min(held, plan.slots.full) - plan.slots.halved);
+        const crowding = crowded * tunables.halvedSlotTsd;
+        const reasons = [
+          lost > 0
             ? `the coming hazard limit is halved: the plan denies ${plan.totalHarm.toFixed(1)} at `
               + `full limits and ${plan.harmIfLimitsHalved().toFixed(1)} at half`
-            : 'the coming hazard limit is halved, but the hand holds nothing the lost slots '
-              + 'would have carried',
-        };
+            : 'the coming hazard limit is halved, but the plan\'s creatures still fit',
+        ];
+        if (crowding > 0) {
+          reasons.push(`${crowded} of ${held} hazards held no longer fit the ${plan.slots.halved} `
+            + `slots left of ${plan.slots.full}`);
+        }
+        return { tsd: lost + crowding, reason: reasons.join('; ') };
       })()
       : ((): { tsd: number; reason: string } => {
         const avatar = namedCharacter(action);
