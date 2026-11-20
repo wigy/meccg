@@ -585,6 +585,13 @@ export interface Tunables {
    */
   readonly planHorizonTurns: number;
   /**
+   * How much of a hand hazard's planned use against another company, still to
+   * move this phase, a hazard event played elsewhere is charged (`hazards`).
+   * At 0 an event that does nothing here is priced at the card rotation alone,
+   * and the plan's best card is spent on a company that is not even moving.
+   */
+  readonly forgonePlanWeight: number;
+  /**
    * How much of a still-undrawn character's headroom credit the organization
    * potential counts (`organization`), on top of its chance of being drawn
    * over `planHorizonTurns`. At 0 only characters in hand make free general
@@ -833,6 +840,7 @@ export const DEFAULT_TUNABLES: Tunables = {
   planAggregationMode: 0,
   planUnroutedReachProbability: 0.25,
   planHorizonTurns: 6,
+  forgonePlanWeight: 1,
   deckHeadroomWeight: 0,
   halvedSlotTsd: 0,
   heldCardFloor: 1,
