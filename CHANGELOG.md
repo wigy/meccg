@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.243.0 — 2026-11-20
+
+Lobby Gains Web Analytics
+
+### Lobby Server
+
+- Lobby browser UI includes the Umami web analytics tag (stats.dataplug-oy.com) (#3542)
+
 ## 0.242.0 — 2026-11-20
 
 AI Saves Its Hazards for the Right Company
