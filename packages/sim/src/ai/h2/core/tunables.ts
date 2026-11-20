@@ -578,6 +578,10 @@ export interface Tunables {
    * over `planHorizonTurns`. At 0 only characters in hand make free general
    * influence worth anything, and the AI stacked followers in 63 recorded
    * windows to the humans' 735.
+   *
+   * Off by default: head to head against 0, weight 0.5 scored +16 and −1 on
+   * decks a/b and c/d, then +3 and +3 on fresh seeds; weight 1 scored +14 and
+   * −3 — all inside the noise, so it buys no wins.
    */
   readonly deckHeadroomWeight: number;
   /**
