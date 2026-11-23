@@ -185,6 +185,22 @@ describe('Press-gang (ba-22)', () => {
     expect(after.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === legolasId)).toBe(false);
   });
 
+  test('a pressed follower leaves its leader\'s direct influence on both sides', () => {
+    // Regression: the capture pruned the leader's `followers` list but left the
+    // pressed follower's own `controlledBy` naming the leader — a one-sided
+    // control link found by the sim invariant hunt (seed 501106, deck 1 vs 2).
+    const state = buildOrgWithPressGang([{ defId: ARAGORN }, { defId: LEGOLAS, followerOf: 0 }]);
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+    const legolasId = findCharInstanceId(state, RESOURCE_PLAYER, LEGOLAS);
+    expect(state.players[RESOURCE_PLAYER].characters[legolasId].controlledBy).toBe(aragornId);
+
+    const after = dispatch(state, discardAction(state, legolasId));
+
+    expect(pressedConstraint(after, legolasId)).toBeDefined();
+    expect(after.players[RESOURCE_PLAYER].characters[aragornId].followers).not.toContain(legolasId);
+    expect(after.players[RESOURCE_PLAYER].characters[legolasId].controlledBy).toBe('general');
+  });
+
   // ─── 4. Negative character marshalling points ────────────────────────────────
 
   test('a pressed character gives its owner negative character marshalling points', () => {

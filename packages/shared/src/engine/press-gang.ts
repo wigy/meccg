@@ -165,7 +165,10 @@ export function capturePressGang(
     if (p.characters[characterId]) {
       // Owner of the pressed character: strip it to a bare off-to-the-side card,
       // free its followers to general influence, and drop it from its company.
-      const stripped: CharacterInPlay = { ...char, items: [], allies: [], hazards: [], followers: [], trophies: [] };
+      // A pressed follower also leaves its leader's direct influence: reset its
+      // own `controlledBy` (mirroring the prisoner path in combat-hazard-play)
+      // so it never names a leader whose `followers` list no longer holds it.
+      const stripped: CharacterInPlay = { ...char, items: [], allies: [], hazards: [], followers: [], trophies: [], controlledBy: 'general' };
       const next: Record<CardInstanceId, CharacterInPlay> = { ...p.characters, [characterId as string]: stripped };
       freeOrDiscardFollowers(s, next, char, 'Press-gang capture');
       // The pressed character is off to the side in no company — if it was itself
