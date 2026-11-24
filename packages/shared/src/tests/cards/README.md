@@ -178,7 +178,7 @@
 | ba-18 | Fled into Darkness | — | 9 | ☑ |
 | ba-19 | Glance of Arien | — | 8 | ☑ |
 | ba-21 | Monstrosity of Diverse Shape | — | 13 | ☑ |
-| ba-22 | Press-gang | — | 9 | ☑ |
+| ba-22 | Press-gang | — | 10 | ☑ |
 | ba-23 | The Reek | — | 8 | ☑ |
 | ba-24 | Spawn of Ungoliant | — | 10 | ☑ |
 | ba-25 | The Sun Shone Fiercely | — | 8 | ☑ |

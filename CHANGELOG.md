@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.244.0 — 2026-11-24
+
+Press-gang Cuts the Leader's Hold
+
+### Game Engine
+
+- Press-gang (ba-22) resets a pressed follower's `controlledBy` to general influence when it is captured, so the character no longer keeps a one-sided control link to the leader it was taken from (#3543)
+
 ## 0.243.0 — 2026-11-20
 
 Lobby Gains Web Analytics
